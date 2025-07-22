@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function BidHeader({ bid, handleInputChange, supervisors, finishes }) {
+export default function BidHeader({ bid, handleInputChange, supervisors, finishes, materials, crewTypes }) {
     const calculateFinishedTapeRate = () => {
         const hangRate = parseFloat(bid.finishedHangingRate) || 0;
         const baseAddition = 0.04;
@@ -32,7 +32,26 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
             }
         }
         
-        return (hangRate + baseAddition + taperFinishesTotal).toFixed(3);
+        // Add extra taper pay from materials used in bid
+        let materialExtraPay = 0;
+        if (bid.areas) {
+            bid.areas.forEach(area => {
+                if (area.materials) {
+                    area.materials.forEach(areaMat => {
+                        const material = materials?.find(m => m.id === areaMat.materialId);
+                        if (material && material.extraLabor) {
+                            const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                            const taperExtra = material.extraLabor.find(extra => extra.crewType === taperCrewId);
+                            if (taperExtra) {
+                                materialExtraPay += parseFloat(taperExtra.extraPay) || 0;
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        
+        return (hangRate + baseAddition + taperFinishesTotal + materialExtraPay).toFixed(3);
     };
 
     const handleAutoTapeRateChange = (e) => {

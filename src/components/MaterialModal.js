@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DeleteIcon } from '../Icons';
 
-const MaterialModal = ({ isOpen, onClose, onSave, material }) => {
+const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
     const emptyVariant = {
         id: crypto.randomUUID(),
         widthFt: '',
@@ -21,6 +21,7 @@ const MaterialModal = ({ isOpen, onClose, onSave, material }) => {
     };
 
     const [formData, setFormData] = useState(initialFormData);
+    const [extraLabor, setExtraLabor] = useState(material?.extraLabor || []);
 
     useEffect(() => {
         if (material) {
@@ -34,8 +35,10 @@ const MaterialModal = ({ isOpen, onClose, onSave, material }) => {
                 laborCost: material.laborCost || '',
                 variants: material.variants?.length ? material.variants : [emptyVariant],
             });
+            setExtraLabor(material.extraLabor || []);
         } else {
             setFormData(initialFormData);
+            setExtraLabor([]);
         }
     }, [material, isOpen]);
 
@@ -65,11 +68,112 @@ const MaterialModal = ({ isOpen, onClose, onSave, material }) => {
         }));
     };
 
+    const updateExtraLabor = (index, field, value) => {
+        setExtraLabor(prev => {
+            const updated = [...prev];
+            updated[index] = { ...updated[index], [field]: value };
+            return updated;
+        });
+    };
+
+    const addExtraLabor = () => {
+        setExtraLabor(prev => [...prev, { crewType: '', extraPay: '' }]);
+    };
+
+    const removeExtraLabor = (index) => {
+        setExtraLabor(prev => prev.filter((_, i) => i !== index));
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(formData);
+        const materialData = {
+            ...formData,
+            variants: formData.variants,
+            extraLabor: extraLabor
+        };
+        onSave(materialData);
     };
+
+    const renderSizeSection = () => {
+        if (formData.type === 'Container') {
+            return (
+                <div className="mb-4">
+                    <h3 className="text-lg font-semibold pb-2 border-b text-gray-700">Container Information</h3>
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Units per Container</label>
+                            <input
+                                type="number"
+                                value={formData.unitsPerContainer || ''}
+                                onChange={(e) => setFormData({...formData, unitsPerContainer: e.target.value})}
+                                className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
+                                placeholder="e.g., 50"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Unit Description</label>
+                            <input
+                                type="text"
+                                value={formData.unitDescription || ''}
+                                onChange={(e) => setFormData({...formData, unitDescription: e.target.value})}
+                                className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
+                                placeholder="e.g., sheets, tubes, etc."
+                            />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (formData.type === 'Each') {
+            return (
+                <div className="mb-4">
+                    <h3 className="text-lg font-semibold pb-2 border-b text-gray-700">Item Description</h3>
+                    <div className="mt-3">
+                        <label className="block text-sm font-medium text-gray-700">Description</label>
+                        <textarea
+                            value={formData.description || ''}
+                            onChange={(e) => setFormData({...formData, description: e.target.value})}
+                            className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
+                            rows="3"
+                            placeholder="Describe this item..."
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        // For other types, show the existing variants system
+        return (
+            <div className="mb-4">
+                <h3 className="text-lg font-semibold pb-2 border-b text-gray-700">Available Sizes</h3>
+                {formData.variants.map((variant) => (
+                     <div key={variant.id} className="p-4 border rounded-lg space-y-4 relative">
+                        {formData.variants.length > 1 && ( <button type="button" onClick={() => removeVariant(variant.id)} className="absolute top-2 right-2 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200"> <DeleteIcon /> </button> )}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-gray-700 text-sm font-bold mb-2">Width</label>
+                                <div className="flex items-center space-x-2">
+                                    <input name="widthFt" type="number" value={variant.widthFt} onChange={(e) => handleVariantChange(variant.id, 'widthFt', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="ft" />
+                                    <input name="widthIn" type="number" value={variant.widthIn} onChange={(e) => handleVariantChange(variant.id, 'widthIn', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="in" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 text-sm font-bold mb-2">Length</label>
+                                <div className="flex items-center space-x-2">
+                                    <input name="lengthFt" type="number" value={variant.lengthFt} onChange={(e) => handleVariantChange(variant.id, 'lengthFt', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="ft" />
+                                    <input name="lengthIn" type="number" value={variant.lengthIn} onChange={(e) => handleVariantChange(variant.id, 'lengthIn', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="in" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                <button type="button" onClick={addVariant} className="w-full mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg"> Add Another Size </button>
+            </div>
+        );
+    };
+
+    const isEditing = !!material && !!material.id;
 
     if (!isOpen) return null;
 
@@ -113,44 +217,57 @@ const MaterialModal = ({ isOpen, onClose, onSave, material }) => {
                                 <input id="price" name="price" type="number" step="0.001" value={formData.price} onChange={handleFormChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" required />
                             </div>
                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="laborFormula">Labor Type</label>
-                                <select id="laborFormula" name="laborFormula" value={formData.laborFormula} onChange={handleFormChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700">
-                                    <option value="none">None</option>
-                                    <option value="piece-rate">Piece Rate</option>
-                                    <option value="hourly">Hourly</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="laborCost">Labor Cost</label>
-                                <input id="laborCost" name="laborCost" type="number" step="0.01" value={formData.laborCost} onChange={handleFormChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" disabled={formData.laborFormula === 'none'} />
-                            </div>
-                        </div>
 
-                        <h3 className="text-lg font-semibold pt-4 border-t text-gray-700">Available Sizes</h3>
-                        {formData.variants.map((variant) => (
-                             <div key={variant.id} className="p-4 border rounded-lg space-y-4 relative">
-                                {formData.variants.length > 1 && ( <button type="button" onClick={() => removeVariant(variant.id)} className="absolute top-2 right-2 p-1 bg-red-100 text-red-600 rounded-full hover:bg-red-200"> <DeleteIcon /> </button> )}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-gray-700 text-sm font-bold mb-2">Width</label>
-                                        <div className="flex items-center space-x-2">
-                                            <input name="widthFt" type="number" value={variant.widthFt} onChange={(e) => handleVariantChange(variant.id, 'widthFt', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="ft" />
-                                            <input name="widthIn" type="number" value={variant.widthIn} onChange={(e) => handleVariantChange(variant.id, 'widthIn', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="in" />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700 text-sm font-bold mb-2">Length</label>
-                                        <div className="flex items-center space-x-2">
-                                            <input name="lengthFt" type="number" value={variant.lengthFt} onChange={(e) => handleVariantChange(variant.id, 'lengthFt', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="ft" />
-                                            <input name="lengthIn" type="number" value={variant.lengthIn} onChange={(e) => handleVariantChange(variant.id, 'lengthIn', e.target.value)} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="in" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        {renderSizeSection()}
+
+                        {isEditing && (
+    <div className="space-y-4">
+        <h4 className="text-lg font-semibold">Extra Labor</h4>
+        {extraLabor?.map((extra, index) => (
+            <div key={index} className="grid grid-cols-3 gap-4 p-3 border rounded">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Crew Type</label>
+                    <select
+                        value={extra.crewType || ''}
+                        onChange={(e) => updateExtraLabor(index, 'crewType', e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                    >
+                        <option value="">Select Crew Type</option>
+                        {crewTypes?.map(crew => (
+                            <option key={crew.id} value={crew.id}>{crew.name}</option>
                         ))}
-                        <button type="button" onClick={addVariant} className="w-full mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg"> Add Another Size </button>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Extra Pay</label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        value={extra.extraPay || ''}
+                        onChange={(e) => updateExtraLabor(index, 'extraPay', e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"
+                    />
+                </div>
+                <div className="flex items-end">
+                    <button
+                        onClick={() => removeExtraLabor(index)}
+                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                    >
+                        Remove
+                    </button>
+                </div>
+            </div>
+        ))}
+        
+        <button
+            onClick={addExtraLabor}
+            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+            Add Extra Labor
+        </button>
+    </div>
+)}
+
                     </div>
                 </form>
                 <div className="flex-shrink-0 flex items-center justify-end space-x-2 mt-6 pt-4 border-t">

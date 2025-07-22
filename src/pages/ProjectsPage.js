@@ -20,19 +20,20 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
 
         const usersCollection = collection(db, usersPath);
         const supervisorsQuery = query(usersCollection, where('role', '==', 'supervisor'));
+        
         const unsubscribeSupervisors = onSnapshot(supervisorsQuery, (snapshot) => {
             const supervisorData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSupervisors(supervisorData);
         });
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribeProjects = onSnapshot(q, (snapshot) => {
             const projectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setProjects(projectsData);
         });
 
-        return unsubscribe;
+        // Fix: Return proper cleanup function
         return () => {
-            unsubscribe();
+            unsubscribeProjects();
             unsubscribeSupervisors();
         };
     }, [db]);

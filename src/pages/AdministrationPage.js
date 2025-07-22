@@ -3,9 +3,8 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firesto
 import { pages as pageConfig } from '../pagesConfig';
 import { PlusIcon, DeleteIcon } from '../Icons.js';
 import FinishesConfig from '../components/FinishesConfig';
-import LaborRatesConfig from '../components/LaborRatesConfig';
-import MarkupConfig from '../components/MarkupConfig';
-import LaborCrewConfig from '../components/LaborCrewConfig'; 
+import LaborConfig from '../components/LaborConfig';
+import MarkupConfig from '../components/MarkupConfig'; 
 
 const AdministrationPage = ({ db }) => {
     const [roles, setRoles] = useState([]);
@@ -75,9 +74,8 @@ const AdministrationPage = ({ db }) => {
             <h1 className="text-3xl font-bold text-gray-800 mb-6">Administration</h1>
 
             <FinishesConfig db={db} />
-            <LaborRatesConfig db={db} />
+            <LaborConfig db={db} />
             <MarkupConfig db={db} />
-            <LaborCrewConfig db={db} />
 
             <div className="mt-8">
                 <h2 className="text-2xl font-bold text-gray-700 mb-4">Role & Permission Management</h2>

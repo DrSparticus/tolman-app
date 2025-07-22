@@ -1,19 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
-import { 
-    getAuth,
-    onAuthStateChanged,
-    signOut,
-    signInWithPopup,
-    GoogleAuthProvider
-} from 'firebase/auth';
-import { 
-    getFirestore,
-    doc,
-    onSnapshot,
-    setDoc,
-    getDoc
-} from 'firebase/firestore';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getStorage } from "firebase/storage";
 import { setLogLevel } from "firebase/app";
 
@@ -63,6 +51,7 @@ export default function App() {
     const [editingProjectId, setEditingProjectId] = useState(null);
     const [currentPage, setCurrentPage] = useState('home');
 
+    // Initialize Firebase
     useEffect(() => {
         setLogLevel('debug');
         const app = initializeApp(firebaseConfig);
@@ -126,8 +115,66 @@ export default function App() {
             authListenerUnsub();
             userDocUnsubscribe();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // This effect should only run once on mount.
+
+    // Simple history management
+    useEffect(() => {
+        // Read initial state from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page');
+        const projectId = urlParams.get('project');
+        
+        if (page) {
+            setCurrentPage(page);
+        }
+        if (projectId) {
+            setEditingProjectId(projectId);
+        }
+
+        // Handle browser back/forward
+        const handlePopState = (event) => {
+            if (event.state) {
+                setCurrentPage(event.state.page || 'home');
+                setEditingProjectId(event.state.projectId || null);
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
+    // Update URL when page changes
+    useEffect(() => {
+        const params = new URLSearchParams();
+        if (currentPage !== 'home') {
+            params.set('page', currentPage);
+        }
+        if (editingProjectId) {
+            params.set('project', editingProjectId);
+        }
+
+        const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+        const state = { page: currentPage, projectId: editingProjectId };
+        
+        // Only push state if it's different from current
+        if (window.location.search !== ('?' + params.toString())) {
+            window.history.pushState(state, '', newUrl);
+        }
+    }, [currentPage, editingProjectId]);
+
+    // Navigation functions
+    const navigateToPage = (page, projectId = null) => {
+        setCurrentPage(page);
+        setEditingProjectId(projectId);
+    };
+
+    const handleEditProject = (projectId) => {
+        navigateToPage('bids', projectId);
+    };
+
+    const handleNewBid = () => {
+        navigateToPage('bids', null);
+    };
 
     const handleGoogleSignIn = async () => {
         if (!auth) return;
@@ -150,36 +197,7 @@ export default function App() {
         }
     };
 
-    const handleEditProject = (projectId) => {
-        setEditingProjectId(projectId);
-        setCurrentPage('bids');
-    };
-
-    const handleNewBid = () => {
-        setEditingProjectId(null);
-        setCurrentPage('bids');
-    };
-
-    if (loading) {
-        return <div className="flex items-center justify-center h-screen bg-gray-100"><div className="text-xl font-semibold">Authenticating...</div></div>;
-    }
-    
-    if (error) {
-        return <div className="flex items-center justify-center h-screen bg-red-100 text-red-700 p-4 text-center"><div className="text-xl font-semibold">{error}</div></div>;
-    }
-
-    if (!user) {
-        return <LoginPage onSignIn={handleGoogleSignIn} />;
-    }
-    
-    if (userData?.role === 'pending') {
-        return <PendingApprovalPage onSignOut={handleSignOut} />;
-    }
-
-    if (userData?.role === 'disabled') {
-        return <AccountDisabledPage onSignOut={handleSignOut} />;
-    }
-
+    // Access control
     const hasAccess = (pageId) => {
         if (pageId === 'profile') return true; // All authenticated users can access their profile
         if (userData?.role === 'admin') return true;
@@ -204,7 +222,7 @@ export default function App() {
             case 'profile':
                 return hasAccess('profile') ? <ProfilePage db={db} user={user} userData={userData} storage={storage} appId={appId} /> : <AccessDeniedPage />;
             case 'bids':
-                return hasAccess('bids') ? <BidsPage db={db} setCurrentPage={setCurrentPage} editingProjectId={editingProjectId} userData={userData} onNewBid={handleNewBid} /> : <AccessDeniedPage />;
+                return hasAccess('bids') ? <BidsPage db={db} setCurrentPage={navigateToPage} editingProjectId={editingProjectId} userData={userData} onNewBid={handleNewBid} /> : <AccessDeniedPage />;
             case 'schedule':
                 return hasAccess('schedule') ? <SchedulePage /> : <AccessDeniedPage />;
             case 'change-orders':
@@ -222,6 +240,26 @@ export default function App() {
         }
     };
 
+    if (loading) {
+        return <div className="flex items-center justify-center h-screen bg-gray-100"><div className="text-xl font-semibold">Authenticating...</div></div>;
+    }
+    
+    if (error) {
+        return <div className="flex items-center justify-center h-screen bg-red-100 text-red-700 p-4 text-center"><div className="text-xl font-semibold">{error}</div></div>;
+    }
+
+    if (!user) {
+        return <LoginPage onSignIn={handleGoogleSignIn} />;
+    }
+    
+    if (userData?.role === 'pending') {
+        return <PendingApprovalPage onSignOut={handleSignOut} />;
+    }
+
+    if (userData?.role === 'disabled') {
+        return <AccountDisabledPage onSignOut={handleSignOut} />;
+    }
+
     return (
         <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
             <Header
@@ -232,7 +270,7 @@ export default function App() {
             />
             <div className="md:pl-72">
                 <main className="p-4 sm:p-6 lg:p-8">
-                     {renderPage()}
+                    {renderPage()}
                 </main>
             </div>
         </div>

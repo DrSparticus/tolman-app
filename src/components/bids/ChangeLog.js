@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
 import { ChangeLogIcon, ChevronDownIcon } from '../../Icons';
 
-export default function ChangeLog({ log, hasLogAccess }) {
+export default function ChangeLog({ log = [], hasLogAccess = false }) {
     const [expandedLogEntries, setExpandedLogEntries] = useState({});
 
     const toggleLogEntry = (index) => {
         setExpandedLogEntries(prev => ({ ...prev, [index]: !prev[index] }));
     };
 
-    if (!hasLogAccess || !log || log.length === 0) {
-        return null;
+    if (!hasLogAccess) {
+        return (
+            <div className="bg-white p-4 rounded-lg shadow-lg">
+                <h3 className="text-lg font-semibold mb-4">Change Log</h3>
+                <p className="text-gray-500 text-sm">Access restricted</p>
+            </div>
+        );
     }
 
     return (
@@ -18,30 +23,34 @@ export default function ChangeLog({ log, hasLogAccess }) {
                 <ChangeLogIcon />
                 <span className="ml-2">Change Log</span>
             </h2>
-            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                {log.slice().sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()).map((entry, index) => {
-                    const [summary, ...details] = entry.change.split('\n').filter(line => line.trim() !== '');
-                    const hasDetails = details.length > 0;
-                    const isExpanded = expandedLogEntries[index];
+            {log.length === 0 ? (
+                <p className="text-gray-500 text-sm">No changes recorded</p>
+            ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                    {log.slice().sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()).map((entry, index) => {
+                        const [summary, ...details] = entry.change.split('\n').filter(line => line.trim() !== '');
+                        const hasDetails = details.length > 0;
+                        const isExpanded = expandedLogEntries[index];
 
-                    return (
-                        <div key={index} className="p-3 bg-gray-50 rounded-md border-l-4 border-blue-400">
-                            <div className={`flex justify-between items-center ${hasDetails ? 'cursor-pointer' : ''}`} onClick={hasDetails ? () => toggleLogEntry(index) : undefined}>
-                                <p className="text-sm font-semibold text-gray-800">{summary}</p>
-                                {hasDetails && (<ChevronDownIcon className={`h-5 w-5 text-gray-500 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />)}
+                        return (
+                            <div key={index} className="p-3 bg-gray-50 rounded-md border-l-4 border-blue-400">
+                                <div className={`flex justify-between items-center ${hasDetails ? 'cursor-pointer' : ''}`} onClick={hasDetails ? () => toggleLogEntry(index) : undefined}>
+                                    <p className="text-sm font-semibold text-gray-800">{summary}</p>
+                                    {hasDetails && (<ChevronDownIcon className={`h-5 w-5 text-gray-500 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />)}
+                                </div>
+                                {hasDetails && isExpanded && (
+                                    <ul className="mt-2 pl-5 list-disc text-sm text-gray-700 space-y-1">
+                                        {details.map((detail, i) => (<li key={i}>{detail.substring(detail.startsWith('- ') ? 2 : 0)}</li>))}
+                                    </ul>
+                                )}
+                                <p className="text-xs text-gray-500 mt-2 text-right">
+                                    by <strong>{entry.user.name}</strong> on {entry.timestamp.toDate().toLocaleString()}
+                                </p>
                             </div>
-                            {hasDetails && isExpanded && (
-                                <ul className="mt-2 pl-5 list-disc text-sm text-gray-700 space-y-1">
-                                    {details.map((detail, i) => (<li key={i}>{detail.substring(detail.startsWith('- ') ? 2 : 0)}</li>))}
-                                </ul>
-                            )}
-                            <p className="text-xs text-gray-500 mt-2 text-right">
-                                by <strong>{entry.user.name}</strong> on {entry.timestamp.toDate().toLocaleString()}
-                            </p>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

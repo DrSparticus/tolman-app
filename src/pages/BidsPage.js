@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, getDocs, query, where, orderBy, limit, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
-import BidHeader from '../components/bids/BidHeader';
+import ExpandableBidHeader from '../components/bids/ExpandableBidHeader';
 import Area from '../components/bids/Area';
 import ChangeLog from '../components/bids/ChangeLog';
+import BidPricingSummary from '../components/bids/BidPricingSummary';
 import { TaperCrew, getTaperRate } from '../Helpers';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
+const materialsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/public/data/materials`;
 
 export default function BidsPage({ db, setCurrentPage, editingProjectId, userData, onNewBid }) {
     const newBidState = {
@@ -20,50 +22,200 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         ceilingTexture: '',
         corners: '',
         finishedHangingRate: '',
-        finishedTapingRate: '',
+        finishedTapeRate: '',
         unfinishedTapingRate: '',
-        autoTapeRate: true, // Enable auto-calculation by default
+        autoTapeRate: true,
         areas: [
-            { id: crypto.randomUUID(), name: 'Main', materials: [], isFinished: true, useOverallFinishes: true, wallTexture: '', ceilingTexture: '', corners: '' },
-            { id: crypto.randomUUID(), name: 'Garage', materials: [], isFinished: false, useOverallFinishes: true, wallTexture: '', ceilingTexture: '', corners: '' }
+            { 
+                id: crypto.randomUUID(), 
+                name: 'Main', 
+                materials: [], // Will be populated when materials load
+                isFinished: true, 
+                useOverallFinishes: true, 
+                useOverallLabor: true,
+                wallTexture: '', 
+                ceilingTexture: '', 
+                corners: '',
+                hangRate: '',
+                tapeRate: '',
+                autoTapeRate: true
+            },
+            { 
+                id: crypto.randomUUID(), 
+                name: 'Garage', 
+                materials: [], // Will be populated when materials load
+                isFinished: false, 
+                useOverallFinishes: true,
+                useOverallLabor: true,
+                wallTexture: '', 
+                ceilingTexture: '', 
+                corners: '',
+                hangRate: '',
+                tapeRate: '',
+                autoTapeRate: true
+            }
         ],
         changeLog: [],
+        totalMaterialCost: 0,
+        totalHangingLabor: 0,
+        totalTapingLabor: 0,
+        totalHangingSqFt: 0,
+        totalTapingSqFt: 0
     };
 
     const [bid, setBid] = useState(newBidState);
     const [loading, setLoading] = useState(false);
     const [supervisors, setSupervisors] = useState([]);
     const [finishes, setFinishes] = useState({ wallTextures: [], ceilingTextures: [], corners: [] });
+    const [materials, setMaterials] = useState([]);
+    const [crewTypes, setCrewTypes] = useState([]);
+    const [laborBreakdown, setLaborBreakdown] = useState({ hanging: { labor: 0, sqFt: 0 }, taping: { labor: 0, sqFt: 0 } });
+    const [totalMaterialCost, setTotalMaterialCost] = useState(0);
+
+    // Fetch crew types
+    useEffect(() => {
+        if (!db) return;
+        const crewCollectionRef = collection(db, configPath, 'labor', 'crewTypes');
+        const unsubscribe = onSnapshot(crewCollectionRef, (snapshot) => {
+            const crewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setCrewTypes(crewsData);
+        });
+        return unsubscribe;
+    }, [db]);
+
+    // Fetch materials
+    useEffect(() => {
+        if (!db) return;
+        const materialsCollection = collection(db, materialsPath);
+        const unsubscribe = onSnapshot(materialsCollection, (snapshot) => {
+            const materialsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setMaterials(materialsData);
+        });
+        return unsubscribe;
+    }, [db]);
+
+    // Populate default material IDs when materials load
+    useEffect(() => {
+        if (materials.length > 0 && !bid.id) {
+            const regularMaterial = materials.find(m => m.name === '1/2" Regular');
+            const typeXMaterial = materials.find(m => m.name === '5/8" Type X');
+
+            if (regularMaterial || typeXMaterial) {
+                setBid(prev => ({
+                    ...prev,
+                    areas: prev.areas.map(area => {
+                        if (area.name === 'Main' && regularMaterial) {
+                            return {
+                                ...area,
+                                materials: [{
+                                    materialId: regularMaterial.id,
+                                    materialName: regularMaterial.name,
+                                    quantity: 0,
+                                    laborType: 'finished'
+                            }]
+                        };
+                        } else if (area.name === 'Garage') {
+                            const areaMaterials = [];
+                            if (regularMaterial) {
+                                areaMaterials.push({
+                                    materialId: regularMaterial.id,
+                                    materialName: regularMaterial.name,
+                                    quantity: 0,
+                                    laborType: 'unfinished'
+                            });
+                        }
+                        if (typeXMaterial) {
+                            areaMaterials.push({
+                                materialId: typeXMaterial.id,
+                                materialName: typeXMaterial.name,
+                                quantity: 0,
+                                laborType: 'unfinished'
+                            });
+                        }
+                        return { ...area, materials: areaMaterials };
+                    }
+                    return area;
+                })
+            }));
+            }
+        }
+    }, [materials, bid.id]);
+
+    // Calculate totals and labor breakdown from all areas
+    useEffect(() => {
+        let totalMaterialCostCalc = 0;
+        let totalHangingLabor = 0;
+        let totalTapingLabor = 0;
+        let totalHangingSqFt = 0;
+        let totalTapingSqFt = 0;
+
+        const hangingCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('hang'))?.id;
+        const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+
+        bid.areas?.forEach(area => {
+            area.materials?.forEach(areaMat => {
+                const material = materials.find(m => m.id === areaMat.materialId);
+                if (material) {
+                    const quantity = parseFloat(areaMat.quantity) || 0;
+                    const price = parseFloat(material.price) || 0;
+                    totalMaterialCostCalc += quantity * price;
+
+                    // Calculate labor rates (area-specific or overall)
+                    const hangRate = area.useOverallLabor 
+                        ? parseFloat(bid.finishedHangingRate) || 0 
+                        : parseFloat(area.hangRate) || 0;
+                    const tapeRate = area.useOverallLabor 
+                        ? parseFloat(bid.finishedTapeRate) || 0 
+                        : parseFloat(area.tapeRate) || 0;
+
+                    if (material.category === 'drywall-board' || material.category === '2nd-layer-board') {
+                        totalHangingLabor += quantity * hangRate;
+                        totalHangingSqFt += quantity;
+                        
+                        if (areaMat.laborType === 'finished') {
+                            totalTapingLabor += quantity * tapeRate;
+                            totalTapingSqFt += quantity;
+                        }
+                    }
+
+                    // Add extra labor costs
+                    if (material.extraLabor) {
+                        material.extraLabor.forEach(extra => {
+                            if (extra.crewType === hangingCrewId) {
+                                totalHangingLabor += quantity * (parseFloat(extra.extraPay) || 0);
+                            } else if (extra.crewType === taperCrewId) {
+                                totalTapingLabor += quantity * (parseFloat(extra.extraPay) || 0);
+                            }
+                        });
+                    }
+                }
+            });
+        });
+
+        setTotalMaterialCost(totalMaterialCostCalc);
+        setLaborBreakdown({
+            hanging: { labor: totalHangingLabor, sqFt: totalHangingSqFt, crewId: hangingCrewId },
+            taping: { labor: totalTapingLabor, sqFt: totalTapingSqFt, crewId: taperCrewId }
+        });
+
+        setBid(prev => ({
+            ...prev,
+            totalMaterialCost: totalMaterialCostCalc,
+            totalHangingLabor,
+            totalTapingLabor,
+            totalHangingSqFt,
+            totalTapingSqFt
+        }));
+    }, [bid.areas, materials, crewTypes, bid.finishedHangingRate, bid.finishedTapeRate]);
 
     // --- Data Fetching Effects ---
     useEffect(() => {
-        const fetchProject = async () => {
-            if (editingProjectId) {
-                setLoading(true);
-                const projectDocRef = doc(db, projectsPath, editingProjectId);
-                const docSnap = await getDoc(projectDocRef);
-                if (docSnap.exists()) {
-                    setBid({ id: docSnap.id, ...docSnap.data() });
-                } else {
-                    console.error("No such document to edit!");
-                    setCurrentPage('projects');
-                }
-                setLoading(false);
-            } else {
-                setBid(newBidState);
-            }
-        };
-        fetchProject();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [editingProjectId, db, setCurrentPage]);
-    
-    useEffect(() => {
         if (!db) return;
-        const usersCollection = collection(db, usersPath);
-        const q = query(usersCollection, where('role', '==', 'supervisor'));
+        const supervisorsCollection = collection(db, usersPath);
+        const q = query(supervisorsCollection, where('role', '==', 'supervisor'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const supervisorData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setSupervisors(supervisorData);
+            const supervisorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setSupervisors(supervisorsData);
         });
         return unsubscribe;
     }, [db]);
@@ -73,134 +225,128 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         const finishesDocRef = doc(db, configPath, 'finishes');
         const unsubscribe = onSnapshot(finishesDocRef, (docSnap) => {
             if (docSnap.exists()) {
-                const finishesData = docSnap.data();
-                setFinishes(finishesData);
-                if (!editingProjectId) {
-                    setBid(prev => ({
-                        ...prev,
-                        wallTexture: finishesData.wallTextures?.[0]?.name || '',
-                        ceilingTexture: finishesData.ceilingTextures?.[0]?.name || '',
-                        corners: finishesData.corners?.[0]?.name || '',
-                    }));
-                }
+                setFinishes(docSnap.data());
             }
         });
         return unsubscribe;
-    }, [db, editingProjectId]);
+    }, [db]);
 
     useEffect(() => {
-        if (!db || editingProjectId) return;
-        const ratesDocRef = doc(db, configPath, 'laborRates');
-        const unsub = onSnapshot(ratesDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const ratesData = docSnap.data();
-                const mappedRates = {
-                    finishedHangingRate: String(ratesData.finishedHanging || ''),
-                    finishedTapingRate: String(ratesData.finishedTaping || ''),
-                    unfinishedHangingRate: String(ratesData.unfinishedHanging || ''),
-                    unfinishedTapingRate: String(ratesData.unfinishedTaping || ''), // Corrected here
-                };
-                setBid(prev => ({ ...prev, ...mappedRates }));
-            }
-        });
-        return unsub;
-    }, [db, editingProjectId]);
-
-    useEffect(() => {
-        // Calculate tape rate whenever relevant state changes
-        if (bid.autoTapeRate && finishes && finishes.wallTextures && finishes.ceilingTextures && finishes.corners && bid.finishedHangingRate) {
-            const taperFinishesPayRate = getTaperRate(bid, finishes);
-            const calculatedTapeRate = parseFloat(bid.finishedHangingRate) + 0.04 + taperFinishesPayRate;
-            setBid(prev => ({
-                ...prev, finishedTapingRate: calculatedTapeRate.toFixed(3) // Update tape rate
-            }));
+        if (editingProjectId && db) {
+            const fetchProject = async () => {
+                setLoading(true);
+                try {
+                    const projectDoc = await getDoc(doc(db, projectsPath, editingProjectId));
+                    if (projectDoc.exists()) {
+                        const projectData = projectDoc.data();
+                        setBid({ id: editingProjectId, ...projectData });
+                    }
+                } catch (error) {
+                    console.error("Error fetching project:", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchProject();
         }
-    }, [bid.autoTapeRate, bid.finishedHangingRate, finishes]);
+    }, [editingProjectId, db]);
 
     // --- State Update Handlers ---
     const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setBid(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setBid(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    };
+
+    const updateArea = (updatedArea) => {
+        setBid(prev => ({
+            ...prev,
+            areas: prev.areas.map(area => area.id === updatedArea.id ? updatedArea : area)
+        }));
     };
 
     const addArea = () => {
-        setBid(prev => ({
-            ...prev,
-            areas: [...prev.areas, { id: crypto.randomUUID(), name: `Area ${prev.areas.length + 1}`, materials: [], isFinished: true, useOverallFinishes: true, wallTexture: '', ceilingTexture: '', corners: '' }]
-        }));
-    };
-
-    const updateArea = (areaId, updatedArea) => {
-        setBid(prev => ({
-            ...prev,
-            areas: prev.areas.map(area => area.id === areaId ? updatedArea : area)
-        }));
+        const regularMaterial = materials.find(m => m.name === '1/2" Regular');
+        
+        const newArea = {
+            id: crypto.randomUUID(),
+            name: `Area ${bid.areas.length + 1}`,
+            materials: regularMaterial ? [{
+                materialId: regularMaterial.id,
+                materialName: regularMaterial.name,
+                laborType: 'finished',
+                variants: [] // Will be populated when user starts counting
+            }] : [],
+            isFinished: true,
+            useOverallFinishes: true,
+            useOverallLabor: true,
+            wallTexture: '',
+            ceilingTexture: '',
+            corners: '',
+            hangRate: '',
+            tapeRate: '',
+            autoTapeRate: true
+        };
+        setBid(prev => ({ ...prev, areas: [...prev.areas, newArea] }));
     };
 
     const removeArea = (areaId) => {
-        setBid(prev => ({
-            ...prev,
-            areas: prev.areas.filter(area => area.id !== areaId)
-        }));
+        setBid(prev => ({ ...prev, areas: prev.areas.filter(area => area.id !== areaId) }));
     };
 
     // --- Save Logic ---
     const handleSave = async () => {
-        if (!db) return alert("Database connection not available.");
-
-        const getChanges = (original, updated) => {
-            // This function would contain the detailed comparison logic
-            // For brevity, we'll just create a summary message.
-            return 'Project details updated.';
-        };
-
-        const logChange = (changeText) => ({
-            change: changeText,
-            user: { id: userData.id, name: `${userData.firstName} ${userData.lastName}` },
-            timestamp: new Date()
-        });
-
-        if (bid.id) { // Update existing project
-            const projectDocRef = doc(db, projectsPath, bid.id);
-            const originalDoc = await getDoc(projectDocRef);
-            const changes = getChanges(originalDoc.data(), bid);
-            await updateDoc(projectDocRef, { ...bid, changeLog: arrayUnion(logChange(changes)) });
-            alert("Project updated successfully!");
-        } else { // Create new bid
-            const newJobNumber = await generateJobNumber('B');
-            await addDoc(collection(db, projectsPath), {
+        if (!db) return;
+        setLoading(true);
+        try {
+            const taperRate = getTaperRate(bid.finishedHangingRate);
+            const bidData = {
                 ...bid,
-                jobNumber: newJobNumber,
-                status: 'bid',
-                createdAt: new Date(),
-                changeLog: [logChange("Bid created.")]
-            });
-            alert(`Bid saved with job number ${newJobNumber}!`);
+                finishedTapeRate: bid.autoTapeRate ? taperRate : bid.finishedTapeRate,
+                updatedAt: new Date().toISOString(),
+            };
+
+            if (bid.materialStockDate && bid.status === 'bid') {
+                const nextJobNumber = await getNextJobNumber();
+                bidData.jobNumber = nextJobNumber;
+                bidData.status = 'project';
+            }
+
+            if (bid.id) {
+                await updateDoc(doc(db, projectsPath, bid.id), bidData);
+                setBid(prev => ({ ...prev, changeLog: [...(prev.changeLog || []), { date: new Date().toISOString(), change: 'Bid updated', user: userData?.email || 'Unknown' }] }));
+            } else {
+                const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
+                setBid(prev => ({ ...prev, id: docRef.id }));
+            }
+        } catch (error) {
+            console.error("Error saving bid:", error);
+        } finally {
+            setLoading(false);
         }
-        setCurrentPage('projects');
     };
 
-    const generateJobNumber = async (prefixChar) => {
-        const now = new Date();
-        const year = now.getFullYear().toString().slice(-2);
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        const prefix = `${prefixChar}${year}${month}-`;
-
-        const q = query(collection(db, projectsPath), where('jobNumber', '>=', prefix), where('jobNumber', '<', prefix + 'z'), orderBy('jobNumber', 'desc'), limit(1));
+    const getNextJobNumber = async () => {
+        const currentYear = new Date().getFullYear();
+        const q = query(
+            collection(db, projectsPath),
+            where('jobNumber', '>=', `${currentYear}-001`),
+            where('jobNumber', '<', `${currentYear + 1}-001`),
+            orderBy('jobNumber', 'desc'),
+            limit(1)
+        );
         const querySnapshot = await getDocs(q);
-        let nextNumber = 1;
-        if (!querySnapshot.empty) {
-            const lastJobNumber = querySnapshot.docs[0].data().jobNumber;
-            const lastNumber = parseInt(lastJobNumber.split('-')[1], 10);
-            nextNumber = lastNumber + 1;
+        if (querySnapshot.empty) {
+            return `${currentYear}-001`;
         }
-        return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+        const lastJobNumber = querySnapshot.docs[0].data().jobNumber;
+        const lastNumber = parseInt(lastJobNumber.split('-')[1]);
+        return `${currentYear}-${String(lastNumber + 1).padStart(3, '0')}`;
     };
 
-    if (loading) return <div className="text-center p-10">Loading project...</div>;
+    if (loading) return <div className="p-6">Loading...</div>;
 
     return (
-        <div>
+        <div className="p-6 bg-gray-50 min-h-screen">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">{bid.id ? `Editing: ${bid.projectName} (${bid.jobNumber})` : "Bid Sheet Editor"}</h1>
                 <div className="flex items-center space-x-2">
@@ -210,17 +356,46 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 </div>
             </div>
 
-            <BidHeader bid={bid} handleInputChange={handleInputChange} supervisors={supervisors} finishes={finishes} />
+            <ExpandableBidHeader 
+                bid={bid} 
+                handleInputChange={handleInputChange} 
+                supervisors={supervisors} 
+                finishes={finishes}
+                db={db}
+                userData={userData}
+                materials={materials}
+                crewTypes={crewTypes}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {bid.areas.map((area) => (
-                    <Area key={area.id} area={area} onUpdate={updateArea} onRemove={() => removeArea(area.id)} finishes={finishes} db={db} isOnlyArea={bid.areas.length === 1} />
+                    <Area 
+                        key={area.id} 
+                        area={area} 
+                        onUpdate={updateArea} 
+                        onRemove={() => removeArea(area.id)} 
+                        finishes={finishes} 
+                        db={db} 
+                        isOnlyArea={bid.areas.length === 1}
+                        bid={bid}
+                        crewTypes={crewTypes}
+                        materials={materials}
+                    />
                 ))}
             </div>
 
             <button onClick={addArea} className="mt-6 w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg">Add Area</button>
 
-            <ChangeLog log={bid.changeLog} hasLogAccess={userData?.role === 'admin'} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <ChangeLog log={bid.changeLog} hasLogAccess={userData?.role === 'admin'} />
+                <BidPricingSummary 
+                    bid={bid} 
+                    laborBreakdown={laborBreakdown} 
+                    totalMaterialCost={totalMaterialCost} 
+                    userData={userData}
+                    db={db}
+                />
+            </div>
         </div>
     );
 }
