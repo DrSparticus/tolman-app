@@ -27,7 +27,25 @@ export default function ChangeLog({ log = [], hasLogAccess = false }) {
                 <p className="text-gray-500 text-sm">No changes recorded</p>
             ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                    {log.slice().sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()).map((entry, index) => {
+                    {log.slice().sort((a, b) => {
+                        // Handle missing or invalid timestamps - support both old 'date' and new 'timestamp' formats
+                        let aTime = 0;
+                        let bTime = 0;
+                        
+                        if (a.timestamp?.toMillis) {
+                            aTime = a.timestamp.toMillis();
+                        } else if (a.date) {
+                            aTime = new Date(a.date).getTime();
+                        }
+                        
+                        if (b.timestamp?.toMillis) {
+                            bTime = b.timestamp.toMillis();
+                        } else if (b.date) {
+                            bTime = new Date(b.date).getTime();
+                        }
+                        
+                        return bTime - aTime;
+                    }).map((entry, index) => {
                         const [summary, ...details] = entry.change.split('\n').filter(line => line.trim() !== '');
                         const hasDetails = details.length > 0;
                         const isExpanded = expandedLogEntries[index];
@@ -44,7 +62,16 @@ export default function ChangeLog({ log = [], hasLogAccess = false }) {
                                     </ul>
                                 )}
                                 <p className="text-xs text-gray-500 mt-2 text-right">
-                                    by <strong>{entry.user.name}</strong> on {entry.timestamp.toDate().toLocaleString()}
+                                    by <strong>{
+                                        entry.user?.name || 
+                                        (typeof entry.user === 'string' ? entry.user : 'Unknown')
+                                    }</strong> on {
+                                        entry.timestamp?.toDate 
+                                            ? entry.timestamp.toDate().toLocaleString()
+                                            : entry.date 
+                                            ? new Date(entry.date).toLocaleString()
+                                            : 'Unknown date'
+                                    }
                                 </p>
                             </div>
                         );

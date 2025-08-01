@@ -60,15 +60,33 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
         // Calculate taper pay from finishes
         if (wallTexture && finishes?.wallTextures) {
             const wt = finishes.wallTextures.find(f => f.name === wallTexture);
-            if (wt && wt.involvesTaper) taperFinishesTotal += parseFloat(wt.payRate) || 0;
+            if (wt && typeof wt === 'object') {
+                // Check if the crew for this finish is a taper crew
+                const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                if (wt.crew === taperCrewId) {
+                    taperFinishesTotal += parseFloat(wt.pay) || 0;
+                }
+            }
         }
         if (ceilingTexture && finishes?.ceilingTextures) {
             const ct = finishes.ceilingTextures.find(f => f.name === ceilingTexture);
-            if (ct && ct.involvesTaper) taperFinishesTotal += parseFloat(ct.payRate) || 0;
+            if (ct && typeof ct === 'object') {
+                // Check if the crew for this finish is a taper crew
+                const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                if (ct.crew === taperCrewId) {
+                    taperFinishesTotal += parseFloat(ct.pay) || 0;
+                }
+            }
         }
         if (corners && finishes?.corners) {
             const c = finishes.corners.find(f => f.name === corners);
-            if (c && c.involvesTaper) taperFinishesTotal += parseFloat(c.payRate) || 0;
+            if (c && typeof c === 'object') {
+                // Check if the crew for this finish is a taper crew
+                const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                if (c.crew === taperCrewId) {
+                    taperFinishesTotal += parseFloat(c.pay) || 0;
+                }
+            }
         }
         
         // Add extra taper pay from materials used in this area

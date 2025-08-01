@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, getDocs, query, where, orderBy, limit, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, getDocs, query, where, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 
 import ExpandableBidHeader from '../components/bids/ExpandableBidHeader';
 import Area from '../components/bids/Area';
@@ -17,6 +17,8 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         projectName: 'New Bid',
         contractor: '',
         address: '',
+        coordinates: null,
+        salesTaxRate: null,
         supervisor: '',
         wallTexture: '',
         ceilingTexture: '',
@@ -25,6 +27,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         finishedTapeRate: '',
         unfinishedTapingRate: '',
         autoTapeRate: true,
+        notes: '',
         areas: [
             { 
                 id: crypto.randomUUID(), 
@@ -322,7 +325,20 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
 
             if (bid.id) {
                 await updateDoc(doc(db, projectsPath, bid.id), bidData);
-                setBid(prev => ({ ...prev, changeLog: [...(prev.changeLog || []), { date: new Date().toISOString(), change: 'Bid updated', user: userData?.email || 'Unknown' }] }));
+                setBid(prev => ({ 
+                    ...prev, 
+                    changeLog: [
+                        ...(prev.changeLog || []), 
+                        { 
+                            timestamp: serverTimestamp(), 
+                            change: 'Bid updated', 
+                            user: { 
+                                name: userData?.name || userData?.email || 'Unknown',
+                                email: userData?.email || 'Unknown'
+                            }
+                        }
+                    ] 
+                }));
             } else {
                 const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
                 setBid(prev => ({ ...prev, id: docRef.id }));

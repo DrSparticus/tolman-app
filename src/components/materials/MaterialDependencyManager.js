@@ -30,66 +30,73 @@ export default function MaterialDependencyManager({ db, materials }) {
                         secondLayerCoverage: 9000,
                         furringCoverage: 800,
                         appliesTo: ['drywall-board', '2nd-layer-board'],
-                        laborTypes: ['hanging'],
+                        isStocked: false, // Misc Materials (hanging materials)
                         formula: '((totalSqFt + secondLayerSqFt) / 9000) + ((furringLinearFt / 12) / 800)',
-                        roundUp: true
+                        roundUp: true,
+                        roundToDecimalPlaces: 0 // Round to whole numbers
                     },
                     {
                         id: 'osi-glue',
                         materialName: 'OSI Glue',
                         coverage: 375,
                         appliesTo: ['drywall-board'],
-                        laborTypes: ['hanging'],
+                        isStocked: false, // Misc Materials (hanging materials)
                         formula: 'totalSqFt / 375',
-                        roundUp: true
+                        roundUp: true,
+                        roundToDecimalPlaces: 0 // Round to whole numbers
                     },
                     {
                         id: 'staples',
                         materialName: 'Staples',
                         coverage: 6000, // 9000 / 1.5
                         appliesTo: ['drywall-board'],
-                        laborTypes: ['hanging'],
+                        isStocked: false, // Misc Materials (hanging materials)
                         formula: '(totalSqFt / 9000) * 1.5',
-                        roundUp: true
+                        roundUp: true,
+                        roundToDecimalPlaces: 0 // Round to whole numbers
                     },
                     {
                         id: 'nc-corner',
                         materialName: 'NC Corner',
                         coverage: 12, // 9000 / 750
                         appliesTo: ['drywall-board'],
-                        laborTypes: ['hanging'],
+                        isStocked: false, // Misc Materials (hanging materials)
                         formula: '(totalSqFt / 9000) * 750',
-                        roundUp: true
+                        roundUp: true,
+                        roundToDecimalPlaces: 0 // Round to whole numbers
                     },
                     {
                         id: 'tape-500',
                         materialName: '500\' Tape',
                         coverage: 1750,
                         appliesTo: ['drywall-board'],
-                        laborTypes: ['taping'],
+                        isStocked: true, // Stocked Material (taping materials)
                         finishedOnly: false,
                         formula: 'totalSqFt / 1750',
-                        roundUp: true
+                        roundUp: true,
+                        roundToDecimalPlaces: 0 // Round to whole numbers
                     },
                     {
                         id: 'taping-mud',
                         materialName: 'Taping Mud',
                         coverage: 1000,
                         appliesTo: ['drywall-board'],
-                        laborTypes: ['taping'],
+                        isStocked: true, // Stocked Material (taping materials)
                         finishedOnly: false,
                         formula: 'totalSqFt / 1000',
-                        roundUp: true
+                        roundUp: true,
+                        roundToDecimalPlaces: 0 // Round to whole numbers
                     },
                     {
                         id: 'topping-mud',
                         materialName: 'Topping Mud',
                         coverage: 250, // 1000 / 4
                         appliesTo: ['drywall-board'],
-                        laborTypes: ['taping'],
+                        isStocked: true, // Stocked Material (taping materials)
                         finishedOnly: true,
                         formula: 'finishedSqFt / 1000 * 4',
-                        roundUp: true
+                        roundUp: true,
+                        roundToDecimalPlaces: 0 // Round to whole numbers
                     }
                 ];
                 setDependencies(defaultDependencies);
@@ -111,10 +118,11 @@ export default function MaterialDependencyManager({ db, materials }) {
             materialName: '',
             coverage: 1000,
             appliesTo: ['drywall-board'],
-            laborTypes: ['hanging'],
+            isStocked: false, // Default to Misc Materials
             finishedOnly: false,
             formula: 'totalSqFt / 1000',
-            roundUp: true
+            roundUp: true,
+            roundToDecimalPlaces: 0
         };
         setDependencies([...dependencies, newDep]);
         setIsEditing(newDep.id);
@@ -231,24 +239,19 @@ export default function MaterialDependencyManager({ db, materials }) {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Labor Types</label>
-                                    <div className="mt-1 space-y-2">
-                                        {['hanging', 'taping'].map(labor => (
-                                            <label key={labor} className="flex items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={dep.laborTypes.includes(labor)}
-                                                    onChange={(e) => {
-                                                        const newLaborTypes = e.target.checked
-                                                            ? [...dep.laborTypes, labor]
-                                                            : dep.laborTypes.filter(l => l !== labor);
-                                                        updateDependency(dep.id, 'laborTypes', newLaborTypes);
-                                                    }}
-                                                    className="mr-2"
-                                                />
-                                                {labor}
-                                            </label>
-                                        ))}
+                                    <label className="block text-sm font-medium text-gray-700">Stocked Material</label>
+                                    <div className="mt-1">
+                                        <label className="flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={dep.isStocked || false}
+                                                onChange={(e) => {
+                                                    updateDependency(dep.id, 'isStocked', e.target.checked);
+                                                }}
+                                                className="mr-2"
+                                            />
+                                            Include in Stocked Material calculation (unchecked = Misc Materials)
+                                        </label>
                                     </div>
                                 </div>
 
@@ -278,6 +281,22 @@ export default function MaterialDependencyManager({ db, materials }) {
                                         Round Up
                                     </label>
                                 </div>
+
+                                {dep.roundUp && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Round to Decimal Places</label>
+                                        <select
+                                            value={dep.roundToDecimalPlaces || 0}
+                                            onChange={(e) => updateDependency(dep.id, 'roundToDecimalPlaces', parseInt(e.target.value))}
+                                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                        >
+                                            <option value={0}>Whole number (0 decimals)</option>
+                                            <option value={1}>1 decimal place (0.1)</option>
+                                            <option value={2}>2 decimal places (0.01)</option>
+                                            <option value={3}>3 decimal places (0.001)</option>
+                                        </select>
+                                    </div>
+                                )}
 
                                 <div className="col-span-full">
                                     <label className="block text-sm font-medium text-gray-700">Generated Formula</label>

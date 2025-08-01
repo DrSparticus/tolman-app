@@ -11,24 +11,36 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
         // Check wall texture
         if (bid.wallTexture && finishes.wallTextures) {
             const wallTexture = finishes.wallTextures.find(f => f.name === bid.wallTexture);
-            if (wallTexture && wallTexture.involvesTaper) {
-                taperFinishesTotal += parseFloat(wallTexture.payRate) || 0;
+            if (wallTexture && typeof wallTexture === 'object') {
+                // Check if the crew for this finish is a taper crew
+                const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                if (wallTexture.crew === taperCrewId) {
+                    taperFinishesTotal += parseFloat(wallTexture.pay) || 0;
+                }
             }
         }
         
         // Check ceiling texture
         if (bid.ceilingTexture && finishes.ceilingTextures) {
             const ceilingTexture = finishes.ceilingTextures.find(f => f.name === bid.ceilingTexture);
-            if (ceilingTexture && ceilingTexture.involvesTaper) {
-                taperFinishesTotal += parseFloat(ceilingTexture.payRate) || 0;
+            if (ceilingTexture && typeof ceilingTexture === 'object') {
+                // Check if the crew for this finish is a taper crew
+                const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                if (ceilingTexture.crew === taperCrewId) {
+                    taperFinishesTotal += parseFloat(ceilingTexture.pay) || 0;
+                }
             }
         }
         
         // Check corners
         if (bid.corners && finishes.corners) {
             const corners = finishes.corners.find(f => f.name === bid.corners);
-            if (corners && corners.involvesTaper) {
-                taperFinishesTotal += parseFloat(corners.payRate) || 0;
+            if (corners && typeof corners === 'object') {
+                // Check if the crew for this finish is a taper crew
+                const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                if (corners.crew === taperCrewId) {
+                    taperFinishesTotal += parseFloat(corners.pay) || 0;
+                }
             }
         }
         

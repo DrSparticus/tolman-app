@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection } from 'firebase/firestore';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
-const materialsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/public/data/materials`;
 
 export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCost, userData, db, materials, finishes }) {
     const [markups, setMarkups] = useState({ laborBurden: 0.15, salesTax: 0.0725, overhead: 0.08, profit: 0.10 });
@@ -82,6 +81,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                     totalMaterialBeforeTax: 0,
                     totalMaterialWithTax: 0,
                     salesTax: 0,
+                    effectiveSalesTaxRate: markups.salesTax,
                     hangLabor: 0,
                     tapeLabor: 0,
                     totalBaseLabor: 0,
@@ -91,6 +91,8 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                     overhead: 0,
                     breakEven: 0,
                     profit: 0,
+                    finishExtraProfit: 0,
+                    totalProfit: 0,
                     netQuote: 0,
                     debug: ['Error: Missing required data for calculations']
                 };
@@ -167,7 +169,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
         materialDependencies.forEach(dep => {
             debug.push(`\nProcessing dependency: ${dep.materialName || 'Unknown'}`);
             debug.push(`  Formula: ${dep.formula}`);
-            debug.push(`  Labor Types: ${JSON.stringify(dep.laborTypes)}`);
+            debug.push(`  Is Stocked: ${dep.isStocked}`);
             debug.push(`  Applies To: ${JSON.stringify(dep.appliesTo)}`);
             debug.push(`  Finished Only: ${dep.finishedOnly}`);
             
@@ -209,11 +211,17 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 depQuantity = Function(`"use strict"; return (${calculatedFormula})`)();
                 
                 if (dep.roundUp && depQuantity > 0) {
-                    depQuantity = Math.ceil(depQuantity);
+                    const decimalPlaces = dep.roundToDecimalPlaces || 0;
+                    if (decimalPlaces === 0) {
+                        depQuantity = Math.ceil(depQuantity);
+                    } else {
+                        const multiplier = Math.pow(10, decimalPlaces);
+                        depQuantity = Math.ceil(depQuantity * multiplier) / multiplier;
+                    }
                 }
                 
-                debug.push(`  Raw calculated quantity: ${depQuantity}`);
-                debug.push(`  Round up: ${dep.roundUp}, Final quantity: ${depQuantity}`);
+                debug.push(`  Raw calculated quantity: ${Function(`"use strict"; return (${calculatedFormula})`)()}`);
+                debug.push(`  Round up: ${dep.roundUp}, Decimal places: ${dep.roundToDecimalPlaces || 0}, Final quantity: ${depQuantity}`);
                 
             } catch (error) {
                 debug.push(`  ERROR evaluating formula: ${error.message}`);
@@ -223,13 +231,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             if (depQuantity > 0) {
                 const depCost = depQuantity * (parseFloat(dependentMaterial.price) || 0);
                 
-                // Determine if this goes to Stocked (Taper) or Misc (Hanger) based on laborTypes
-                const isHangerDependency = dep.laborTypes?.includes('hanging');
-                const isTaperDependency = dep.laborTypes?.includes('taping');
-                
                 debug.push(`  Cost calculation: ${depQuantity} * $${dependentMaterial.price} = $${depCost.toFixed(2)}`);
-                debug.push(`  Is Hanger dependency: ${isHangerDependency}`);
-                debug.push(`  Is Taper dependency: ${isTaperDependency}`);
                 
                 // Apply finished-only filter
                 if (dep.finishedOnly && finishedSqFt === 0) {
@@ -237,16 +239,13 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                     return;
                 }
                 
-                if (isHangerDependency) {
-                    miscMaterials += depCost;
-                    debug.push(`  ${dependentMaterial.name} (Hanger): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Misc Materials`);
-                } else if (isTaperDependency) {
+                // Route to Stocked or Misc Materials based on isStocked flag
+                if (dep.isStocked) {
                     stockedMaterial += depCost;
-                    debug.push(`  ${dependentMaterial.name} (Taper): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Stocked Material`);
+                    debug.push(`  ${dependentMaterial.name} (Stocked): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Stocked Material`);
                 } else {
-                    // Default to misc materials if not specified
                     miscMaterials += depCost;
-                    debug.push(`  ${dependentMaterial.name} (Default): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Misc Materials`);
+                    debug.push(`  ${dependentMaterial.name} (Misc): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Misc Materials`);
                 }
             } else {
                 debug.push(`  No quantity calculated - skipping`);
@@ -256,13 +255,17 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
         // H135 + H136: Total Material before tax
         const totalMaterialBeforeTax = stockedMaterial + miscMaterials;
         
+        // Use location-specific sales tax rate if available, otherwise use markup config
+        const effectiveSalesTaxRate = bid.salesTaxRate || markups.salesTax;
+        
         // Apply sales tax to materials
-        const totalMaterialWithTax = totalMaterialBeforeTax * (1 + markups.salesTax);
+        const totalMaterialWithTax = totalMaterialBeforeTax * (1 + effectiveSalesTaxRate);
 
         debug.push(`\nStocked Material (H135): $${stockedMaterial.toFixed(2)}`);
         debug.push(`Misc Materials (H136): $${miscMaterials.toFixed(2)}`);
         debug.push(`Total Material Before Tax: $${totalMaterialBeforeTax.toFixed(2)}`);
-        debug.push(`Sales Tax (${(markups.salesTax * 100).toFixed(2)}%): $${(totalMaterialWithTax - totalMaterialBeforeTax).toFixed(2)}`);
+        debug.push(`Sales Tax Rate: ${(effectiveSalesTaxRate * 100).toFixed(3)}% ${bid.salesTaxRate ? '(location-based)' : '(default)'}`);
+        debug.push(`Sales Tax Amount: $${(totalMaterialWithTax - totalMaterialBeforeTax).toFixed(2)}`);
         debug.push(`Total Material With Tax: $${totalMaterialWithTax.toFixed(2)}`);
 
         // H138: Hang Labor
@@ -274,6 +277,42 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
         debug.push(`Hang Rate: $${hangRate}/sq ft`);
         debug.push(`Hanging Sq Ft: ${hangingSqFt}`);
         debug.push(`Base Hang Labor: $${hangLabor.toFixed(2)}`);
+
+        // Add finish upgrades to hang labor (hidden from UI, applied to backend calculation)
+        debug.push('\n=== HANG FINISH UPGRADES ===');
+        let hangFinishUpgrades = 0;
+        
+        ['wallTexture', 'ceilingTexture', 'corners'].forEach(finishType => {
+            const finishName = bid[finishType];
+            const finishCategory = finishType === 'wallTexture' ? 'wallTextures' : 
+                                  finishType === 'ceilingTexture' ? 'ceilingTextures' : 'corners';
+            
+            if (finishName && finishes[finishCategory]) {
+                const finish = finishes[finishCategory].find(f => f.name === finishName);
+                if (finish && typeof finish === 'object') {
+                    // Check if the crew for this finish is a hanging crew
+                    const hangingCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('hang'))?.id;
+                    if (finish.crew === hangingCrewId) {
+                        const finishPayRate = parseFloat(finish.pay) || 0;
+                        
+                        // All hang finish upgrades apply only to finished areas
+                        const applicableSqFt = finishedSqFt;
+                        
+                        const finishUpgrade = applicableSqFt * finishPayRate;
+                        hangFinishUpgrades += finishUpgrade;
+                        hangLabor += finishUpgrade;
+                        
+                        debug.push(`${finishType}: ${finish.name}`);
+                        debug.push(`  Pay rate: $${finishPayRate}/sq ft`);
+                        debug.push(`  Applied to: ${applicableSqFt} sq ft (finished only)`);
+                        debug.push(`  Upgrade amount: $${finishUpgrade.toFixed(2)}`);
+                    }
+                }
+            }
+        });
+        
+        debug.push(`Total Hang Finish Upgrades: $${hangFinishUpgrades.toFixed(2)}`);
+        debug.push(`Hang Labor with Finish Upgrades: $${hangLabor.toFixed(2)}`);
 
         // Add extra pay from materials
         bid.areas?.forEach(area => {
@@ -373,14 +412,70 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
         // Profit applied to Break Even
         const profit = breakEven * markups.profit;
         
+        // Calculate extra profit from finishes (similar to G151:K159 in spreadsheet)
+        let finishExtraProfit = 0;
+        
+        debug.push('\n=== FINISH EXTRA PROFIT ===');
+        
+        // Calculate for each finish type
+        ['wallTexture', 'ceilingTexture', 'corners'].forEach(finishType => {
+            const finishName = bid[finishType];
+            const finishCategory = finishType === 'wallTexture' ? 'wallTextures' : 
+                                  finishType === 'ceilingTexture' ? 'ceilingTextures' : 'corners';
+            
+            if (finishName && finishes[finishCategory]) {
+                const finish = finishes[finishCategory].find(f => f.name === finishName);
+                if (finish && typeof finish === 'object') {
+                    const chargeRate = parseFloat(finish.charge) || 0;
+                    const payRate = parseFloat(finish.pay) || 0;
+                    
+                    // Apply markups to the pay rate before calculating extra profit
+                    const payWithBurden = payRate * (1 + markups.laborBurden);
+                    const payWithOverhead = payWithBurden * (1 + markups.overhead);
+                    const payWithAllMarkups = payWithOverhead * (1 + markups.profit);
+                    
+                    const extraProfitPerSqFt = chargeRate - payWithAllMarkups; // What we charge minus what we pay (with markups)
+                    
+                    if (extraProfitPerSqFt > 0) {
+                        // Apply to appropriate square footage based on finish type
+                        let applicableSqFt = 0;
+                        
+                        if (finishType === 'wallTexture' || finishType === 'ceilingTexture') {
+                            // Wall and ceiling textures typically apply to finished areas
+                            applicableSqFt = finishedSqFt;
+                        } else if (finishType === 'corners') {
+                            // Corners might apply to all hanging square footage
+                            applicableSqFt = hangingSqFt;
+                        }
+                        
+                        const finishProfit = applicableSqFt * extraProfitPerSqFt;
+                        finishExtraProfit += finishProfit;
+                        
+                        debug.push(`${finishType}: ${finish.name}`);
+                        debug.push(`  Charge: $${chargeRate}/sq ft, Base Pay: $${payRate}/sq ft`);
+                        debug.push(`  Pay with burden (${(markups.laborBurden * 100).toFixed(1)}%): $${payWithBurden.toFixed(3)}/sq ft`);
+                        debug.push(`  Pay with overhead (${(markups.overhead * 100).toFixed(1)}%): $${payWithOverhead.toFixed(3)}/sq ft`);
+                        debug.push(`  Pay with all markups (${(markups.profit * 100).toFixed(1)}%): $${payWithAllMarkups.toFixed(3)}/sq ft`);
+                        debug.push(`  Extra profit: $${extraProfitPerSqFt.toFixed(6)}/sq ft`);
+                        debug.push(`  Applied to: ${applicableSqFt} sq ft`);
+                        debug.push(`  Total extra profit: $${finishProfit.toFixed(2)}`);
+                    }
+                }
+            }
+        });
+        
+        debug.push(`Total Finish Extra Profit: $${finishExtraProfit.toFixed(2)}`);
+        
         // Round up to nearest $5
-        const netQuote = Math.ceil((breakEven + profit) / 5) * 5;
+        const netQuote = Math.ceil((breakEven + profit + finishExtraProfit) / 5) * 5;
 
         debug.push('\n=== FINAL CALCULATIONS ===');
         debug.push(`Hard Cost (Materials + Labor): $${hardCost.toFixed(2)}`);
         debug.push(`Overhead (${(markups.overhead * 100).toFixed(2)}%): $${overhead.toFixed(2)}`);
         debug.push(`Break Even: $${breakEven.toFixed(2)}`);
-        debug.push(`Profit (${(markups.profit * 100).toFixed(2)}%): $${profit.toFixed(2)}`);
+        debug.push(`Base Profit (${(markups.profit * 100).toFixed(2)}%): $${profit.toFixed(2)}`);
+        debug.push(`Finish Extra Profit: $${finishExtraProfit.toFixed(2)}`);
+        debug.push(`Total Profit: $${(profit + finishExtraProfit).toFixed(2)}`);
         debug.push(`Net Quote (rounded to $5): $${netQuote.toFixed(2)}`);
 
         return {
@@ -389,6 +484,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             totalMaterialBeforeTax,
             totalMaterialWithTax,
             salesTax: totalMaterialWithTax - totalMaterialBeforeTax,
+            effectiveSalesTaxRate,
             hangLabor,
             tapeLabor,
             totalBaseLabor,
@@ -398,6 +494,8 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             overhead,
             breakEven,
             profit,
+            finishExtraProfit,
+            totalProfit: profit + finishExtraProfit,
             netQuote,
             debug
         };
@@ -409,6 +507,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 totalMaterialBeforeTax: 0,
                 totalMaterialWithTax: 0,
                 salesTax: 0,
+                effectiveSalesTaxRate: markups.salesTax,
                 hangLabor: 0,
                 tapeLabor: 0,
                 totalBaseLabor: 0,
@@ -418,6 +517,8 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 overhead: 0,
                 breakEven: 0,
                 profit: 0,
+                finishExtraProfit: 0,
+                totalProfit: 0,
                 netQuote: 0,
                 debug: [`Error in calculation: ${error.message}`]
             };
@@ -489,7 +590,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                     <span>${pricing.miscMaterials.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span>Sales Tax ({(markups.salesTax * 100).toFixed(2)}%):</span>
+                    <span>Sales Tax ({(pricing.effectiveSalesTaxRate * 100).toFixed(3)}%{bid.salesTaxRate ? ' - Location Based' : ''}):</span>
                     <span>${pricing.salesTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between font-medium border-t pt-2">
@@ -525,8 +626,18 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                     <span>${pricing.breakEven.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span>Profit ({(markups.profit * 100).toFixed(1)}%):</span>
+                    <span>Base Profit ({(markups.profit * 100).toFixed(1)}%):</span>
                     <span>${pricing.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                {pricing.finishExtraProfit > 0 && (
+                    <div className="flex justify-between">
+                        <span>Finish Extra Profit:</span>
+                        <span>${pricing.finishExtraProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                )}
+                <div className="flex justify-between font-medium">
+                    <span>Total Profit:</span>
+                    <span>${pricing.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between border-t pt-2 font-bold text-base">
                     <span>Net Quote:</span>
