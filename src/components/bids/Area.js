@@ -119,25 +119,6 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
         onUpdate({ ...area, materials: updatedMaterials });
     };
 
-    // Update material variant
-    const updateMaterialVariant = (materialIndex, variantIndex, field, value) => {
-        const updatedMaterials = [...area.materials];
-        if (!updatedMaterials[materialIndex].variants) {
-            updatedMaterials[materialIndex].variants = [{}];
-        }
-        updatedMaterials[materialIndex].variants[variantIndex] = {
-            ...updatedMaterials[materialIndex].variants[variantIndex],
-            [field]: value
-        };
-        onUpdate({ ...area, materials: updatedMaterials });
-    };
-
-    const updateMaterialField = (materialIndex, field, value) => {
-        const updatedMaterials = [...area.materials];
-        updatedMaterials[materialIndex] = { ...updatedMaterials[materialIndex], [field]: value };
-        onUpdate({ ...area, materials: updatedMaterials });
-    };
-
     const updateVariantQuantity = (materialIndex, variantId, newQuantity) => {
         const updatedMaterials = [...area.materials];
         const material = updatedMaterials[materialIndex];
@@ -296,7 +277,7 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                         <label className="block text-sm font-medium text-gray-700">Hang Rate</label>
                         <input
                             type="number"
-                            step="0.001"
+                            step="0.01"
                             value={area.hangRate || ''}
                             onChange={(e) => onUpdate({ ...area, hangRate: e.target.value })}
                             className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
@@ -318,7 +299,7 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                         </div>
                         <input
                             type="number"
-                            step="0.001"
+                            step="0.01"
                             value={area.autoTapeRate ? calculateAreaTapeRate() : (area.tapeRate || '')}
                             onChange={(e) => onUpdate({ ...area, tapeRate: e.target.value })}
                             disabled={area.autoTapeRate}

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, getDocs, query, where, orderBy, limit, doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useEffect, useCallback } from 'react';
+import { collection, onSnapshot, addDoc, getDocs, query, where, orderBy, limit, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 import ExpandableBidHeader from '../components/bids/ExpandableBidHeader';
 import Area from '../components/bids/Area';
 import ChangeLog from '../components/bids/ChangeLog';
 import BidPricingSummary from '../components/bids/BidPricingSummary';
-import { TaperCrew, getTaperRate } from '../Helpers';
+import { getTaperRate } from '../Helpers';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
@@ -264,17 +264,17 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     }, [editingProjectId, db]);
 
     // --- State Update Handlers ---
-    const handleInputChange = (e) => {
+    const handleInputChange = useCallback((e) => {
         const { name, value, type, checked } = e.target;
         setBid(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    };
+    }, []);
 
-    const updateArea = (updatedArea) => {
+    const updateArea = useCallback((updatedArea) => {
         setBid(prev => ({
             ...prev,
             areas: prev.areas.map(area => area.id === updatedArea.id ? updatedArea : area)
         }));
-    };
+    }, []);
 
     const addArea = () => {
         const regularMaterial = materials.find(m => m.name === '1/2" Regular');

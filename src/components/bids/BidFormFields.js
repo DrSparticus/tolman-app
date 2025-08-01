@@ -1,7 +1,7 @@
 import React from 'react';
 import { LocationControls } from '../LocationServices';
 
-export const BidFormFields = ({ 
+export const BidFormFields = React.memo(({ 
     bid, 
     handleInputChange, 
     supervisors, 
@@ -59,6 +59,41 @@ export const BidFormFields = ({
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Enter address or use current location"
                         />
+                        {bid.coordinates && (
+                            <div className="mt-2 text-xs text-gray-600">
+                                <div className="flex items-center justify-between">
+                                    <span>📍 Location saved: {bid.coordinates.lat.toFixed(6)}, {bid.coordinates.lng.toFixed(6)}</span>
+                                    <div className="flex space-x-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => locationServices.openInMaps(bid.coordinates)}
+                                            className="text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                            View Map
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={locationServices.openManualCoordinateInput}
+                                            className="text-purple-600 hover:text-purple-800 underline ml-2"
+                                        >
+                                            Edit Coords
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={locationServices.removeLocation}
+                                            className="text-red-600 hover:text-red-800 underline ml-2"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                                {bid.salesTaxRate && (
+                                    <div className="mt-1 text-green-600">
+                                        Auto-calculated sales tax: {(bid.salesTaxRate * 100).toFixed(3)}%
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 );
                 
@@ -93,7 +128,7 @@ export const BidFormFields = ({
                 <label className="block text-sm font-medium text-gray-700">Hang Rate</label>
                 <input
                     type="number"
-                    step="0.001"
+                    step="0.01"
                     name="finishedHangingRate"
                     value={bid.finishedHangingRate ?? ''}
                     placeholder={rateCalculations.defaultRates.hangRate || ''}
@@ -131,7 +166,7 @@ export const BidFormFields = ({
                 </div>
                 <input
                     type="number"
-                    step="0.001"
+                    step="0.01"
                     name="finishedTapeRate"
                     value={bid.autoTapeRate ? rateCalculations.calculateFinishedTapeRate() : (bid.finishedTapeRate ?? '')}
                     onChange={bid.autoTapeRate ? undefined : handleInputChange}
@@ -150,7 +185,7 @@ export const BidFormFields = ({
                 <label className="block text-sm font-medium text-gray-700">Unfinished Tape Rate</label>
                 <input
                     type="number"
-                    step="0.001"
+                    step="0.01"
                     name="unfinishedTapingRate"
                     value={bid.unfinishedTapingRate ?? ''}
                     placeholder={rateCalculations.defaultRates.unfinishedTapeRate || ''}
@@ -273,6 +308,9 @@ export const BidFormFields = ({
             <MaterialStockSection />
         </>
     );
-};
+});
+
+// Custom comparison function to prevent unnecessary re-renders
+BidFormFields.displayName = 'BidFormFields';
 
 export default BidFormFields;

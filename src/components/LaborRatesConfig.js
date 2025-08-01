@@ -18,8 +18,8 @@ const LaborRateInput = ({ label, name, value, onChange, onBlur }) => (
                 onChange={onChange}
                 onBlur={onBlur}
                 className="block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-                placeholder="0.000"
-                step="0.001"
+                placeholder="0.00"
+                step="0.01"
             />
         </div>
     </div>

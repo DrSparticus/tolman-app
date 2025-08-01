@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getStorage } from "firebase/storage";
 import { setLogLevel } from "firebase/app";
 
@@ -115,6 +115,7 @@ export default function App() {
             authListenerUnsub();
             userDocUnsubscribe();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // This effect should only run once on mount.
 
     // Simple history management

@@ -83,13 +83,6 @@ const FinishesConfig = ({ db }) => {
         setFinishes(updatedFinishes);
     };
 
-    const parseFinishDetailBlur = (type, name, field, value) => {
-        const parsedValue = parseFloat(value);
-        if (isNaN(parsedValue)) return 0;
-        else return parsedValue
-
-    };
-
 
     const handleFinishDetailBlur = async (type) => {
         await setDoc(doc(db, configPath, 'finishes'), { [type]: finishes[type] }, { merge: true });

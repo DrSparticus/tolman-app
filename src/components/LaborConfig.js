@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { PlusIcon, DeleteIcon } from '../Icons';
 
@@ -8,14 +8,14 @@ const LaborConfig = ({ db }) => {
     const [crewTypes, setCrewTypes] = useState([]);
     const [newCrewName, setNewCrewName] = useState('');
 
-    const defaultCrews = [
+    const defaultCrews = useMemo(() => [
         { name: 'Hanger', rates: { hang: 0 } },
         { name: 'Taper', rates: { finishedTape: 0, unfinishedTape: 0 } },
         { name: 'Firetaper', rates: {} },
         { name: 'Framer', rates: {} },
         { name: 'Ceiling Framer', rates: {} },
         { name: 'Patcher', rates: {} }
-    ];
+    ], []);
 
     useEffect(() => {
         if (!db) return;
@@ -35,7 +35,7 @@ const LaborConfig = ({ db }) => {
         });
 
         return unsubscribe;
-    }, [db]);
+    }, [db, defaultCrews]);
 
     const handleAddCrew = async (e) => {
         e.preventDefault();
@@ -95,12 +95,12 @@ const LaborConfig = ({ db }) => {
                         <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-sm">$</span>
                         <input
                             type="number"
-                            step="0.001"
+                            step="0.01"
                             value={crew.rates?.hang || ''}
                             onChange={(e) => handleRateChange(crew.id, 'hang', e.target.value)}
                             onBlur={(e) => handleSaveRate(crew.id, 'hang', e.target.value)}
                             className="pl-6 pr-2 py-1 w-24 border-gray-300 rounded-md text-sm"
-                            placeholder="0.000"
+                            placeholder="0.00"
                         />
                     </div>
                 </div>
@@ -115,12 +115,12 @@ const LaborConfig = ({ db }) => {
                         <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-sm">$</span>
                         <input
                             type="number"
-                            step="0.001"
+                            step="0.01"
                             value={crew.rates?.finishedTape || ''}
                             onChange={(e) => handleRateChange(crew.id, 'finishedTape', e.target.value)}
                             onBlur={(e) => handleSaveRate(crew.id, 'finishedTape', e.target.value)}
                             className="pl-6 pr-2 py-1 w-24 border-gray-300 rounded-md text-sm"
-                            placeholder="0.000"
+                            placeholder="0.00"
                         />
                     </div>
                 </div>,
@@ -130,12 +130,12 @@ const LaborConfig = ({ db }) => {
                         <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-sm">$</span>
                         <input
                             type="number"
-                            step="0.001"
+                            step="0.01"
                             value={crew.rates?.unfinishedTape || ''}
                             onChange={(e) => handleRateChange(crew.id, 'unfinishedTape', e.target.value)}
                             onBlur={(e) => handleSaveRate(crew.id, 'unfinishedTape', e.target.value)}
                             className="pl-6 pr-2 py-1 w-24 border-gray-300 rounded-md text-sm"
-                            placeholder="0.000"
+                            placeholder="0.00"
                         />
                     </div>
                 </div>

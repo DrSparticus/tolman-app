@@ -125,7 +125,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-4 mt-4 border-t">
                  <div>
                     <label className="block text-sm font-medium text-gray-700">Hang Rate</label>
-                    <input type="number" step="0.001" name="finishedHangingRate" value={bid.finishedHangingRate ?? ''} onChange={handleInputChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
+                    <input type="number" step="0.01" name="finishedHangingRate" value={bid.finishedHangingRate ?? ''} onChange={handleInputChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
                 </div>
                  <div>
                     <div className="flex items-center justify-between mb-1">
@@ -144,7 +144,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                     </div>
                     <input 
                         type="number" 
-                        step="0.001" 
+                        step="0.01" 
                         name="finishedTapeRate" 
                         value={bid.autoTapeRate ? calculateFinishedTapeRate() : (bid.finishedTapeRate ?? '')}
                         onChange={handleInputChange}
@@ -154,7 +154,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Unfinished Tape Rate</label>
-                    <input type="number" step="0.001" name="unfinishedTapingRate" value={bid.unfinishedTapingRate ?? ''} onChange={handleInputChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
+                    <input type="number" step="0.01" name="unfinishedTapingRate" value={bid.unfinishedTapingRate ?? ''} onChange={handleInputChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" />
                 </div>
             </div>
 

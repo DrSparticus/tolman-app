@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { EditIcon } from '../Icons.js';
 
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;

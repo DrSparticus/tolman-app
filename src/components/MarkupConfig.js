@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
@@ -25,7 +25,7 @@ const MarkupInput = ({ label, name, value, onChange, onBlur }) => (
 );
 
 const MarkupConfig = ({ db }) => {
-    const initialMarkups = { laborBurden: '0', salesTax: '0', overhead: '0', profit: '0' };
+    const initialMarkups = useMemo(() => ({ laborBurden: '0', salesTax: '0', overhead: '0', profit: '0' }), []);
     const [markups, setMarkups] = useState(initialMarkups);
 
     useEffect(() => {
@@ -48,7 +48,7 @@ const MarkupConfig = ({ db }) => {
             }
         });
         return unsubscribe;
-    }, [db]);
+    }, [db, initialMarkups]);
 
     const handleMarkupChange = (e) => {
         const { name, value } = e.target;
@@ -68,7 +68,7 @@ const MarkupConfig = ({ db }) => {
         const { name, value } = e.target;
         const markupsToSave = { ...markups, [name]: parseFloat(value) };
         const markupDocRef = doc(db, configPath, 'markup');
-      console.warn('Implement handleSaveMarkup');
+        await setDoc(markupDocRef, markupsToSave);
     }
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg mb-8">

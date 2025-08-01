@@ -207,8 +207,18 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 
                 debug.push(`  Evaluated formula: ${calculatedFormula}`);
                 
-                // Safely evaluate the formula
-                depQuantity = Function(`"use strict"; return (${calculatedFormula})`)();
+                // Safely evaluate the formula using a more secure approach
+                const safeEvaluateFormula = (formula) => {
+                    // Only allow numbers, basic math operators, parentheses, and decimal points
+                    const sanitizedFormula = formula.replace(/[^0-9+\-*/().\s]/g, '');
+                    if (sanitizedFormula !== formula) {
+                        throw new Error('Formula contains invalid characters');
+                    }
+                    // eslint-disable-next-line no-new-func
+                    return Function(`"use strict"; return (${sanitizedFormula})`)();
+                };
+                
+                depQuantity = safeEvaluateFormula(calculatedFormula);
                 
                 if (dep.roundUp && depQuantity > 0) {
                     const decimalPlaces = dep.roundToDecimalPlaces || 0;
@@ -220,7 +230,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                     }
                 }
                 
-                debug.push(`  Raw calculated quantity: ${Function(`"use strict"; return (${calculatedFormula})`)()}`);
+                debug.push(`  Raw calculated quantity: ${safeEvaluateFormula(calculatedFormula)}`);
                 debug.push(`  Round up: ${dep.roundUp}, Decimal places: ${dep.roundToDecimalPlaces || 0}, Final quantity: ${depQuantity}`);
                 
             } catch (error) {

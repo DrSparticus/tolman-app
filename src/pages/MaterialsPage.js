@@ -5,9 +5,7 @@ import {
     addDoc, 
     updateDoc, 
     deleteDoc, 
-    doc,
-    query,
-    orderBy
+    doc
 } from 'firebase/firestore';
 import { 
     SortIcon, 
@@ -78,7 +76,7 @@ const MaterialsPage = ({ db }) => {
             console.error('MaterialsPage: Error setting up materials listener:', error);
             setLoading(false);
         }
-    }, [db, materialsPath]);
+    }, [db]);
 
     useEffect(() => {
         if (!db) {
@@ -105,7 +103,7 @@ const MaterialsPage = ({ db }) => {
         });
 
         return unsubscribe;
-    }, [db, configPath]);
+    }, [db]);
 
     const sortedMaterials = React.useMemo(() => {
         let sortableItems = [...materials];

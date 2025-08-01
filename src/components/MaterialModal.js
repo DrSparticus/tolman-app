@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DeleteIcon } from '../Icons';
 
 const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
-    const emptyVariant = {
+    const emptyVariant = useMemo(() => ({
         id: crypto.randomUUID(),
         widthFt: '',
         widthIn: '',
         lengthFt: '',
         lengthIn: '',
-    };
+    }), []);
     
-    const initialFormData = {
+    const initialFormData = useMemo(() => ({
         name: '',
         category: 'drywall-board',
         unit: 'each',
@@ -18,7 +18,7 @@ const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
         laborFormula: 'none',
         laborCost: '',
         variants: [emptyVariant]
-    };
+    }), [emptyVariant]);
 
     const [formData, setFormData] = useState(initialFormData);
     const [extraLabor, setExtraLabor] = useState(material?.extraLabor || []);
@@ -40,7 +40,7 @@ const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
             setFormData(initialFormData);
             setExtraLabor([]);
         }
-    }, [material, isOpen]);
+    }, [material, isOpen, emptyVariant, initialFormData]);
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
+import GoogleMapSelector from './GoogleMapSelector';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
 
@@ -207,68 +208,6 @@ export const useLocationServices = (db, handleInputChange) => {
         return null;
     };
 
-    const openAddressMap = async (address) => {
-        if (!address || address.trim() === '') {
-            window.alert('Please enter an address first.');
-            return;
-        }
-
-        try {
-            const coordinates = await geocodeAddress(address);
-            
-            if (coordinates) {
-                const lat = coordinates.lat;
-                const lng = coordinates.lng;
-                
-                // Store the geocoded coordinates immediately
-                handleInputChange({
-                    target: { name: 'coordinates', value: coordinates }
-                });
-
-                // Calculate sales tax for the geocoded location
-                try {
-                    const taxRate = await getSalesTaxRate(coordinates);
-                    if (taxRate) {
-                        handleInputChange({
-                            target: { name: 'salesTaxRate', value: taxRate }
-                        });
-                        console.log(`Sales tax rate updated to ${(taxRate * 100).toFixed(3)}% based on geocoded address`);
-                    }
-                } catch (error) {
-                    console.log('Could not get sales tax rate for geocoded address:', error);
-                }
-
-                const url = `https://www.google.com/maps/@${lat},${lng},17z`;
-                
-                const userWantsToAdjust = window.confirm(
-                    `Location found for "${address}"!\n\n` +
-                    `Coordinates have been saved: ${lat.toFixed(6)}, ${lng.toFixed(6)}\n\n` +
-                    `Click OK to open Google Maps if you want to fine-tune the location.\n` +
-                    `In Google Maps:\n` +
-                    `1. Right-click on the exact spot you want\n` +
-                    `2. Click the coordinates that appear\n` +
-                    `3. Copy them and use the "Manual Coordinates" button below to enter them\n\n` +
-                    `Click Cancel if the current location is accurate.`
-                );
-                
-                if (userWantsToAdjust) {
-                    window.open(url, '_blank');
-                }
-                
-            } else {
-                const encodedAddress = encodeURIComponent(address);
-                const url = `https://www.google.com/maps/search/${encodedAddress}`;
-                window.alert('Could not find exact coordinates for this address. Opening Google Maps search instead.');
-                window.open(url, '_blank');
-            }
-        } catch (error) {
-            console.error('Error opening address map:', error);
-            const encodedAddress = encodeURIComponent(address);
-            const url = `https://www.google.com/maps/search/${encodedAddress}`;
-            window.open(url, '_blank');
-        }
-    };
-
     const openManualCoordinateInput = () => {
         const coordInput = window.prompt(
             'Enter coordinates in format: latitude, longitude\n' +
@@ -331,90 +270,97 @@ export const useLocationServices = (db, handleInputChange) => {
         });
     };
 
+    const openGoogleMapSelector = (initialCoordinates) => {
+        // This will be handled by the component state
+        return true;
+    };
+
+    const handleMapLocationSelect = async (coordinates) => {
+        // Save coordinates to bid
+        handleInputChange({
+            target: { name: 'coordinates', value: coordinates }
+        });
+
+        // Calculate sales tax for the new location
+        try {
+            const taxRate = await getSalesTaxRate(coordinates);
+            if (taxRate) {
+                handleInputChange({
+                    target: { name: 'salesTaxRate', value: taxRate }
+                });
+                console.log(`Sales tax rate updated to ${(taxRate * 100).toFixed(3)}% based on map selection`);
+            }
+        } catch (error) {
+            console.log('Could not get sales tax rate for map selection:', error);
+        }
+    };
+
+    const handleMapAddressUpdate = (address) => {
+        // Update the address field
+        handleInputChange({
+            target: { name: 'address', value: address }
+        });
+    };
+
     return {
         locationSettings,
         getCurrentLocation,
-        openAddressMap,
         openManualCoordinateInput,
         openInMaps,
-        removeLocation
+        removeLocation,
+        openGoogleMapSelector,
+        handleMapLocationSelect,
+        handleMapAddressUpdate,
+        geocodeAddress
     };
 };
 
 // Location Controls Component for address field
 export const LocationControls = ({ bid, locationSettings, locationServices }) => {
+    const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
+    
     if (!locationSettings.enableLocationServices) return null;
+
+    const handleOpenMapSelector = async () => {
+        let initialCoordinates = bid.coordinates;
+        
+        // If we don't have coordinates but have an address, try to geocode it first
+        if (!initialCoordinates && bid.address && bid.address.trim() !== '') {
+            initialCoordinates = await locationServices.geocodeAddress?.(bid.address);
+        }
+        
+        setIsMapSelectorOpen(true);
+    };
+
+    const handleMapLocationSelect = (coordinates) => {
+        locationServices.handleMapLocationSelect(coordinates);
+    };
+
+    const handleMapAddressUpdate = (address) => {
+        locationServices.handleMapAddressUpdate(address);
+    };
 
     return (
         <>
             <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium text-gray-700">Address</label>
                 <div className="flex space-x-1">
-                    {bid.address && bid.address.trim() !== '' && (
-                        <button
-                            type="button"
-                            onClick={() => locationServices.openAddressMap(bid.address)}
-                            className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500"
-                            title="View address on map and adjust location"
-                        >
-                            🗺️ Map
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={handleOpenMapSelector}
+                        className="px-2 py-1 text-xs bg-purple-500 text-white rounded hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                        🎯 Select on Map
+                    </button>
                     <button
                         type="button"
                         onClick={locationServices.getCurrentLocation}
                         className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        title="Use current location"
                     >
                         📍 GPS
                     </button>
                 </div>
             </div>
-            
-            {bid.coordinates && (
-                <div className="mt-2 text-xs text-gray-600">
-                    <div className="flex items-center justify-between">
-                        <span>📍 Location saved: {bid.coordinates.lat.toFixed(6)}, {bid.coordinates.lng.toFixed(6)}</span>
-                        <div className="flex space-x-1">
-                            <button
-                                type="button"
-                                onClick={() => locationServices.openInMaps(bid.coordinates)}
-                                className="text-blue-600 hover:text-blue-800 underline"
-                                title="Open in Google Maps"
-                            >
-                                View Map
-                            </button>
-                            <button
-                                type="button"
-                                onClick={locationServices.openManualCoordinateInput}
-                                className="text-purple-600 hover:text-purple-800 underline ml-2"
-                                title="Enter coordinates manually"
-                            >
-                                Edit Coords
-                            </button>
-                            <button
-                                type="button"
-                                onClick={locationServices.removeLocation}
-                                className="text-red-600 hover:text-red-800 underline ml-2"
-                                title="Remove saved location"
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-                    {bid.salesTaxRate && (
-                        <div className="mt-1 text-green-600">
-                            Auto-calculated sales tax: {(bid.salesTaxRate * 100).toFixed(3)}%
-                        </div>
-                    )}
-                </div>
-            )}
-            
-            {bid.address && bid.address.trim() !== '' && !bid.coordinates && (
-                <div className="mt-2 text-xs text-amber-600">
-                    💡 Click "Map" to view this address and set precise coordinates
-                </div>
-            )}
             
             {!bid.address && !bid.coordinates && (
                 <div className="mt-2 text-xs text-gray-500">
@@ -422,12 +368,20 @@ export const LocationControls = ({ bid, locationSettings, locationServices }) =>
                         type="button"
                         onClick={locationServices.openManualCoordinateInput}
                         className="text-purple-600 hover:text-purple-800 underline"
-                        title="Enter coordinates manually if you have them"
                     >
                         📝 Enter coordinates manually
                     </button>
                 </div>
             )}
+            
+            {/* Google Map Selector Modal */}
+            <GoogleMapSelector
+                initialCoordinates={bid.coordinates}
+                onLocationSelect={handleMapLocationSelect}
+                onAddressUpdate={handleMapAddressUpdate}
+                isOpen={isMapSelectorOpen}
+                onClose={() => setIsMapSelectorOpen(false)}
+            />
         </>
     );
 };
