@@ -156,7 +156,16 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             area.materials?.forEach(areaMat => {
                 const material = materials.find(m => m.id === areaMat.materialId);
                 if (material) {
-                    const quantity = parseFloat(areaMat.quantity) || 0;
+                    // Calculate total quantity from variants
+                    let quantity = 0;
+                    if (areaMat.variants && areaMat.variants.length > 0) {
+                        quantity = areaMat.variants.reduce((total, variant) => {
+                            return total + (parseFloat(variant.quantity) || 0);
+                        }, 0);
+                    } else {
+                        quantity = parseFloat(areaMat.quantity) || 0;
+                    }
+                    
                     const price = parseFloat(material.price) || 0;
                     totalMaterialCostCalc += quantity * price;
 
@@ -394,6 +403,8 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     totalMaterialCost={totalMaterialCost} 
                     userData={userData}
                     db={db}
+                    materials={materials}
+                    finishes={finishes}
                 />
             </div>
         </div>

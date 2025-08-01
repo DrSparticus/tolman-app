@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
+const materialsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/public/data/materials`;
 
-export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCost, userData, db }) {
-    const [markups, setMarkups] = useState({ laborBurden: 0, salesTax: 0, overhead: 0.08, profit: 0.10 });
+export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCost, userData, db, materials, finishes }) {
+    const [markups, setMarkups] = useState({ laborBurden: 0.15, salesTax: 0.0725, overhead: 0.08, profit: 0.10 });
+    const [crewTypes, setCrewTypes] = useState([]);
+    const [materialDependencies, setMaterialDependencies] = useState([]);
+    const [debugMode, setDebugMode] = useState(false);
     const isSupervisor = userData?.role === 'supervisor';
     
     // Load markups from database
@@ -15,29 +19,422 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setMarkups({
-                    laborBurden: parseFloat(data.laborBurden) || 0,
-                    salesTax: parseFloat(data.salesTax) || 0,
-                    overhead: parseFloat(data.overhead) || 0.08,
-                    profit: parseFloat(data.profit) || 0.10
+                    laborBurden: (parseFloat(data.laborBurden) || 15) / 100,
+                    salesTax: (parseFloat(data.salesTax) || 7.25) / 100,
+                    overhead: (parseFloat(data.overhead) || 8) / 100,
+                    profit: (parseFloat(data.profit) || 10) / 100
                 });
             }
         });
         return unsubscribe;
     }, [db]);
-    
-    const calculateTotalHardCost = () => {
-        const materialCost = totalMaterialCost || 0;
-        const baseLaborCost = (laborBreakdown.hanging?.labor || 0) + (laborBreakdown.taping?.labor || 0);
-        const laborWithBurden = baseLaborCost * (1 + markups.laborBurden);
-        return materialCost + laborWithBurden;
+
+    // Load crew types and material dependencies
+    useEffect(() => {
+        if (!db) return;
+        
+        // Load crew types
+        const crewCollectionRef = collection(db, configPath, 'labor', 'crewTypes');
+        const crewUnsubscribe = onSnapshot(crewCollectionRef, (snapshot) => {
+            const crewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setCrewTypes(crewsData);
+        });
+
+        // Load material dependencies
+        const depsDocRef = doc(db, configPath, 'materialDependencies');
+        const depsUnsubscribe = onSnapshot(depsDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setMaterialDependencies(data.dependencies || []);
+            } else {
+                setMaterialDependencies([]);
+            }
+        });
+
+        return () => {
+            crewUnsubscribe();
+            depsUnsubscribe();
+        };
+    }, [db]);
+
+    // Early return if essential props are missing (after hooks)
+    if (!bid || !materials || !finishes) {
+        console.log('BidPricingSummary: Missing props', { bid: !!bid, materials: !!materials, finishes: !!finishes });
+        return (
+            <div className="bg-white p-4 rounded-lg shadow-lg">
+                <h3 className="text-lg font-semibold mb-4">Pricing Summary</h3>
+                <div className="text-gray-500">Loading pricing data...</div>
+            </div>
+        );
+    }
+
+    // Calculate pricing according to Excel spreadsheet logic
+    const calculatePricing = () => {
+        try {
+            const debug = [];
+            
+            // Safety checks
+            if (!bid || !materials || !Array.isArray(materials)) {
+                debug.push('Missing required data: bid, materials, or materials is not an array');
+                return {
+                    stockedMaterial: 0,
+                    miscMaterials: 0,
+                    totalMaterialBeforeTax: 0,
+                    totalMaterialWithTax: 0,
+                    salesTax: 0,
+                    hangLabor: 0,
+                    tapeLabor: 0,
+                    totalBaseLabor: 0,
+                    laborBurden: 0,
+                    totalLaborWithBurden: 0,
+                    hardCost: 0,
+                    overhead: 0,
+                    breakEven: 0,
+                    profit: 0,
+                    netQuote: 0,
+                    debug: ['Error: Missing required data for calculations']
+                };
+            }
+            
+            // Find crew IDs
+            const hangingCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('hang'))?.id;
+            const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+        
+        debug.push(`Hanging Crew ID: ${hangingCrewId}`);
+        debug.push(`Taper Crew ID: ${taperCrewId}`);
+
+        // H135: Stocked Material - All user-counted materials + Taper dependencies
+        let stockedMaterial = 0;
+        let miscMaterials = 0; // H136: Misc Materials - Hanger dependencies
+        let finishedSqFt = 0;
+        let unfinishedSqFt = 0;
+        let hangingSqFt = 0;
+
+        debug.push('\n=== MATERIAL CALCULATIONS ===');
+
+        bid.areas?.forEach(area => {
+            debug.push(`\nArea: ${area.name} (${area.isFinished ? 'Finished' : 'Unfinished'})`);
+            
+            area.materials?.forEach(areaMat => {
+                const material = materials?.find(m => m.id === areaMat.materialId);
+                if (!material) return;
+
+                // Calculate total square footage from variants
+                let totalSqFt = 0;
+                if (areaMat.variants && areaMat.variants.length > 0) {
+                    totalSqFt = areaMat.variants.reduce((total, variant) => {
+                        const widthInches = (parseFloat(variant.widthFt || 0) * 12) + parseFloat(variant.widthIn || 0);
+                        const lengthInches = (parseFloat(variant.lengthFt || 0) * 12) + parseFloat(variant.lengthIn || 0);
+                        if (widthInches === 0 || lengthInches === 0) return total;
+                        const sqFtPerPiece = (widthInches * lengthInches) / 144;
+                        const quantity = parseInt(variant.quantity, 10) || 0;
+                        return total + (sqFtPerPiece * quantity);
+                    }, 0);
+                } else {
+                    // Fallback to direct quantity if no variants (shouldn't happen in normal operation)
+                    totalSqFt = parseFloat(areaMat.quantity) || 0;
+                }
+
+                if (totalSqFt > 0) {
+                    const materialCost = totalSqFt * (parseFloat(material.price) || 0);
+                    stockedMaterial += materialCost;
+                    
+                    debug.push(`  ${material.name}: ${totalSqFt.toFixed(2)} sq ft @ $${material.price} = $${materialCost.toFixed(2)}`);
+
+                    // Track square footage for labor calculations
+                    if (material.category === 'drywall-board' || material.category === '2nd-layer-board') {
+                        hangingSqFt += totalSqFt;
+                        
+                        if (areaMat.laborType === 'finished' || area.isFinished) {
+                            finishedSqFt += totalSqFt;
+                        } else {
+                            unfinishedSqFt += totalSqFt;
+                        }
+                    }
+                }
+            });
+        });
+
+        debug.push(`\nUser Materials Total: $${stockedMaterial.toFixed(2)}`);
+        debug.push(`Finished Sq Ft: ${finishedSqFt}`);
+        debug.push(`Unfinished Sq Ft: ${unfinishedSqFt}`);
+        debug.push(`Total Hanging Sq Ft: ${hangingSqFt}`);
+
+        // Add material dependencies
+        debug.push('\n=== MATERIAL DEPENDENCIES ===');
+        debug.push(`Total dependencies loaded: ${materialDependencies.length}`);
+        
+        materialDependencies.forEach(dep => {
+            debug.push(`\nProcessing dependency: ${dep.materialName || 'Unknown'}`);
+            debug.push(`  Formula: ${dep.formula}`);
+            debug.push(`  Labor Types: ${JSON.stringify(dep.laborTypes)}`);
+            debug.push(`  Applies To: ${JSON.stringify(dep.appliesTo)}`);
+            debug.push(`  Finished Only: ${dep.finishedOnly}`);
+            
+            // Find the dependent material by name
+            const dependentMaterial = materials?.find(m => 
+                m.name === dep.materialName || 
+                m.name.toLowerCase().includes(dep.materialName.toLowerCase()) ||
+                dep.materialName.toLowerCase().includes(m.name.toLowerCase())
+            );
+            
+            if (!dependentMaterial) {
+                debug.push(`  ERROR: Dependent material not found for name: ${dep.materialName}`);
+                return;
+            }
+            debug.push(`  Found material: ${dependentMaterial.name} @ $${dependentMaterial.price}`);
+
+            // Calculate quantity using the formula
+            let depQuantity = 0;
+            
+            try {
+                // Set up variables for formula evaluation
+                const totalSqFt = hangingSqFt;
+                const finishedSqFtForFormula = finishedSqFt;
+                const secondLayerSqFt = 0; // Could be calculated if needed
+                const furringLinearFt = 0; // Could be calculated if needed
+                
+                debug.push(`  Formula variables: totalSqFt=${totalSqFt}, finishedSqFt=${finishedSqFtForFormula}`);
+                
+                // Replace variables in formula
+                let calculatedFormula = dep.formula
+                    .replace(/totalSqFt/g, totalSqFt)
+                    .replace(/finishedSqFt/g, finishedSqFtForFormula)
+                    .replace(/secondLayerSqFt/g, secondLayerSqFt)
+                    .replace(/furringLinearFt/g, furringLinearFt);
+                
+                debug.push(`  Evaluated formula: ${calculatedFormula}`);
+                
+                // Safely evaluate the formula
+                depQuantity = Function(`"use strict"; return (${calculatedFormula})`)();
+                
+                if (dep.roundUp && depQuantity > 0) {
+                    depQuantity = Math.ceil(depQuantity);
+                }
+                
+                debug.push(`  Raw calculated quantity: ${depQuantity}`);
+                debug.push(`  Round up: ${dep.roundUp}, Final quantity: ${depQuantity}`);
+                
+            } catch (error) {
+                debug.push(`  ERROR evaluating formula: ${error.message}`);
+                return;
+            }
+
+            if (depQuantity > 0) {
+                const depCost = depQuantity * (parseFloat(dependentMaterial.price) || 0);
+                
+                // Determine if this goes to Stocked (Taper) or Misc (Hanger) based on laborTypes
+                const isHangerDependency = dep.laborTypes?.includes('hanging');
+                const isTaperDependency = dep.laborTypes?.includes('taping');
+                
+                debug.push(`  Cost calculation: ${depQuantity} * $${dependentMaterial.price} = $${depCost.toFixed(2)}`);
+                debug.push(`  Is Hanger dependency: ${isHangerDependency}`);
+                debug.push(`  Is Taper dependency: ${isTaperDependency}`);
+                
+                // Apply finished-only filter
+                if (dep.finishedOnly && finishedSqFt === 0) {
+                    debug.push(`  Skipping: Finished-only dependency but no finished square footage`);
+                    return;
+                }
+                
+                if (isHangerDependency) {
+                    miscMaterials += depCost;
+                    debug.push(`  ${dependentMaterial.name} (Hanger): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Misc Materials`);
+                } else if (isTaperDependency) {
+                    stockedMaterial += depCost;
+                    debug.push(`  ${dependentMaterial.name} (Taper): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Stocked Material`);
+                } else {
+                    // Default to misc materials if not specified
+                    miscMaterials += depCost;
+                    debug.push(`  ${dependentMaterial.name} (Default): ${depQuantity} @ $${dependentMaterial.price} = $${depCost.toFixed(2)} -> Misc Materials`);
+                }
+            } else {
+                debug.push(`  No quantity calculated - skipping`);
+            }
+        });
+
+        // H135 + H136: Total Material before tax
+        const totalMaterialBeforeTax = stockedMaterial + miscMaterials;
+        
+        // Apply sales tax to materials
+        const totalMaterialWithTax = totalMaterialBeforeTax * (1 + markups.salesTax);
+
+        debug.push(`\nStocked Material (H135): $${stockedMaterial.toFixed(2)}`);
+        debug.push(`Misc Materials (H136): $${miscMaterials.toFixed(2)}`);
+        debug.push(`Total Material Before Tax: $${totalMaterialBeforeTax.toFixed(2)}`);
+        debug.push(`Sales Tax (${(markups.salesTax * 100).toFixed(2)}%): $${(totalMaterialWithTax - totalMaterialBeforeTax).toFixed(2)}`);
+        debug.push(`Total Material With Tax: $${totalMaterialWithTax.toFixed(2)}`);
+
+        // H138: Hang Labor
+        debug.push('\n=== LABOR CALCULATIONS ===');
+        
+        const hangRate = parseFloat(bid.finishedHangingRate) || 0;
+        let hangLabor = hangingSqFt * hangRate;
+        
+        debug.push(`Hang Rate: $${hangRate}/sq ft`);
+        debug.push(`Hanging Sq Ft: ${hangingSqFt}`);
+        debug.push(`Base Hang Labor: $${hangLabor.toFixed(2)}`);
+
+        // Add extra pay from materials
+        bid.areas?.forEach(area => {
+            area.materials?.forEach(areaMat => {
+                const material = materials?.find(m => m.id === areaMat.materialId);
+                if (!material?.extraLabor) return;
+
+                // Calculate total square footage from variants
+                let totalSqFt = 0;
+                if (areaMat.variants && areaMat.variants.length > 0) {
+                    totalSqFt = areaMat.variants.reduce((total, variant) => {
+                        const widthInches = (parseFloat(variant.widthFt || 0) * 12) + parseFloat(variant.widthIn || 0);
+                        const lengthInches = (parseFloat(variant.lengthFt || 0) * 12) + parseFloat(variant.lengthIn || 0);
+                        if (widthInches === 0 || lengthInches === 0) return total;
+                        const sqFtPerPiece = (widthInches * lengthInches) / 144;
+                        const quantity = parseInt(variant.quantity, 10) || 0;
+                        return total + (sqFtPerPiece * quantity);
+                    }, 0);
+                }
+
+                material.extraLabor.forEach(extra => {
+                    if (extra.crewType === hangingCrewId && totalSqFt > 0) {
+                        const extraPay = totalSqFt * (parseFloat(extra.extraPay) || 0);
+                        hangLabor += extraPay;
+                        debug.push(`  ${material.name} extra pay: ${totalSqFt.toFixed(2)} sq ft @ $${extra.extraPay} = $${extraPay.toFixed(2)}`);
+                    }
+                });
+            });
+        });
+
+        // H139: Tape Labor (Finished + Unfinished rates)
+        debug.push('\n=== TAPE RATE DEBUG ===');
+        debug.push(`Bid object keys containing 'tape': ${Object.keys(bid).filter(key => key.toLowerCase().includes('tape')).join(', ')}`);
+        debug.push(`bid.finishedTapeRate: ${bid.finishedTapeRate}`);
+        debug.push(`bid.unfinishedTapeRate: ${bid.unfinishedTapeRate}`);
+        debug.push(`bid.unfinishedTapingRate: ${bid.unfinishedTapingRate}`);
+        
+        const finishedTapeRate = parseFloat(bid.finishedTapeRate) || 0;
+        const unfinishedTapeRate = parseFloat(bid.unfinishedTapeRate || bid.unfinishedTapingRate) || 0;
+        
+        let tapeLabor = (finishedSqFt * finishedTapeRate) + (unfinishedSqFt * unfinishedTapeRate);
+        
+        debug.push(`\nFinished Tape Rate: $${finishedTapeRate}/sq ft`);
+        debug.push(`Unfinished Tape Rate: $${unfinishedTapeRate}/sq ft`);
+        debug.push(`Finished Tape Labor: ${finishedSqFt} @ $${finishedTapeRate} = $${(finishedSqFt * finishedTapeRate).toFixed(2)}`);
+        debug.push(`Unfinished Tape Labor: ${unfinishedSqFt} @ $${unfinishedTapeRate} = $${(unfinishedSqFt * unfinishedTapeRate).toFixed(2)}`);
+        debug.push(`Base Tape Labor: $${tapeLabor.toFixed(2)}`);
+
+        // Add taper extra pay
+        bid.areas?.forEach(area => {
+            area.materials?.forEach(areaMat => {
+                const material = materials?.find(m => m.id === areaMat.materialId);
+                if (!material?.extraLabor) return;
+
+                // Calculate total square footage from variants
+                let totalSqFt = 0;
+                if (areaMat.variants && areaMat.variants.length > 0) {
+                    totalSqFt = areaMat.variants.reduce((total, variant) => {
+                        const widthInches = (parseFloat(variant.widthFt || 0) * 12) + parseFloat(variant.widthIn || 0);
+                        const lengthInches = (parseFloat(variant.lengthFt || 0) * 12) + parseFloat(variant.lengthIn || 0);
+                        if (widthInches === 0 || lengthInches === 0) return total;
+                        const sqFtPerPiece = (widthInches * lengthInches) / 144;
+                        const quantity = parseInt(variant.quantity, 10) || 0;
+                        return total + (sqFtPerPiece * quantity);
+                    }, 0);
+                }
+
+                material.extraLabor.forEach(extra => {
+                    if (extra.crewType === taperCrewId && totalSqFt > 0) {
+                        const extraPay = totalSqFt * (parseFloat(extra.extraPay) || 0);
+                        tapeLabor += extraPay;
+                        debug.push(`  ${material.name} taper extra pay: ${totalSqFt.toFixed(2)} sq ft @ $${extra.extraPay} = $${extraPay.toFixed(2)}`);
+                    }
+                });
+            });
+        });
+
+        const totalBaseLabor = hangLabor + tapeLabor;
+        const laborBurden = totalBaseLabor * markups.laborBurden;
+        const totalLaborWithBurden = totalBaseLabor + laborBurden;
+
+        debug.push(`\nTotal Hang Labor: $${hangLabor.toFixed(2)}`);
+        debug.push(`Total Tape Labor: $${tapeLabor.toFixed(2)}`);
+        debug.push(`Total Base Labor: $${totalBaseLabor.toFixed(2)}`);
+        debug.push(`Labor Burden (${(markups.laborBurden * 100).toFixed(2)}%): $${laborBurden.toFixed(2)}`);
+        debug.push(`Total Labor With Burden: $${totalLaborWithBurden.toFixed(2)}`);
+
+        // Hard Cost = Materials + Labor
+        const hardCost = totalMaterialWithTax + totalLaborWithBurden;
+        
+        // Overhead applied to Hard Cost
+        const overhead = hardCost * markups.overhead;
+        
+        // Break Even = Hard Cost + Overhead
+        const breakEven = hardCost + overhead;
+        
+        // Profit applied to Break Even
+        const profit = breakEven * markups.profit;
+        
+        // Round up to nearest $5
+        const netQuote = Math.ceil((breakEven + profit) / 5) * 5;
+
+        debug.push('\n=== FINAL CALCULATIONS ===');
+        debug.push(`Hard Cost (Materials + Labor): $${hardCost.toFixed(2)}`);
+        debug.push(`Overhead (${(markups.overhead * 100).toFixed(2)}%): $${overhead.toFixed(2)}`);
+        debug.push(`Break Even: $${breakEven.toFixed(2)}`);
+        debug.push(`Profit (${(markups.profit * 100).toFixed(2)}%): $${profit.toFixed(2)}`);
+        debug.push(`Net Quote (rounded to $5): $${netQuote.toFixed(2)}`);
+
+        return {
+            stockedMaterial,
+            miscMaterials,
+            totalMaterialBeforeTax,
+            totalMaterialWithTax,
+            salesTax: totalMaterialWithTax - totalMaterialBeforeTax,
+            hangLabor,
+            tapeLabor,
+            totalBaseLabor,
+            laborBurden,
+            totalLaborWithBurden,
+            hardCost,
+            overhead,
+            breakEven,
+            profit,
+            netQuote,
+            debug
+        };
+        } catch (error) {
+            console.error('Error in pricing calculation:', error);
+            return {
+                stockedMaterial: 0,
+                miscMaterials: 0,
+                totalMaterialBeforeTax: 0,
+                totalMaterialWithTax: 0,
+                salesTax: 0,
+                hangLabor: 0,
+                tapeLabor: 0,
+                totalBaseLabor: 0,
+                laborBurden: 0,
+                totalLaborWithBurden: 0,
+                hardCost: 0,
+                overhead: 0,
+                breakEven: 0,
+                profit: 0,
+                netQuote: 0,
+                debug: [`Error in calculation: ${error.message}`]
+            };
+        }
     };
 
-    const hardCost = calculateTotalHardCost();
-    const overhead = hardCost * markups.overhead;
-    const profit = hardCost * markups.profit;
-    const subtotal = hardCost + overhead + profit;
-    const salesTax = subtotal * markups.salesTax;
-    const netQuote = Math.ceil((subtotal + salesTax) / 5) * 5; // Round to nearest $5
+    const pricing = calculatePricing();
+
+    // Safety check for pricing calculation
+    if (!pricing) {
+        return (
+            <div className="bg-white p-4 rounded-lg shadow-lg">
+                <h3 className="text-lg font-semibold mb-4">Pricing Summary</h3>
+                <div className="text-red-600">Error loading pricing data</div>
+            </div>
+        );
+    }
 
     if (isSupervisor) {
         return (
@@ -46,15 +443,15 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                         <span>Hang Labor:</span>
-                        <span>${laborBreakdown.hanging?.labor?.toFixed(2) || '0.00'}</span>
+                        <span>${pricing.hangLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between">
                         <span>Tape Labor:</span>
-                        <span>${laborBreakdown.taping?.labor?.toFixed(2) || '0.00'}</span>
+                        <span>${pricing.tapeLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between border-t pt-2 font-semibold">
                         <span>Net Quote:</span>
-                        <span>${netQuote.toLocaleString()}</span>
+                        <span>${pricing.netQuote.toLocaleString()}</span>
                     </div>
                 </div>
             </div>
@@ -63,35 +460,77 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
 
     return (
         <div className="bg-white p-4 rounded-lg shadow-lg">
-            <h3 className="text-lg font-semibold mb-4">Pricing Breakdown</h3>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Pricing Breakdown</h3>
+                <button 
+                    onClick={() => setDebugMode(!debugMode)}
+                    className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded"
+                >
+                    {debugMode ? 'Hide Debug' : 'Show Debug'}
+                </button>
+            </div>
+            
+            {debugMode && (
+                <div className="mb-4 p-3 bg-gray-50 rounded text-xs font-mono max-h-60 overflow-y-auto">
+                    <h4 className="font-bold mb-2">Debug Information:</h4>
+                    {pricing.debug.map((line, index) => (
+                        <div key={index} className="whitespace-pre-wrap">{line}</div>
+                    ))}
+                </div>
+            )}
+            
             <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
+                    <span>Stocked Material (H135):</span>
+                    <span>${pricing.stockedMaterial.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span>Misc Materials (H136):</span>
+                    <span>${pricing.miscMaterials.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span>Sales Tax ({(markups.salesTax * 100).toFixed(2)}%):</span>
+                    <span>${pricing.salesTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-medium border-t pt-2">
                     <span>Total Material:</span>
-                    <span>${totalMaterialCost?.toFixed(2) || '0.00'}</span>
+                    <span>${pricing.totalMaterialWithTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span>Hang Labor:</span>
-                    <span>${laborBreakdown.hanging?.labor?.toFixed(2) || '0.00'}</span>
+                    <span>Hang Labor (H138):</span>
+                    <span>${pricing.hangLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span>Tape Labor:</span>
-                    <span>${laborBreakdown.taping?.labor?.toFixed(2) || '0.00'}</span>
-                </div>
-                <div className="flex justify-between border-t pt-2">
-                    <span>Total Hard Cost:</span>
-                    <span>${hardCost.toFixed(2)}</span>
+                    <span>Tape Labor (H139):</span>
+                    <span>${pricing.tapeLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span>Overhead (8%):</span>
-                    <span>${overhead.toFixed(2)}</span>
+                    <span>Labor Burden ({(markups.laborBurden * 100).toFixed(1)}%):</span>
+                    <span>${pricing.laborBurden.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                    <span>Total Labor:</span>
+                    <span>${pricing.totalLaborWithBurden.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-medium border-t pt-2">
+                    <span>Hard Cost:</span>
+                    <span>${pricing.hardCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span>Profit (10%):</span>
-                    <span>${profit.toFixed(2)}</span>
+                    <span>Overhead ({(markups.overhead * 100).toFixed(1)}%):</span>
+                    <span>${pricing.overhead.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className="flex justify-between border-t pt-2 font-semibold">
+                <div className="flex justify-between font-semibold">
+                    <span>Break Even:</span>
+                    <span>${pricing.breakEven.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span>Profit ({(markups.profit * 100).toFixed(1)}%):</span>
+                    <span>${pricing.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-t pt-2 font-bold text-base">
                     <span>Net Quote:</span>
-                    <span>${netQuote.toLocaleString()}</span>
+                    <span>${pricing.netQuote.toLocaleString()}</span>
                 </div>
             </div>
         </div>

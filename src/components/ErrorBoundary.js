@@ -32,7 +32,7 @@ class ErrorBoundary extends React.Component {
             <div className="bg-gray-100 p-4 rounded">
               <h2 className="font-semibold mb-2">Component Stack:</h2>
               <pre className="text-sm text-gray-700 whitespace-pre-wrap">
-                {this.state.errorInfo.componentStack}
+                {this.state.errorInfo?.componentStack || 'No component stack available'}
               </pre>
             </div>
             <button 
