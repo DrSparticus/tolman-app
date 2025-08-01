@@ -8,7 +8,9 @@ export const BidFormFields = ({
     finishes, 
     locationSettings, 
     locationServices, 
-    rateCalculations 
+    rateCalculations,
+    headerConfig,
+    getLayoutClass
 }) => {
     
     const renderField = (fieldName) => {
@@ -251,13 +253,26 @@ export const BidFormFields = ({
         );
     };
 
-    return {
-        renderField,
-        RatesSection,
-        FinishesSection,
-        NotesSection,
-        MaterialStockSection
-    };
+    return (
+        <>
+            {/* Main Header Fields */}
+            <div className={`grid ${getLayoutClass()} gap-6`}>
+                {headerConfig.visibleFields.map(field => renderField(field))}
+            </div>
+
+            {/* Rates Section */}
+            <RatesSection />
+
+            {/* Finishes Section */}
+            <FinishesSection />
+            
+            {/* Notes Field */}
+            <NotesSection />
+            
+            {/* Material Stock Date (for bids only) */}
+            <MaterialStockSection />
+        </>
+    );
 };
 
 export default BidFormFields;

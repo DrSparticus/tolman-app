@@ -18,15 +18,6 @@ export default function ExpandableBidHeader({ bid, handleInputChange, supervisor
     // Use custom hooks for location services and rate calculations
     const locationServices = useLocationServices(db, handleInputChange);
     const rateCalculations = useBidRates(db, bid, finishes, handleInputChange, materials, crewTypes);
-    const formFields = BidFormFields({ 
-        bid, 
-        handleInputChange, 
-        supervisors, 
-        finishes, 
-        locationSettings: locationServices.locationSettings, 
-        locationServices, 
-        rateCalculations 
-    });
 
     // Load header configuration from admin config
     useEffect(() => {
@@ -69,22 +60,18 @@ export default function ExpandableBidHeader({ bid, handleInputChange, supervisor
             
             {isExpanded && (
                 <div className="p-6">
-                    {/* Main Header Fields */}
-                    <div className={`grid ${getLayoutClass()} gap-6`}>
-                        {headerConfig.visibleFields.map(field => formFields.renderField(field))}
-                    </div>
-
-                    {/* Rates Section */}
-                    <formFields.RatesSection />
-
-                    {/* Finishes Section */}
-                    <formFields.FinishesSection />
-                    
-                    {/* Notes Field */}
-                    <formFields.NotesSection />
-                    
-                    {/* Material Stock Date (for bids only) */}
-                    <formFields.MaterialStockSection />
+                    {/* Use BidFormFields as a proper React component */}
+                    <BidFormFields 
+                        bid={bid}
+                        handleInputChange={handleInputChange}
+                        supervisors={supervisors}
+                        finishes={finishes}
+                        locationSettings={locationServices.locationSettings}
+                        locationServices={locationServices}
+                        rateCalculations={rateCalculations}
+                        headerConfig={headerConfig}
+                        getLayoutClass={getLayoutClass}
+                    />
                 </div>
             )}
         </div>
