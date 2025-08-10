@@ -359,7 +359,7 @@ export const LocationControls = ({ bid, locationSettings, locationServices }) =>
     return (
         <>
             <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
                 <div className="flex space-x-1">
                     <button
                         type="button"

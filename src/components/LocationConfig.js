@@ -60,16 +60,19 @@ const LocationConfig = ({ db }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="reverseGeocodeAccuracy" className="block text-sm font-medium text-gray-700 mb-2">
                         Address Search Radius (meters)
                     </label>
                     <input
+                        id="reverseGeocodeAccuracy"
+                        name="reverseGeocodeAccuracy"
                         type="number"
                         min="10"
                         max="500"
                         step="10"
                         value={locationSettings.reverseGeocodeAccuracy}
                         onChange={(e) => handleInputChange('reverseGeocodeAccuracy', parseInt(e.target.value))}
+                        autoComplete="off"
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -78,11 +81,14 @@ const LocationConfig = ({ db }) => {
                 </div>
 
                 <div>
-                    <label className="flex items-center space-x-2">
+                    <label htmlFor="enableAutoAddressFill" className="flex items-center space-x-2">
                         <input
+                            id="enableAutoAddressFill"
+                            name="enableAutoAddressFill"
                             type="checkbox"
                             checked={locationSettings.enableAutoAddressFill}
                             onChange={(e) => handleInputChange('enableAutoAddressFill', e.target.checked)}
+                            autoComplete="off"
                             className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
                         <span className="text-sm font-medium text-gray-700">
@@ -95,11 +101,14 @@ const LocationConfig = ({ db }) => {
                 </div>
 
                 <div>
-                    <label className="flex items-center space-x-2">
+                    <label htmlFor="enableLocationServices" className="flex items-center space-x-2">
                         <input
+                            id="enableLocationServices"
+                            name="enableLocationServices"
                             type="checkbox"
                             checked={locationSettings.enableLocationServices}
                             onChange={(e) => handleInputChange('enableLocationServices', e.target.checked)}
+                            autoComplete="off"
                             className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
                         <span className="text-sm font-medium text-gray-700">

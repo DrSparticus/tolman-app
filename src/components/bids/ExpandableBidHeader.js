@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { ChevronDownIcon } from '../../Icons';
 import { useLocationServices } from '../LocationServices';
@@ -35,18 +35,21 @@ export default function ExpandableBidHeader({ bid, handleInputChange, supervisor
     useEffect(() => {
         if (bid.autoTapeRate) {
             const newRate = rateCalculations.calculateFinishedTapeRate();
-            handleInputChange({ target: { name: 'finishedTapeRate', value: newRate } });
+            // Only update if the rate actually changed to prevent unnecessary re-renders
+            if (newRate !== bid.finishedTapeRate) {
+                handleInputChange({ target: { name: 'finishedTapeRate', value: newRate } });
+            }
         }
-    }, [bid.wallTexture, bid.ceilingTexture, bid.corners, bid.autoTapeRate, bid.finishedHangingRate, bid.areas, rateCalculations, handleInputChange]);
+    }, [bid.wallTexture, bid.ceilingTexture, bid.corners, bid.autoTapeRate, bid.finishedHangingRate, bid.areas, bid.finishedTapeRate, rateCalculations, handleInputChange]);
 
-    const getLayoutClass = () => {
+    const getLayoutClass = useCallback(() => {
         switch (headerConfig.layout) {
             case 'grid-2': return 'grid-cols-1 md:grid-cols-2';
             case 'grid-3': return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
             case 'grid-4': return 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-4';
             default: return 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-4';
         }
-    };
+    }, [headerConfig.layout]);
 
     return (
         <div className="bg-white rounded-lg shadow-lg mb-6">
