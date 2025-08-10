@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import GoogleMapSelector from './GoogleMapSelector';
 
@@ -26,78 +26,7 @@ export const useLocationServices = (db, handleInputChange) => {
         return unsubscribe;
     }, [db]);
 
-    const getCurrentLocation = () => {
-        if (!navigator.geolocation) {
-            window.alert('Geolocation is not supported by this browser.');
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const coordinates = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                };
-
-                // Save coordinates to bid
-                handleInputChange({
-                    target: { name: 'coordinates', value: coordinates }
-                });
-
-                // Try to get address from coordinates (reverse geocoding)
-                if (locationSettings.enableAutoAddressFill) {
-                    try {
-                        const address = await reverseGeocode(coordinates);
-                        console.log('Reverse geocoded address:', address);
-                        if (address) {
-                            handleInputChange({
-                                target: { name: 'address', value: address }
-                            });
-                        }
-                    } catch (error) {
-                        console.log('Could not get address from coordinates:', error);
-                    }
-                }
-
-                // Calculate sales tax for the location
-                try {
-                    const taxRate = await getSalesTaxRate(coordinates);
-                    if (taxRate) {
-                        handleInputChange({
-                            target: { name: 'salesTaxRate', value: taxRate }
-                        });
-                        console.log(`Sales tax rate updated to ${(taxRate * 100).toFixed(3)}% based on location`);
-                    }
-                } catch (error) {
-                    console.log('Could not get sales tax rate:', error);
-                }
-            },
-            (error) => {
-                console.error('Error getting location:', error);
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        window.alert('Location access denied. Please enable location services and try again.');
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        window.alert('Location information is unavailable.');
-                        break;
-                    case error.TIMEOUT:
-                        window.alert('Location request timed out.');
-                        break;
-                    default:
-                        window.alert('An unknown error occurred while getting location.');
-                        break;
-                }
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 60000
-            }
-        );
-    };
-
-    const reverseGeocode = async (coordinates) => {
+    const reverseGeocode = useCallback(async (coordinates) => {
         try {
             console.log('Reverse geocoding coordinates:', coordinates);
             
@@ -174,9 +103,9 @@ export const useLocationServices = (db, handleInputChange) => {
             console.error('Reverse geocoding error:', error);
         }
         return null;
-    };
+    }, []);
 
-    const getSalesTaxRate = async (coordinates) => {
+    const getSalesTaxRate = useCallback(async (coordinates) => {
         try {
             // Mock sales tax calculation - replace with actual API integration
             console.log('Mock sales tax calculation for coordinates:', coordinates);
@@ -185,30 +114,107 @@ export const useLocationServices = (db, handleInputChange) => {
             console.error('Sales tax lookup error:', error);
             return null;
         }
-    };
+    }, []);
 
-    const geocodeAddress = async (address) => {
-        try {
-            const encodedAddress = encodeURIComponent(address);
-            const response = await fetch(
-                `https://api.bigdatacloud.net/data/geocode?address=${encodedAddress}&localityLanguage=en`
-            );
-            const data = await response.json();
-            
-            if (data && data.results && data.results.length > 0) {
-                const result = data.results[0];
-                return {
-                    lat: result.latitude,
-                    lng: result.longitude
-                };
-            }
-        } catch (error) {
-            console.error('Geocoding error:', error);
+    const getCurrentLocation = useCallback(() => {
+        if (!navigator.geolocation) {
+            window.alert('Geolocation is not supported by this browser.');
+            return;
         }
-        return null;
-    };
 
-    const openManualCoordinateInput = () => {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const coordinates = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+
+                // Save coordinates to bid
+                handleInputChange({
+                    target: { name: 'coordinates', value: coordinates }
+                });
+
+                // Try to get address from coordinates (reverse geocoding)
+                if (locationSettings.enableAutoAddressFill) {
+                    try {
+                        const address = await reverseGeocode(coordinates);
+                        console.log('Reverse geocoded address:', address);
+                        if (address) {
+                            handleInputChange({
+                                target: { name: 'address', value: address }
+                            });
+                        }
+                    } catch (error) {
+                        console.log('Could not get address from coordinates:', error);
+                    }
+                }
+
+                // Calculate sales tax for the location
+                try {
+                    const taxRate = await getSalesTaxRate(coordinates);
+                    if (taxRate) {
+                        handleInputChange({
+                            target: { name: 'salesTaxRate', value: taxRate }
+                        });
+                        console.log(`Sales tax rate updated to ${(taxRate * 100).toFixed(3)}% based on location`);
+                    }
+                } catch (error) {
+                    console.log('Could not get sales tax rate:', error);
+                }
+            },
+            (error) => {
+                console.error('Error getting location:', error);
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        window.alert('Location access denied. Please enable location services and try again.');
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        window.alert('Location information is unavailable.');
+                        break;
+                    case error.TIMEOUT:
+                        window.alert('Location request timed out.');
+                        break;
+                    default:
+                        window.alert('An unknown error occurred while getting location.');
+                        break;
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000
+            }
+        );
+    }, [handleInputChange, locationSettings.enableAutoAddressFill, reverseGeocode, getSalesTaxRate]);
+
+    const geocodeAddress = useCallback(async (address) => {
+        // Always use Google Maps Geocoding API first if available
+        if (window.google && window.google.maps) {
+            console.log('Using Google Maps Geocoding API for:', address);
+            return new Promise((resolve) => {
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode({ address }, (results, status) => {
+                    if (status === 'OK' && results[0]) {
+                        const location = results[0].geometry.location;
+                        console.log('Google Maps geocoding successful');
+                        resolve({
+                            lat: location.lat(),
+                            lng: location.lng()
+                        });
+                    } else {
+                        console.warn('Google Geocoding failed:', status);
+                        resolve(null);
+                    }
+                });
+            });
+        }
+        
+        // Skip BigDataCloud API due to rate limiting issues
+        console.warn('Google Maps API not available for geocoding, skipping BigDataCloud due to rate limits');
+        return null;
+    }, []);
+
+    const openManualCoordinateInput = useCallback(() => {
         const coordInput = window.prompt(
             'Enter coordinates in format: latitude, longitude\n' +
             'Example: 40.7128, -74.0060\n\n' +
@@ -251,31 +257,31 @@ export const useLocationServices = (db, handleInputChange) => {
                 window.alert('Error parsing coordinates. Please check the format and try again.');
             }
         }
-    };
+    }, [handleInputChange, getSalesTaxRate]);
 
-    const openInMaps = (coordinates) => {
+    const openInMaps = useCallback((coordinates) => {
         if (coordinates) {
             const { lat, lng } = coordinates;
             const url = `https://www.google.com/maps?q=${lat},${lng}`;
             window.open(url, '_blank');
         }
-    };
+    }, []);
 
-    const removeLocation = () => {
+    const removeLocation = useCallback(() => {
         handleInputChange({
             target: { name: 'coordinates', value: null }
         });
         handleInputChange({
             target: { name: 'salesTaxRate', value: null }
         });
-    };
+    }, [handleInputChange]);
 
-    const openGoogleMapSelector = (initialCoordinates) => {
+    const openGoogleMapSelector = useCallback((initialCoordinates) => {
         // This will be handled by the component state
         return true;
-    };
+    }, []);
 
-    const handleMapLocationSelect = async (coordinates) => {
+    const handleMapLocationSelect = useCallback(async (coordinates) => {
         // Save coordinates to bid
         handleInputChange({
             target: { name: 'coordinates', value: coordinates }
@@ -293,16 +299,16 @@ export const useLocationServices = (db, handleInputChange) => {
         } catch (error) {
             console.log('Could not get sales tax rate for map selection:', error);
         }
-    };
+    }, [handleInputChange, getSalesTaxRate]);
 
-    const handleMapAddressUpdate = (address) => {
+    const handleMapAddressUpdate = useCallback((address) => {
         // Update the address field
         handleInputChange({
             target: { name: 'address', value: address }
         });
-    };
+    }, [handleInputChange]);
 
-    return {
+    return useMemo(() => ({
         locationSettings,
         getCurrentLocation,
         openManualCoordinateInput,
@@ -312,7 +318,17 @@ export const useLocationServices = (db, handleInputChange) => {
         handleMapLocationSelect,
         handleMapAddressUpdate,
         geocodeAddress
-    };
+    }), [
+        locationSettings, 
+        getCurrentLocation,
+        openManualCoordinateInput,
+        openInMaps,
+        removeLocation,
+        openGoogleMapSelector,
+        handleMapLocationSelect,
+        handleMapAddressUpdate,
+        geocodeAddress
+    ]);
 };
 
 // Location Controls Component for address field

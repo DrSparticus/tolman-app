@@ -311,6 +311,23 @@ export const BidFormFields = React.memo(({
 });
 
 // Custom comparison function to prevent unnecessary re-renders
+const areEqual = (prevProps, nextProps) => {
+    // Compare bid object
+    if (prevProps.bid !== nextProps.bid) return false;
+    
+    // Compare simple props
+    if (prevProps.handleInputChange !== nextProps.handleInputChange) return false;
+    if (prevProps.supervisors !== nextProps.supervisors) return false;
+    if (prevProps.finishes !== nextProps.finishes) return false;
+    
+    // For complex objects, do shallow comparison of essential properties
+    if (prevProps.locationSettings?.enableLocationServices !== nextProps.locationSettings?.enableLocationServices) return false;
+    if (prevProps.headerConfig?.layout !== nextProps.headerConfig?.layout) return false;
+    if (prevProps.headerConfig?.visibleFields?.length !== nextProps.headerConfig?.visibleFields?.length) return false;
+    
+    return true;
+};
+
 BidFormFields.displayName = 'BidFormFields';
 
-export default BidFormFields;
+export default React.memo(BidFormFields, areEqual);

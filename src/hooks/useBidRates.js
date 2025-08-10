@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
@@ -41,7 +41,7 @@ export const useBidRates = (db, bid, finishes, handleInputChange, materials, cre
         return unsubscribe;
     }, [db, bid.finishedHangingRate, bid.unfinishedTapingRate, handleInputChange]);
 
-    const calculateFinishedTapeRate = () => {
+    const calculateFinishedTapeRate = useCallback(() => {
         const hangRate = parseFloat(bid.finishedHangingRate) || parseFloat(defaultRates.hangRate) || 0;
         const baseAddition = 0.04;
         
@@ -102,9 +102,9 @@ export const useBidRates = (db, bid, finishes, handleInputChange, materials, cre
         
         const totalRate = hangRate + baseAddition + taperFinishesTotal + materialExtraPay;
         return totalRate.toFixed(3);
-    };
+    }, [bid.finishedHangingRate, bid.wallTexture, bid.ceilingTexture, bid.areas, bid.corners, defaultRates.hangRate, finishes, crewTypes, materials]);
 
-    const getFinishedTapeRateBreakdown = () => {
+    const getFinishedTapeRateBreakdown = useCallback(() => {
         const hangRate = parseFloat(bid.finishedHangingRate) || parseFloat(defaultRates.hangRate) || 0;
         let finishesTotal = 0;
 
@@ -127,9 +127,9 @@ export const useBidRates = (db, bid, finishes, handleInputChange, materials, cre
         });
 
         return `${hangRate} + 0.04 + ${finishesTotal.toFixed(3)} (finishes)`;
-    };
+    }, [bid, defaultRates.hangRate, finishes, crewTypes]);
 
-    const getHangRateUpgrades = () => {
+    const getHangRateUpgrades = useCallback(() => {
         let finishUpgrades = 0;
         const finishNames = [];
 
@@ -157,14 +157,14 @@ export const useBidRates = (db, bid, finishes, handleInputChange, materials, cre
             return `Finish upgrades: ${finishNames.join(', ')}`;
         }
         return '';
-    };
+    }, [bid, finishes, crewTypes]);
 
-    return {
+    return useMemo(() => ({
         defaultRates,
         calculateFinishedTapeRate,
         getFinishedTapeRateBreakdown,
         getHangRateUpgrades
-    };
+    }), [defaultRates, calculateFinishedTapeRate, getFinishedTapeRateBreakdown, getHangRateUpgrades]);
 };
 
 export default useBidRates;

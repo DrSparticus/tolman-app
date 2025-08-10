@@ -47,17 +47,30 @@ const GoogleMapSelector = ({
         const loadGoogleMaps = () => {
             // Check if Google Maps is already loaded
             if (window.google && window.google.maps) {
-                // Add a small delay to ensure DOM is ready
-                setTimeout(initializeMap, 100);
+                initializeMap();
                 return;
             }
 
-            // Create script tag to load Google Maps API
+            // Check if script is already being loaded
+            if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+                // Wait for it to load
+                const checkLoaded = () => {
+                    if (window.google && window.google.maps) {
+                        initializeMap();
+                    } else {
+                        setTimeout(checkLoaded, 100);
+                    }
+                };
+                checkLoaded();
+                return;
+            }
+
+            // Create script tag to load Google Maps API with async loading
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE'}&libraries=geometry`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE'}&libraries=geometry&loading=async`;
             script.async = true;
             script.defer = true;
-            script.onload = () => setTimeout(initializeMap, 100);
+            script.onload = initializeMap;
             script.onerror = () => {
                 console.error('Failed to load Google Maps API');
                 setIsLoading(false);
@@ -66,75 +79,114 @@ const GoogleMapSelector = ({
         };
 
         const initializeMap = () => {
-            if (!window.google || !mapRef.current) {
-                console.error('Google Maps API not available or map container not ready');
-                setIsLoading(false);
-                return;
-            }
+            // Wait for the map container to be fully ready
+            const waitForContainer = () => {
+                return new Promise((resolve) => {
+                    const checkContainer = () => {
+                        if (!mapRef.current) {
+                            setTimeout(checkContainer, 50);
+                            return;
+                        }
 
-            try {
-                // Default to a central location if no coordinates provided
-                const defaultLocation = initialCoordinates || { lat: 39.8283, lng: -98.5795 }; // Center of US
-                
-                // Initialize map
-                const mapInstance = new window.google.maps.Map(mapRef.current, {
-                    center: defaultLocation,
-                    zoom: initialCoordinates ? 17 : 4,
-                    mapTypeId: window.google.maps.MapTypeId.ROADMAP,
-                    streetViewControl: false,
-                    mapTypeControl: true,
-                    fullscreenControl: true,
-                });
+                        const container = mapRef.current;
+                        const isInDOM = document.contains(container);
+                        const hasWidth = container.offsetWidth > 0;
+                        const hasHeight = container.offsetHeight > 0;
+                        const isVisible = container.offsetParent !== null;
 
-                // Initialize geocoder
-                const geocoderInstance = new window.google.maps.Geocoder();
-                
-                // Create draggable marker
-                const markerInstance = new window.google.maps.Marker({
-                    position: defaultLocation,
-                    map: mapInstance,
-                    draggable: true,
-                    title: "Drag to select exact location",
-                    animation: window.google.maps.Animation.DROP
-                });
-
-                // Listen for marker drag events
-                markerInstance.addListener('dragend', function() {
-                    const newPosition = markerInstance.getPosition();
-                    const coordinates = {
-                        lat: newPosition.lat(),
-                        lng: newPosition.lng()
+                        if (isInDOM && hasWidth && hasHeight && isVisible) {
+                            resolve(container);
+                        } else {
+                            setTimeout(checkContainer, 50);
+                        }
                     };
-                    
-                    // Perform reverse geocoding
-                    reverseGeocode(geocoderInstance, coordinates);
+                    checkContainer();
                 });
+            };
 
-                // Listen for map clicks to move marker
-                mapInstance.addListener('click', function(event) {
-                    const coordinates = {
-                        lat: event.latLng.lat(),
-                        lng: event.latLng.lng()
-                    };
-                    
-                    markerInstance.setPosition(event.latLng);
-                    reverseGeocode(geocoderInstance, coordinates);
-                });
-
-                setMap(mapInstance);
-                setMarker(markerInstance);
-                setGeocoder(geocoderInstance);
-                setIsLoading(false);
-
-                // If we have initial coordinates, do reverse geocoding
-                if (initialCoordinates) {
-                    reverseGeocode(geocoderInstance, initialCoordinates);
+            // Initialize with proper container waiting
+            waitForContainer().then((container) => {
+                if (!window.google) {
+                    console.error('Google Maps API not available');
+                    setIsLoading(false);
+                    return;
                 }
 
-            } catch (error) {
-                console.error('Error initializing Google Maps:', error);
+                try {
+                    // Additional delay to ensure IntersectionObserver can work properly
+                    setTimeout(() => {
+                        try {
+                            // Default to a central location if no coordinates provided
+                            const defaultLocation = initialCoordinates || { lat: 39.8283, lng: -98.5795 }; // Center of US
+                            
+                            // Initialize map
+                            const mapInstance = new window.google.maps.Map(container, {
+                                center: defaultLocation,
+                                zoom: initialCoordinates ? 17 : 4,
+                                mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+                                streetViewControl: false,
+                                mapTypeControl: true,
+                                fullscreenControl: true,
+                            });
+
+                            // Initialize geocoder
+                            const geocoderInstance = new window.google.maps.Geocoder();
+                
+                            // Create draggable marker
+                            const markerInstance = new window.google.maps.Marker({
+                                position: defaultLocation,
+                                map: mapInstance,
+                                draggable: true,
+                                title: "Drag to select exact location",
+                                animation: window.google.maps.Animation.DROP
+                            });
+
+                            // Listen for marker drag events
+                            markerInstance.addListener('dragend', function() {
+                                const newPosition = markerInstance.getPosition();
+                                const coordinates = {
+                                    lat: newPosition.lat(),
+                                    lng: newPosition.lng()
+                                };
+                                
+                                // Perform reverse geocoding
+                                reverseGeocode(geocoderInstance, coordinates);
+                            });
+
+                            // Listen for map clicks to move marker
+                            mapInstance.addListener('click', function(event) {
+                                const coordinates = {
+                                    lat: event.latLng.lat(),
+                                    lng: event.latLng.lng()
+                                };
+                                
+                                markerInstance.setPosition(event.latLng);
+                                reverseGeocode(geocoderInstance, coordinates);
+                            });
+
+                            setMap(mapInstance);
+                            setMarker(markerInstance);
+                            setGeocoder(geocoderInstance);
+                            setIsLoading(false);
+
+                            // If we have initial coordinates, do reverse geocoding
+                            if (initialCoordinates) {
+                                reverseGeocode(geocoderInstance, initialCoordinates);
+                            }
+                        } catch (innerError) {
+                            console.error('Error creating Google Maps instance:', innerError);
+                            setIsLoading(false);
+                        }
+                    }, 200); // Additional delay before map creation
+
+                } catch (error) {
+                    console.error('Error initializing Google Maps:', error);
+                    setIsLoading(false);
+                }
+            }).catch((error) => {
+                console.error('Error waiting for container:', error);
                 setIsLoading(false);
-            }
+            });
         };
 
         loadGoogleMaps();
@@ -251,7 +303,12 @@ const GoogleMapSelector = ({
                     <div 
                         ref={mapRef} 
                         className="w-full h-full min-h-[400px]"
-                        style={{ display: isLoading ? 'none' : 'block' }}
+                        style={{ 
+                            display: isLoading ? 'none' : 'block',
+                            visibility: isLoading ? 'hidden' : 'visible',
+                            width: '100%',
+                            height: '100%'
+                        }}
                     />
                 </div>
                 
