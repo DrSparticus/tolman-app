@@ -12,6 +12,9 @@ export const useLocationServices = (db, handleInputChange) => {
         enableLocationServices: true
     });
 
+    // Debug: Check if Google Maps API key is loaded
+    console.log('Google Maps API Key:', process.env.REACT_APP_GOOGLE_MAPS_API_KEY);
+
     // Load location settings from Firebase
     useEffect(() => {
         if (!db) return;
@@ -262,7 +265,7 @@ export const useLocationServices = (db, handleInputChange) => {
     const openInMaps = useCallback((coordinates) => {
         if (coordinates) {
             const { lat, lng } = coordinates;
-            const url = `https://www.google.com/maps?q=${lat},${lng}`;
+            const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
             window.open(url, '_blank');
         }
     }, []);
@@ -366,7 +369,7 @@ export const LocationControls = ({ bid, locationSettings, locationServices }) =>
                         onClick={handleOpenMapSelector}
                         className="px-2 py-1 text-xs bg-purple-500 text-white rounded hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     >
-                        🎯 Select on Map
+                        🎯 Map
                     </button>
                     <button
                         type="button"
@@ -377,18 +380,6 @@ export const LocationControls = ({ bid, locationSettings, locationServices }) =>
                     </button>
                 </div>
             </div>
-            
-            {!bid.address && !bid.coordinates && (
-                <div className="mt-2 text-xs text-gray-500">
-                    <button
-                        type="button"
-                        onClick={locationServices.openManualCoordinateInput}
-                        className="text-purple-600 hover:text-purple-800 underline"
-                    >
-                        📝 Enter coordinates manually
-                    </button>
-                </div>
-            )}
             
             {/* Google Map Selector Modal */}
             <GoogleMapSelector

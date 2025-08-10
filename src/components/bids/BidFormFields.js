@@ -65,6 +65,17 @@ export const BidFormFields = React.memo(({
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Enter address or use current location"
                         />
+                        {locationSettings.enableLocationServices && !bid.address && !bid.coordinates && (
+                            <div className="mt-2 text-xs text-gray-500">
+                                <button
+                                    type="button"
+                                    onClick={locationServices.openManualCoordinateInput}
+                                    className="text-purple-600 hover:text-purple-800 underline"
+                                >
+                                    📝 Enter coordinates manually
+                                </button>
+                            </div>
+                        )}
                         {bid.coordinates && (
                             <div className="mt-2 text-xs text-gray-600">
                                 <div className="flex items-center justify-between">
@@ -75,14 +86,14 @@ export const BidFormFields = React.memo(({
                                             onClick={() => locationServices.openInMaps(bid.coordinates)}
                                             className="text-blue-600 hover:text-blue-800 underline"
                                         >
-                                            View Map
+                                            Map
                                         </button>
                                         <button
                                             type="button"
                                             onClick={locationServices.openManualCoordinateInput}
                                             className="text-purple-600 hover:text-purple-800 underline ml-2"
                                         >
-                                            Edit Coords
+                                            Edit
                                         </button>
                                         <button
                                             type="button"
