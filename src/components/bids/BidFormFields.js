@@ -1,5 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LocationControls } from '../LocationServices';
+
+// Component for inputs that defer updates until blur to prevent cursor jumping
+const DeferredInput = React.memo(({ value, onBlur, ...inputProps }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+    
+    // Update local value when prop value changes (e.g., when bid loads)
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+    
+    const handleLocalChange = (e) => {
+        setLocalValue(e.target.value);
+    };
+    
+    const handleBlur = (e) => {
+        onBlur(e);
+    };
+    
+    return (
+        <input
+            {...inputProps}
+            value={localValue}
+            onChange={handleLocalChange}
+            onBlur={handleBlur}
+        />
+    );
+});
 
 export const BidFormFields = React.memo(({ 
     bid, 
@@ -19,12 +46,12 @@ export const BidFormFields = React.memo(({
                 return (
                     <div key={fieldName}>
                         <label htmlFor="projectName" className="block text-sm font-medium text-gray-700">Project Name</label>
-                        <input
+                        <DeferredInput
                             id="projectName"
                             type="text"
                             name="projectName"
                             value={bid.projectName || ''}
-                            onChange={handleInputChange}
+                            onBlur={handleInputChange}
                             autoComplete="off"
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         />
@@ -35,12 +62,12 @@ export const BidFormFields = React.memo(({
                 return (
                     <div key={fieldName}>
                         <label htmlFor="contractor" className="block text-sm font-medium text-gray-700">Contractor</label>
-                        <input
+                        <DeferredInput
                             id="contractor"
                             type="text"
                             name="contractor"
                             value={bid.contractor || ''}
-                            onChange={handleInputChange}
+                            onBlur={handleInputChange}
                             autoComplete="off"
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         />
@@ -55,27 +82,16 @@ export const BidFormFields = React.memo(({
                             locationSettings={locationSettings}
                             locationServices={locationServices}
                         />
-                        <input
+                        <DeferredInput
                             id="address"
                             type="text"
                             name="address"
                             value={bid.address || ''}
-                            onChange={handleInputChange}
+                            onBlur={handleInputChange}
                             autoComplete="address-line1"
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Enter address or use current location"
                         />
-                        {locationSettings.enableLocationServices && !bid.address && !bid.coordinates && (
-                            <div className="mt-2 text-xs text-gray-500">
-                                <button
-                                    type="button"
-                                    onClick={locationServices.openManualCoordinateInput}
-                                    className="text-purple-600 hover:text-purple-800 underline"
-                                >
-                                    📝 Enter coordinates manually
-                                </button>
-                            </div>
-                        )}
                         {bid.coordinates && (
                             <div className="mt-2 text-xs text-gray-600">
                                 <div className="flex items-center justify-between">
@@ -145,14 +161,14 @@ export const BidFormFields = React.memo(({
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-4 mt-4 border-t">
             <div>
                 <label htmlFor="finishedHangingRate" className="block text-sm font-medium text-gray-700">Hang Rate</label>
-                <input
+                <DeferredInput
                     id="finishedHangingRate"
                     type="number"
                     step="0.01"
                     name="finishedHangingRate"
                     value={bid.finishedHangingRate ?? ''}
                     placeholder={rateCalculations.defaultRates.hangRate || ''}
-                    onChange={handleInputChange}
+                    onBlur={handleInputChange}
                     autoComplete="off"
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -188,13 +204,13 @@ export const BidFormFields = React.memo(({
                         <label htmlFor="autoTapeRate" className="ml-2 text-sm font-medium text-gray-700">Auto</label>
                     </div>
                 </div>
-                <input
+                <DeferredInput
                     id="finishedTapeRate"
                     type="number"
                     step="0.01"
                     name="finishedTapeRate"
                     value={bid.autoTapeRate ? rateCalculations.calculateFinishedTapeRate() : (bid.finishedTapeRate ?? '')}
-                    onChange={bid.autoTapeRate ? undefined : handleInputChange}
+                    onBlur={bid.autoTapeRate ? undefined : handleInputChange}
                     disabled={bid.autoTapeRate}
                     autoComplete="off"
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 disabled:bg-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -209,14 +225,14 @@ export const BidFormFields = React.memo(({
             
             <div>
                 <label htmlFor="unfinishedTapingRate" className="block text-sm font-medium text-gray-700">Unfinished Tape Rate</label>
-                <input
+                <DeferredInput
                     id="unfinishedTapingRate"
                     type="number"
                     step="0.01"
                     name="unfinishedTapingRate"
                     value={bid.unfinishedTapingRate ?? ''}
                     placeholder={rateCalculations.defaultRates.unfinishedTapeRate || ''}
-                    onChange={handleInputChange}
+                    onBlur={handleInputChange}
                     autoComplete="off"
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />

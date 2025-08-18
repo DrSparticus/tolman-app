@@ -1,7 +1,27 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
+// Helper function to remove country from formatted address
+const removeCountryFromAddress = (formattedAddress) => {
+    if (!formattedAddress) return '';
+    
+    // Split by comma and remove the last component (which is typically the country)
+    const parts = formattedAddress.split(',').map(part => part.trim());
+    
+    // Remove the last part if it looks like a country (typically just letters and spaces)
+    if (parts.length > 1) {
+        const lastPart = parts[parts.length - 1];
+        // Check if the last part is likely a country (contains only letters, spaces, and common country indicators)
+        if (/^[A-Za-z\s]+$/.test(lastPart) && lastPart.length <= 50) {
+            parts.pop(); // Remove the last component
+        }
+    }
+    
+    return parts.join(', ');
+};
+
 const GoogleMapSelector = ({ 
     initialCoordinates, 
+    initialAddress,  // New prop for existing address
     onLocationSelect, 
     onAddressUpdate, 
     isOpen, 
@@ -12,22 +32,77 @@ const GoogleMapSelector = ({
     const [marker, setMarker] = useState(null);
     const [geocoder, setGeocoder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isInitializing, setIsInitializing] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState('');
+    const [userLocation, setUserLocation] = useState(null);
+
+    // Get user's current location
+    const getCurrentLocation = useCallback(() => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation is not supported'));
+                return;
+            }
+
+            console.log('GoogleMapSelector: Requesting user location...');
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    console.log('GoogleMapSelector: User location obtained:', coords);
+                    setUserLocation(coords);
+                    resolve(coords);
+                },
+                (error) => {
+                    console.log('GoogleMapSelector: Location access denied or failed:', error.message);
+                    reject(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000 // 5 minutes
+                }
+            );
+        });
+    }, []);
+
+    // Geocode an address to get coordinates
+    const geocodeAddress = useCallback((geocoderInstance, address) => {
+        return new Promise((resolve, reject) => {
+            geocoderInstance.geocode({ address: address }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const location = results[0].geometry.location;
+                    const coordinates = {
+                        lat: location.lat(),
+                        lng: location.lng()
+                    };
+                    console.log('GoogleMapSelector: Address geocoded:', address, '→', coordinates);
+                    const cleanAddress = removeCountryFromAddress(results[0].formatted_address);
+                    resolve({ coordinates, formattedAddress: cleanAddress });
+                } else {
+                    console.log('GoogleMapSelector: Geocoding failed for address:', address, 'Status:', status);
+                    reject(new Error(`Geocoding failed: ${status}`));
+                }
+            });
+        });
+    }, []);
 
     // Reverse geocode function using Google's Geocoding API
     const reverseGeocode = useCallback((geocoderInstance, coordinates) => {
         geocoderInstance.geocode({ location: coordinates }, (results, status) => {
             if (status === 'OK') {
                 if (results[0]) {
-                    const address = results[0].formatted_address;
-                    setSelectedAddress(address);
+                    const cleanAddress = removeCountryFromAddress(results[0].formatted_address);
+                    setSelectedAddress(cleanAddress);
                     
                     // Call the callback with both coordinates and address
                     if (onLocationSelect) {
                         onLocationSelect(coordinates);
                     }
                     if (onAddressUpdate) {
-                        onAddressUpdate(address);
+                        onAddressUpdate(cleanAddress);
                     }
                 } else {
                     console.log('No results found for reverse geocoding');
@@ -41,21 +116,70 @@ const GoogleMapSelector = ({
     }, [onLocationSelect, onAddressUpdate]);
 
     // Load Google Maps API
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: Adding geocoder, isInitializing, isLoading, map, marker, onAddressUpdate to deps would cause infinite re-renders
+    // since this effect manages these state variables. The effect correctly depends on external props only.
     useEffect(() => {
         if (!isOpen) return;
+        
+        // Check if map exists but container is no longer valid (modal was closed/reopened)
+        let needsReinitialization = false;
+        if (map && (!map.getDiv() || !document.contains(map.getDiv()))) {
+            // Map container is invalid, reset all map-related state
+            console.log('GoogleMapSelector: Detected stale map container, resetting...');
+            setMap(null);
+            setMarker(null);
+            setGeocoder(null);
+            setIsLoading(true);
+            needsReinitialization = true;
+        }
+        
+        // If map is already loaded and initialCoordinates haven't changed significantly, don't reload
+        if (!needsReinitialization && map && marker && geocoder && !isLoading && !isInitializing && map.getDiv() && document.contains(map.getDiv())) {
+            // Update marker position if coordinates changed
+            if (initialCoordinates && marker) {
+                const currentPos = marker.position;
+                const newLat = initialCoordinates.lat;
+                const newLng = initialCoordinates.lng;
+                
+                // Only update if coordinates are significantly different (more than ~1 meter)
+                if (!currentPos || 
+                    Math.abs(currentPos.lat - newLat) > 0.00001 || 
+                    Math.abs(currentPos.lng - newLng) > 0.00001) {
+                    marker.position = new window.google.maps.LatLng(initialCoordinates.lat, initialCoordinates.lng);
+                    map.setCenter(initialCoordinates);
+                    if (geocoder) {
+                        reverseGeocode(geocoder, initialCoordinates);
+                    }
+                }
+            }
+            return;
+        }
 
         const loadGoogleMaps = () => {
+            if (isInitializing) {
+                console.log('GoogleMapSelector: Already initializing, skipping...');
+                return;
+            }
+            
+            console.log('GoogleMapSelector: Loading Google Maps API...');
             // Check if Google Maps is already loaded
             if (window.google && window.google.maps) {
-                initializeMap();
+                console.log('GoogleMapSelector: Google Maps API already loaded');
+                // Always initialize if we don't have a valid map or if reinitialization is needed
+                if (!map || needsReinitialization) {
+                    initializeMap();
+                }
                 return;
             }
 
             // Check if script is already being loaded
             if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+                console.log('GoogleMapSelector: Google Maps script already loading, waiting...');
                 // Wait for it to load
                 const checkLoaded = () => {
                     if (window.google && window.google.maps) {
+                        console.log('GoogleMapSelector: Google Maps API loaded via existing script');
                         initializeMap();
                     } else {
                         setTimeout(checkLoaded, 100);
@@ -66,24 +190,37 @@ const GoogleMapSelector = ({
             }
 
             // Create script tag to load Google Maps API with async loading
+            console.log('GoogleMapSelector: Creating new Google Maps script');
             const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE'}&libraries=geometry&loading=async`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'YOUR_API_KEY_HERE'}&libraries=geometry,marker&loading=async`;
             script.async = true;
             script.defer = true;
-            script.onload = initializeMap;
+            script.onload = () => {
+                console.log('GoogleMapSelector: Google Maps script loaded successfully');
+                initializeMap();
+            };
             script.onerror = () => {
-                console.error('Failed to load Google Maps API');
+                console.error('GoogleMapSelector: Failed to load Google Maps API');
                 setIsLoading(false);
+                setIsInitializing(false);
             };
             document.head.appendChild(script);
         };
 
         const initializeMap = () => {
+            if (isInitializing) {
+                console.log('GoogleMapSelector: Already initializing map, skipping...');
+                return;
+            }
+            
+            setIsInitializing(true);
+            console.log('GoogleMapSelector: Starting map initialization...');
             // Wait for the map container to be fully ready
             const waitForContainer = () => {
                 return new Promise((resolve) => {
                     const checkContainer = () => {
                         if (!mapRef.current) {
+                            console.log('GoogleMapSelector: Waiting for map container...');
                             setTimeout(checkContainer, 50);
                             return;
                         }
@@ -94,7 +231,18 @@ const GoogleMapSelector = ({
                         const hasHeight = container.offsetHeight > 0;
                         const isVisible = container.offsetParent !== null;
 
-                        if (isInDOM && hasWidth && hasHeight && isVisible) {
+                        console.log('GoogleMapSelector: Container check -', {
+                            isInDOM,
+                            hasWidth,
+                            hasHeight,
+                            isVisible,
+                            width: container.offsetWidth,
+                            height: container.offsetHeight
+                        });
+
+                        // Check if container has dimensions (relaxed visibility requirement)
+                        if (isInDOM && hasWidth && hasHeight) {
+                            console.log('GoogleMapSelector: Container ready!');
                             resolve(container);
                         } else {
                             setTimeout(checkContainer, 50);
@@ -106,47 +254,91 @@ const GoogleMapSelector = ({
 
             // Initialize with proper container waiting
             waitForContainer().then((container) => {
+                console.log('GoogleMapSelector: Container ready, checking Google Maps API...');
                 if (!window.google) {
-                    console.error('Google Maps API not available');
+                    console.error('GoogleMapSelector: Google Maps API not available');
                     setIsLoading(false);
+                    setIsInitializing(false);
                     return;
                 }
 
+                console.log('GoogleMapSelector: Google Maps API available, creating map...');
                 try {
                     // Additional delay to ensure IntersectionObserver can work properly
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         try {
-                            // Default to a central location if no coordinates provided
-                            const defaultLocation = initialCoordinates || { lat: 39.8283, lng: -98.5795 }; // Center of US
+                            console.log('GoogleMapSelector: Starting map creation...');
+                            
+                            // Determine the best location to use
+                            let defaultLocation = { lat: 39.8283, lng: -98.5795 }; // Fallback to center of US
+                            
+                            if (initialCoordinates) {
+                                // Use provided coordinates
+                                defaultLocation = initialCoordinates;
+                                console.log('GoogleMapSelector: Using provided coordinates:', defaultLocation);
+                            } else if (initialAddress && initialAddress.trim()) {
+                                // Try to geocode the provided address
+                                console.log('GoogleMapSelector: Geocoding provided address:', initialAddress);
+                                try {
+                                    const geocoderInstance = new window.google.maps.Geocoder();
+                                    const result = await geocodeAddress(geocoderInstance, initialAddress);
+                                    defaultLocation = result.coordinates;
+                                    console.log('GoogleMapSelector: Address geocoded successfully:', defaultLocation);
+                                } catch (error) {
+                                    console.log('GoogleMapSelector: Address geocoding failed, trying user location');
+                                    // If address geocoding fails, try user location
+                                    try {
+                                        defaultLocation = await getCurrentLocation();
+                                    } catch (locationError) {
+                                        console.log('GoogleMapSelector: User location also failed, using default location');
+                                    }
+                                }
+                            } else {
+                                // No coordinates or address provided, try to get user location
+                                console.log('GoogleMapSelector: No coordinates or address, trying user location...');
+                                try {
+                                    defaultLocation = await getCurrentLocation();
+                                } catch (error) {
+                                    console.log('GoogleMapSelector: User location failed, using default location');
+                                }
+                            }
+                            
+                            console.log('GoogleMapSelector: Final location:', defaultLocation);
                             
                             // Initialize map
+                            console.log('GoogleMapSelector: Creating Google Maps instance...');
                             const mapInstance = new window.google.maps.Map(container, {
                                 center: defaultLocation,
-                                zoom: initialCoordinates ? 17 : 4,
+                                zoom: (initialCoordinates || userLocation) ? 15 : 13,
                                 mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+                                mapId: 'DEMO_MAP_ID', // Required for AdvancedMarkerElement
                                 streetViewControl: false,
                                 mapTypeControl: true,
                                 fullscreenControl: true,
                             });
+                            console.log('GoogleMapSelector: Map instance created successfully');
 
                             // Initialize geocoder
+                            console.log('GoogleMapSelector: Creating geocoder...');
                             const geocoderInstance = new window.google.maps.Geocoder();
+                            console.log('GoogleMapSelector: Geocoder created successfully');
                 
-                            // Create draggable marker
-                            const markerInstance = new window.google.maps.Marker({
+                            // Create draggable marker using new AdvancedMarkerElement
+                            console.log('GoogleMapSelector: Creating marker...');
+                            const markerInstance = new window.google.maps.marker.AdvancedMarkerElement({
                                 position: defaultLocation,
                                 map: mapInstance,
-                                draggable: true,
-                                title: "Drag to select exact location",
-                                animation: window.google.maps.Animation.DROP
+                                gmpDraggable: true,
+                                title: "Drag to select exact location"
                             });
+                            console.log('GoogleMapSelector: Marker created successfully');
 
                             // Listen for marker drag events
                             markerInstance.addListener('dragend', function() {
-                                const newPosition = markerInstance.getPosition();
+                                const newPosition = markerInstance.position;
                                 const coordinates = {
-                                    lat: newPosition.lat(),
-                                    lng: newPosition.lng()
+                                    lat: newPosition.lat,
+                                    lng: newPosition.lng
                                 };
                                 
                                 // Perform reverse geocoding
@@ -160,32 +352,51 @@ const GoogleMapSelector = ({
                                     lng: event.latLng.lng()
                                 };
                                 
-                                markerInstance.setPosition(event.latLng);
+                                markerInstance.position = event.latLng;
                                 reverseGeocode(geocoderInstance, coordinates);
                             });
 
+                            console.log('GoogleMapSelector: Setting map state');
                             setMap(mapInstance);
+                            console.log('GoogleMapSelector: Setting marker state');
                             setMarker(markerInstance);
+                            console.log('GoogleMapSelector: Setting geocoder state');
                             setGeocoder(geocoderInstance);
+                            console.log('GoogleMapSelector: Setting loading to false');
                             setIsLoading(false);
+                            setIsInitializing(false);
+                            console.log('GoogleMapSelector: Initialization complete!');
 
-                            // If we have initial coordinates, do reverse geocoding
+                            // Do reverse geocoding for the final location
                             if (initialCoordinates) {
+                                // Use provided coordinates for reverse geocoding
                                 reverseGeocode(geocoderInstance, initialCoordinates);
+                            } else if (defaultLocation && (defaultLocation.lat !== 39.8283 || defaultLocation.lng !== -98.5795)) {
+                                // If we have a real location (not the fallback), do reverse geocoding
+                                reverseGeocode(geocoderInstance, defaultLocation);
+                            } else if (initialAddress && initialAddress.trim()) {
+                                // If we have an initial address but coordinates failed, show the address
+                                setSelectedAddress(initialAddress.trim());
+                                if (onAddressUpdate) {
+                                    onAddressUpdate(initialAddress.trim());
+                                }
                             }
                         } catch (innerError) {
                             console.error('Error creating Google Maps instance:', innerError);
                             setIsLoading(false);
+                            setIsInitializing(false);
                         }
                     }, 200); // Additional delay before map creation
 
                 } catch (error) {
                     console.error('Error initializing Google Maps:', error);
                     setIsLoading(false);
+                    setIsInitializing(false);
                 }
             }).catch((error) => {
                 console.error('Error waiting for container:', error);
                 setIsLoading(false);
+                setIsInitializing(false);
             });
         };
 
@@ -195,7 +406,8 @@ const GoogleMapSelector = ({
         return () => {
             // Google Maps cleanup is handled by React's component lifecycle
         };
-    }, [isOpen, initialCoordinates, reverseGeocode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, initialCoordinates, initialAddress, getCurrentLocation, geocodeAddress, reverseGeocode]);
 
     // Handle address search
     const searchAddress = (address) => {
@@ -211,16 +423,17 @@ const GoogleMapSelector = ({
 
                 // Update map and marker
                 map.setCenter(location);
-                map.setZoom(17);
-                marker.setPosition(location);
+                map.setZoom(15);
+                marker.position = location;
                 
-                setSelectedAddress(results[0].formatted_address);
+                const cleanAddress = removeCountryFromAddress(results[0].formatted_address);
+                setSelectedAddress(cleanAddress);
                 
                 if (onLocationSelect) {
                     onLocationSelect(coordinates);
                 }
                 if (onAddressUpdate) {
-                    onAddressUpdate(results[0].formatted_address);
+                    onAddressUpdate(cleanAddress);
                 }
             } else {
                 alert('Geocode was not successful for the following reason: ' + status);
@@ -230,10 +443,10 @@ const GoogleMapSelector = ({
 
     const handleSaveAndClose = () => {
         if (marker) {
-            const position = marker.getPosition();
+            const position = marker.position;
             const coordinates = {
-                lat: position.lat(),
-                lng: position.lng()
+                lat: position.lat,
+                lng: position.lng
             };
             
             if (onLocationSelect) {
@@ -290,7 +503,7 @@ const GoogleMapSelector = ({
                     )}
                 </div>
                 
-                <div className="flex-1 relative">
+                <div className="flex-1 relative" style={{ height: '500px' }}>
                     {isLoading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
                             <div className="text-center">
@@ -302,12 +515,12 @@ const GoogleMapSelector = ({
                     
                     <div 
                         ref={mapRef} 
-                        className="w-full h-full min-h-[400px]"
+                        className="w-full h-full"
                         style={{ 
-                            display: isLoading ? 'none' : 'block',
-                            visibility: isLoading ? 'hidden' : 'visible',
+                            display: 'block',
+                            visibility: 'visible',
                             width: '100%',
-                            height: '100%'
+                            height: '500px'
                         }}
                     />
                 </div>

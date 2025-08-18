@@ -119,6 +119,30 @@ export const useLocationServices = (db, handleInputChange) => {
         }
     }, []);
 
+    const reverseGeocodeWithGoogleMaps = useCallback(async (coordinates) => {
+        // Try Google Maps API first if available (more accurate)
+        if (window.google && window.google.maps) {
+            console.log('Using Google Maps Reverse Geocoding API for:', coordinates);
+            return new Promise((resolve) => {
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode({ location: coordinates }, (results, status) => {
+                    if (status === 'OK' && results[0]) {
+                        const address = results[0].formatted_address;
+                        console.log('Google Maps reverse geocoding successful:', address);
+                        resolve(address);
+                    } else {
+                        console.warn('Google Maps reverse geocoding failed:', status);
+                        resolve(null);
+                    }
+                });
+            });
+        }
+        
+        // Fallback to existing BigDataCloud API
+        console.log('Google Maps API not available, falling back to BigDataCloud');
+        return reverseGeocode(coordinates);
+    }, [reverseGeocode]);
+
     const getCurrentLocation = useCallback(() => {
         if (!navigator.geolocation) {
             window.alert('Geolocation is not supported by this browser.');
@@ -140,7 +164,7 @@ export const useLocationServices = (db, handleInputChange) => {
                 // Try to get address from coordinates (reverse geocoding)
                 if (locationSettings.enableAutoAddressFill) {
                     try {
-                        const address = await reverseGeocode(coordinates);
+                        const address = await reverseGeocodeWithGoogleMaps(coordinates);
                         console.log('Reverse geocoded address:', address);
                         if (address) {
                             handleInputChange({
@@ -188,7 +212,7 @@ export const useLocationServices = (db, handleInputChange) => {
                 maximumAge: 60000
             }
         );
-    }, [handleInputChange, locationSettings.enableAutoAddressFill, reverseGeocode, getSalesTaxRate]);
+    }, [handleInputChange, locationSettings.enableAutoAddressFill, reverseGeocodeWithGoogleMaps, getSalesTaxRate]);
 
     const geocodeAddress = useCallback(async (address) => {
         // Always use Google Maps Geocoding API first if available
@@ -313,6 +337,7 @@ export const useLocationServices = (db, handleInputChange) => {
 
     return useMemo(() => ({
         locationSettings,
+        reverseGeocodeWithGoogleMaps,
         getCurrentLocation,
         openManualCoordinateInput,
         openInMaps,
@@ -323,6 +348,7 @@ export const useLocationServices = (db, handleInputChange) => {
         geocodeAddress
     }), [
         locationSettings, 
+        reverseGeocodeWithGoogleMaps,
         getCurrentLocation,
         openManualCoordinateInput,
         openInMaps,
@@ -367,16 +393,10 @@ export const LocationControls = ({ bid, locationSettings, locationServices }) =>
                     <button
                         type="button"
                         onClick={handleOpenMapSelector}
-                        className="px-2 py-1 text-xs bg-purple-500 text-white rounded hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="px-2 py-0 text-xs text-white rounded hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{backgroundColor: '#303a7e', height: '1.25rem'}}
                     >
                         🎯 Map
-                    </button>
-                    <button
-                        type="button"
-                        onClick={locationServices.getCurrentLocation}
-                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        📍 GPS
                     </button>
                 </div>
             </div>
@@ -384,6 +404,7 @@ export const LocationControls = ({ bid, locationSettings, locationServices }) =>
             {/* Google Map Selector Modal */}
             <GoogleMapSelector
                 initialCoordinates={bid.coordinates}
+                initialAddress={bid.address}
                 onLocationSelect={handleMapLocationSelect}
                 onAddressUpdate={handleMapAddressUpdate}
                 isOpen={isMapSelectorOpen}

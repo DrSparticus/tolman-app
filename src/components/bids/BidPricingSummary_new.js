@@ -67,54 +67,10 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
         );
     }
 
-    // Helper function to calculate area-specific tape rate (matching Area component logic)
+    // Helper function to calculate area-specific tape rate
     const calculateAreaTapeRate = (area) => {
-        // Get hang rate from area or bid
-        const hangRate = parseFloat(area.hangRate) || parseFloat(bid.finishedHangingRate) || 0;
-        const baseAddition = 0.04;
-        
-        let taperFinishesTotal = 0;
-        const wallTexture = area.useOverallFinishes ? bid?.wallTexture : area.wallTexture;
-        const ceilingTexture = area.useOverallFinishes ? bid?.ceilingTexture : area.ceilingTexture;
-        const corners = area.useOverallFinishes ? bid?.corners : area.corners;
-        
-        // Calculate taper pay from finishes
-        const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
-        
-        if (wallTexture && finishes?.wallTextures) {
-            const wt = finishes.wallTextures.find(f => f.name === wallTexture);
-            if (wt && typeof wt === 'object' && wt.crew === taperCrewId) {
-                taperFinishesTotal += parseFloat(wt.pay) || 0;
-            }
-        }
-        if (ceilingTexture && finishes?.ceilingTextures) {
-            const ct = finishes.ceilingTextures.find(f => f.name === ceilingTexture);
-            if (ct && typeof ct === 'object' && ct.crew === taperCrewId) {
-                taperFinishesTotal += parseFloat(ct.pay) || 0;
-            }
-        }
-        if (corners && finishes?.corners) {
-            const c = finishes.corners.find(f => f.name === corners);
-            if (c && typeof c === 'object' && c.crew === taperCrewId) {
-                taperFinishesTotal += parseFloat(c.pay) || 0;
-            }
-        }
-        
-        // Add extra taper pay from materials used in this area
-        let materialExtraPay = 0;
-        if (area.materials && materials) {
-            area.materials.forEach(areaMat => {
-                const material = materials.find(m => m.id === areaMat.materialId);
-                if (material && material.extraLabor) {
-                    const taperExtra = material.extraLabor.find(extra => extra.crewType === taperCrewId);
-                    if (taperExtra) {
-                        materialExtraPay += parseFloat(taperExtra.extraPay) || 0;
-                    }
-                }
-            });
-        }
-        
-        return hangRate + baseAddition + taperFinishesTotal + materialExtraPay;
+        const areaHangRate = parseFloat(area.hangRate) || parseFloat(bid.finishedHangingRate) || 0;
+        return areaHangRate * 2; // Simple 2x multiplier as default
     };
 
     // Calculate pricing with area-by-area logic
@@ -172,136 +128,12 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 
                 // Determine labor rates for this area
                 const hangRate = area.useOverallLabor 
-                    ? (() => {
-                        // When using overall labor rates but area-specific finishes,
-                        // we need to apply finish upgrades to the overall base rate
-                        if (!area.useOverallFinishes) {
-                            const baseRate = parseFloat(bid.finishedHangingRate) || 0;
-                            
-                            let hangingFinishesTotal = 0;
-                            const wallTexture = area.wallTexture;
-                            const ceilingTexture = area.ceilingTexture;
-                            const corners = area.corners;
-                            
-                            // Calculate hanging pay from finishes
-                            const hangingCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('hang'))?.id;
-                            
-                            if (wallTexture && finishes?.wallTextures) {
-                                const wt = finishes.wallTextures.find(f => f.name === wallTexture);
-                                if (wt && typeof wt === 'object' && wt.crew === hangingCrewId) {
-                                    hangingFinishesTotal += parseFloat(wt.pay) || 0;
-                                }
-                            }
-                            if (ceilingTexture && finishes?.ceilingTextures) {
-                                const ct = finishes.ceilingTextures.find(f => f.name === ceilingTexture);
-                                if (ct && typeof ct === 'object' && ct.crew === hangingCrewId) {
-                                    hangingFinishesTotal += parseFloat(ct.pay) || 0;
-                                }
-                            }
-                            if (corners && finishes?.corners) {
-                                const c = finishes.corners.find(f => f.name === corners);
-                                if (c && typeof c === 'object' && c.crew === hangingCrewId) {
-                                    hangingFinishesTotal += parseFloat(c.pay) || 0;
-                                }
-                            }
-                            
-                            // Add extra hanging pay from materials used in this area
-                            let materialExtraPay = 0;
-                            if (area.materials && materials) {
-                                area.materials.forEach(areaMat => {
-                                    const material = materials.find(m => m.id === areaMat.materialId);
-                                    if (material && material.extraLabor) {
-                                        const hangingExtra = material.extraLabor.find(extra => extra.crewType === hangingCrewId);
-                                        if (hangingExtra) {
-                                            materialExtraPay += parseFloat(hangingExtra.extraPay) || 0;
-                                        }
-                                    }
-                                });
-                            }
-                            
-                            const adjustedRate = baseRate + hangingFinishesTotal + materialExtraPay;
-                            debug.push(`  Overall hanging labor with area finishes calculation:`);
-                            debug.push(`    Base overall hang rate: $${baseRate}`);
-                            debug.push(`    Area finish upgrades: $${hangingFinishesTotal}`);
-                            debug.push(`    Material extra pay: $${materialExtraPay}`);
-                            debug.push(`    Adjusted rate: $${adjustedRate.toFixed(3)}`);
-                            return adjustedRate;
-                        } else {
-                            // Using both overall labor and overall finishes
-                            return parseFloat(bid.finishedHangingRate) || 0;
-                        }
-                    })()
+                    ? (parseFloat(bid.finishedHangingRate) || 0)
                     : (parseFloat(area.hangRate) || parseFloat(bid.finishedHangingRate) || 0);
                 
                 const finishedTapeRate = area.useOverallLabor 
-                    ? (() => {
-                        // When using overall labor rates but area-specific finishes,
-                        // we need to apply finish upgrades to the overall base rate
-                        if (!area.useOverallFinishes) {
-                            // Calculate finish upgrades for this area's finishes
-                            const baseRate = parseFloat(bid.finishedTapeRate) || 0;
-                            
-                            let taperFinishesTotal = 0;
-                            const wallTexture = area.wallTexture;
-                            const ceilingTexture = area.ceilingTexture;
-                            const corners = area.corners;
-                            
-                            // Calculate taper pay from finishes
-                            const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
-                            
-                            if (wallTexture && finishes?.wallTextures) {
-                                const wt = finishes.wallTextures.find(f => f.name === wallTexture);
-                                if (wt && typeof wt === 'object' && wt.crew === taperCrewId) {
-                                    taperFinishesTotal += parseFloat(wt.pay) || 0;
-                                }
-                            }
-                            if (ceilingTexture && finishes?.ceilingTextures) {
-                                const ct = finishes.ceilingTextures.find(f => f.name === ceilingTexture);
-                                if (ct && typeof ct === 'object' && ct.crew === taperCrewId) {
-                                    taperFinishesTotal += parseFloat(ct.pay) || 0;
-                                }
-                            }
-                            if (corners && finishes?.corners) {
-                                const c = finishes.corners.find(f => f.name === corners);
-                                if (c && typeof c === 'object' && c.crew === taperCrewId) {
-                                    taperFinishesTotal += parseFloat(c.pay) || 0;
-                                }
-                            }
-                            
-                            // Add extra taper pay from materials used in this area
-                            let materialExtraPay = 0;
-                            if (area.materials && materials) {
-                                area.materials.forEach(areaMat => {
-                                    const material = materials.find(m => m.id === areaMat.materialId);
-                                    if (material && material.extraLabor) {
-                                        const taperExtra = material.extraLabor.find(extra => extra.crewType === taperCrewId);
-                                        if (taperExtra) {
-                                            materialExtraPay += parseFloat(taperExtra.extraPay) || 0;
-                                        }
-                                    }
-                                });
-                            }
-                            
-                            const adjustedRate = baseRate + taperFinishesTotal + materialExtraPay;
-                            debug.push(`  Overall labor with area finishes calculation:`);
-                            debug.push(`    Base overall tape rate: $${baseRate}`);
-                            debug.push(`    Area finish upgrades: $${taperFinishesTotal}`);
-                            debug.push(`    Material extra pay: $${materialExtraPay}`);
-                            debug.push(`    Adjusted rate: $${adjustedRate.toFixed(3)}`);
-                            return adjustedRate;
-                        } else {
-                            // Using both overall labor and overall finishes
-                            return parseFloat(bid.finishedTapeRate) || 0;
-                        }
-                    })()
-                    : (area.autoTapeRate ? (() => {
-                        const calculatedRate = calculateAreaTapeRate(area);
-                        debug.push(`  Auto tape rate calculation:`);
-                        debug.push(`    Base hang rate: $${parseFloat(area.hangRate) || parseFloat(bid.finishedHangingRate) || 0}`);
-                        debug.push(`    Base addition: $0.04`);
-                        debug.push(`    Calculated rate: $${calculatedRate.toFixed(3)}`);
-                        return calculatedRate;
-                    })() : (parseFloat(area.tapeRate) || parseFloat(bid.finishedTapeRate) || 0));
+                    ? (parseFloat(bid.finishedTapeRate) || 0)
+                    : (area.autoTapeRate ? calculateAreaTapeRate(area) : (parseFloat(area.tapeRate) || parseFloat(bid.finishedTapeRate) || 0));
                 
                 const unfinishedTapeRate = area.useOverallLabor
                     ? (parseFloat(bid.unfinishedTapeRate || bid.unfinishedTapingRate) || 0)
@@ -543,18 +375,29 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             const breakEven = hardCost + overhead;
             const profit = breakEven * markups.profit;
 
-            // No additional finish extra profit - already included in area calculations
-            const finishExtraProfit = 0;
+            // Calculate finish extra profit (bid-wide finish upgrades)
+            let finishExtraProfit = 0;
+            debug.push('\n=== BID-WIDE FINISH EXTRA PROFIT ===');
+            
+            ['wallTexture', 'ceilingTexture', 'corners'].forEach(finishType => {
+                const finishName = bid[finishType];
+                const finishCategory = finishType === 'wallTexture' ? 'wallTextures' : 
+                                      finishType === 'ceilingTexture' ? 'ceilingTextures' : 'corners';
+                
+                if (finishName && finishes[finishCategory]) {
+                    const finish = finishes[finishCategory].find(f => f.name === finishName);
+                    if (finish && typeof finish === 'object' && finish.extraProfit) {
+                        const extraProfitRate = parseFloat(finish.extraProfit) || 0;
+                        const extraProfit = totalHangingSqFt * extraProfitRate;
+                        finishExtraProfit += extraProfit;
+                        
+                        debug.push(`${finishType}: ${finish.name} @ $${extraProfitRate}/sq ft = $${extraProfit.toFixed(2)}`);
+                    }
+                }
+            });
+
             const totalProfit = profit + finishExtraProfit;
             const netQuote = breakEven + totalProfit;
-
-            debug.push(`Hard Cost: $${hardCost.toFixed(2)}`);
-            debug.push(`Overhead (${(markups.overhead * 100).toFixed(1)}%): $${overhead.toFixed(2)}`);
-            debug.push(`Break Even: $${breakEven.toFixed(2)}`);
-            debug.push(`Base Profit (${(markups.profit * 100).toFixed(1)}%): $${profit.toFixed(2)}`);
-            debug.push(`Finish Extra Profit: $${finishExtraProfit.toFixed(2)} (included in area labor)`);
-            debug.push(`Total Profit: $${totalProfit.toFixed(2)}`);
-            debug.push(`Net Quote: $${netQuote.toFixed(2)}`);
 
             return {
                 stockedMaterial: totalStockedMaterial,

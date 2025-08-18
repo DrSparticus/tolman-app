@@ -1,5 +1,32 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import MaterialSelectModal from './MaterialSelectModal';
+
+// Component for inputs that defer updates until blur to prevent cursor jumping
+const DeferredInput = React.memo(({ value, onBlur, ...inputProps }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+    
+    // Update local value when prop value changes
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+    
+    const handleLocalChange = (e) => {
+        setLocalValue(e.target.value);
+    };
+    
+    const handleBlur = (e) => {
+        onBlur(e);
+    };
+    
+    return (
+        <input
+            {...inputProps}
+            value={localValue}
+            onChange={handleLocalChange}
+            onBlur={handleBlur}
+        />
+    );
+});
 
 export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishes, bid, crewTypes, materials }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -159,10 +186,10 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg">
             <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
-                <input
+                <DeferredInput
                     type="text"
                     value={area.name || ''}
-                    onChange={handleNameChange}
+                    onBlur={handleNameChange}
                     className="text-xl font-bold border-b-2 border-transparent focus:border-gray-300 outline-none flex-grow min-w-[100px]"
                 />
                 <div className="flex items-center space-x-4 ml-4">
@@ -275,11 +302,11 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                     
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Hang Rate</label>
-                        <input
+                        <DeferredInput
                             type="number"
                             step="0.01"
                             value={area.hangRate || ''}
-                            onChange={(e) => onUpdate({ ...area, hangRate: e.target.value })}
+                            onBlur={(e) => onUpdate({ ...area, hangRate: e.target.value })}
                             className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3"
                         />
                     </div>
@@ -297,11 +324,11 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                                 <label className="ml-2 text-sm font-medium text-gray-700">Auto</label>
                             </div>
                         </div>
-                        <input
+                        <DeferredInput
                             type="number"
                             step="0.01"
                             value={area.autoTapeRate ? calculateAreaTapeRate() : (area.tapeRate || '')}
-                            onChange={(e) => onUpdate({ ...area, tapeRate: e.target.value })}
+                            onBlur={(e) => onUpdate({ ...area, tapeRate: e.target.value })}
                             disabled={area.autoTapeRate}
                             className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 disabled:bg-gray-100"
                         />
@@ -377,11 +404,11 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                                                     −
                                                 </button>
                                                 
-                                                <input
+                                                <DeferredInput
                                                     type="number"
                                                     min="0"
                                                     value={variant.quantity || 0}
-                                                    onChange={(e) => updateVariantQuantity(materialIndex, variant.id, Math.max(0, parseInt(e.target.value) || 0))}
+                                                    onBlur={(e) => updateVariantQuantity(materialIndex, variant.id, Math.max(0, parseInt(e.target.value) || 0))}
                                                     className="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium"
                                                 />
                                                 

@@ -4,8 +4,7 @@ import { pages as pageConfig } from '../pagesConfig';
 import { PlusIcon, DeleteIcon } from '../Icons.js';
 import FinishesConfig from '../components/FinishesConfig';
 import LaborConfig from '../components/LaborConfig';
-import MarkupConfig from '../components/MarkupConfig';
-import LocationConfig from '../components/LocationConfig'; 
+import MarkupConfig from '../components/MarkupConfig'; 
 
 const AdministrationPage = ({ db }) => {
     const [roles, setRoles] = useState([]);
@@ -77,7 +76,6 @@ const AdministrationPage = ({ db }) => {
             <FinishesConfig db={db} />
             <LaborConfig db={db} />
             <MarkupConfig db={db} />
-            <LocationConfig db={db} />
 
             <div className="mt-8">
                 <h2 className="text-2xl font-bold text-gray-700 mb-4">Role & Permission Management</h2>
