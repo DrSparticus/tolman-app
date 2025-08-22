@@ -61,7 +61,7 @@ export const BidFormFields = React.memo(({
             case 'contractor':
                 return (
                     <div key={fieldName}>
-                        <label htmlFor="contractor" className="block text-sm font-medium text-gray-700">Contractor</label>
+                        <label htmlFor="contractor" className="block text-sm font-medium text-gray-700">Customer</label>
                         <DeferredInput
                             id="contractor"
                             type="text"

@@ -15,7 +15,13 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:staging": "env-cmd -f .env.staging react-scripts start",
     "build": "react-scripts build",
+    "build:staging": "env-cmd -f .env.staging react-scripts build",
+    "build:development": "env-cmd -f .env.development react-scripts build",
+    "deploy": "firebase deploy --project tolman-app",
+    "deploy:staging": "npm run build:staging && firebase deploy --project tolman-app-staging",
+    "deploy:dev": "npm run build:development && firebase deploy --project tolman-app-dev",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -36,5 +42,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "env-cmd": "^10.1.0"
   }
 }

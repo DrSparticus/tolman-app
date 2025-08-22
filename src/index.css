@@ -1,3 +1,357 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom styles for Customers and Suppliers Pages */
+.customers-page, .suppliers-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: #303a7e;
+}
+
+/* Customer/Supplier Cards */
+.customers-list, .suppliers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.customer-card, .supplier-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.customer-header, .supplier-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: #f8f9fa;
+  cursor: pointer;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.customer-header:hover, .supplier-header:hover {
+  background: #e9ecef;
+}
+
+.customer-info, .supplier-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.customer-info h3, .supplier-info h3 {
+  margin: 0;
+  color: #303a7e;
+  font-size: 1.2em;
+}
+
+.customer-type, .contact-count, .salesman-info, .branch-count {
+  font-size: 0.9em;
+  color: #666;
+}
+
+.customer-actions, .supplier-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.expand-icon {
+  margin-left: 10px;
+  font-size: 1.2em;
+  color: #666;
+}
+
+.customer-details, .supplier-details {
+  padding: 20px;
+  background: white;
+}
+
+.address-section, .salesman-section, .contacts-section, .branches-section {
+  margin-bottom: 20px;
+}
+
+.address-section strong, .salesman-section strong, .contacts-section strong, .branches-section strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #303a7e;
+  font-size: 1.1em;
+}
+
+.contacts-list, .branches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.contact-item, .branch-item {
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #303a7e;
+}
+
+.contact-name, .branch-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.contact-role {
+  font-weight: normal;
+  color: #666;
+}
+
+.contact-details, .salesman-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+.contact-phone, .contact-email {
+  font-size: 0.9em;
+  color: #555;
+}
+
+.branch-address {
+  margin: 5px 0;
+  color: #666;
+}
+
+.branch-contacts {
+  margin-top: 10px;
+}
+
+.branch-contacts strong {
+  font-size: 1em;
+  margin-bottom: 5px;
+}
+
+/* Forms */
+.customer-form-overlay, .supplier-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.customer-form, .supplier-form {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 90%;
+}
+
+.customer-form h2, .supplier-form h2 {
+  margin-top: 0;
+  color: #303a7e;
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #333;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  margin-top: 25px;
+}
+
+.section-header h3 {
+  margin: 0;
+  color: #303a7e;
+}
+
+.contacts-section, .branches-section, .salesman-section {
+  border-top: 2px solid #e9ecef;
+  padding-top: 20px;
+}
+
+.contact-form, .branch-form {
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #f8f9fa;
+}
+
+.contact-header, .branch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.contact-header h4, .branch-header h4 {
+  margin: 0;
+  color: #303a7e;
+}
+
+.contact-fields, .branch-fields, .salesman-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.contact-fields input, .branch-fields input, .branch-fields textarea, .salesman-fields input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.contacts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.contacts-header h5 {
+  margin: 0;
+  color: #303a7e;
+  font-size: 1em;
+}
+
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #e9ecef;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.btn-primary {
+  background-color: #303a7e;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #252f6b;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+.btn-small {
+  padding: 5px 10px;
+  font-size: 0.8em;
+}
+
+/* Loading and empty states */
+.loading {
+  text-align: center;
+  padding: 50px;
+  font-size: 1.2em;
+  color: #666;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 50px;
+  color: #666;
+}
+
+.empty-state h3 {
+  margin-bottom: 10px;
+  color: #303a7e;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .customers-page, .suppliers-page {
+    padding: 10px;
+  }
+  
+  .customer-actions, .supplier-actions {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .contact-fields, .branch-fields, .salesman-fields {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .customer-form, .supplier-form {
+    width: 95%;
+    padding: 20px;
+  }
+}

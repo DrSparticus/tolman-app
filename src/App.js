@@ -229,11 +229,11 @@ export default function App() {
             case 'change-orders':
                 return hasAccess('change-orders') ? <ChangeOrdersPage /> : <AccessDeniedPage />;
             case 'customers':
-                return hasAccess('customers') ? <CustomersPage /> : <AccessDeniedPage />;
+                return hasAccess('customers') ? <CustomersPage db={db} /> : <AccessDeniedPage />;
             case 'projects':
                 return hasAccess('projects') ? <ProjectsPage db={db} onNewBid={handleNewBid} onEditProject={handleEditProject} /> : <AccessDeniedPage />;
             case 'suppliers':
-                return hasAccess('suppliers') ? <SuppliersPage /> : <AccessDeniedPage />;
+                return hasAccess('suppliers') ? <SuppliersPage db={db} /> : <AccessDeniedPage />;
             case 'administration':
                 return hasAccess('administration') ? <AdministrationPage db={db} /> : <AccessDeniedPage />;
             default:
