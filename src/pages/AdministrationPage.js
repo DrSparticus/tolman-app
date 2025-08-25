@@ -116,6 +116,7 @@ const AdministrationPage = ({ db }) => {
             setRoles(allRoles);
         });
         return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [db, rolesPath]);
 
     const getDefaultPermissions = (roleId) => {
