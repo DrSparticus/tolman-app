@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { pages as pageConfig } from '../pagesConfig';
+import { PlusIcon, DeleteIcon } from '../Icons.js';
 import FinishesConfig from '../components/FinishesConfig';
 import LaborConfig from '../components/LaborConfig';
 import MarkupConfig from '../components/MarkupConfig'; 
@@ -84,25 +85,19 @@ const AdministrationPage = ({ db }) => {
         ]
     };
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (!db) return;
-        console.log('AdministrationPage: Loading roles from:', rolesPath);
         const rolesCollection = collection(db, rolesPath);
         const unsubscribe = onSnapshot(rolesCollection, (snapshot) => {
-            console.log('AdministrationPage: Roles snapshot received, docs count:', snapshot.docs.length);
             const rolesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log('AdministrationPage: Roles data:', rolesData);
             
             // Merge predefined roles with database roles
             const allRoles = predefinedRoles.map(predefined => {
                 const dbRole = rolesData.find(r => r.id === predefined.id);
                 if (dbRole) {
-                    console.log(`Found existing role: ${predefined.id}`, dbRole);
                     return { ...predefined, ...dbRole };
                 } else {
                     // Create default permissions for new predefined roles
-                    console.log(`Creating default role: ${predefined.id}`);
                     const defaultPermissions = getDefaultPermissions(predefined.id);
                     setDoc(doc(db, rolesPath, predefined.id), {
                         name: predefined.name,
@@ -112,7 +107,6 @@ const AdministrationPage = ({ db }) => {
                 }
             });
             
-            console.log('AdministrationPage: Final roles array:', allRoles);
             setRoles(allRoles);
         });
         return unsubscribe;
@@ -138,12 +132,7 @@ const AdministrationPage = ({ db }) => {
                         defaults[pageId][perm.id] = pageId === 'materials' && perm.id === 'view';
                         break;
                     case 'supervisor':
-                        // Supervisors should have access to home, projects, and schedule
-                        if (pageId === 'home') {
-                            defaults[pageId][perm.id] = perm.id === 'view';
-                        } else {
-                            defaults[pageId][perm.id] = ['projects', 'schedule'].includes(pageId) && ['view', 'edit'].includes(perm.id);
-                        }
+                        defaults[pageId][perm.id] = ['projects', 'schedule'].includes(pageId) && ['view', 'edit'].includes(perm.id);
                         break;
                     case 'crew':
                         defaults[pageId][perm.id] = pageId === 'schedule' && perm.id === 'view';

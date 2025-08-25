@@ -10,6 +10,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
     const [debugMode, setDebugMode] = useState(false);
     const isSupervisor = userData?.role === 'supervisor';
     const isAdmin = userData?.role === 'admin';
+    const hasAdvancedPricing = userData?.permissions?.bids?.advancedPricing !== false;
     
     // Load markups from database
     useEffect(() => {
@@ -641,16 +642,18 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
     return (
         <div className="bg-white p-4 rounded-lg shadow-lg">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Pricing Breakdown</h3>
-                <button 
-                    onClick={() => setDebugMode(!debugMode)}
-                    className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded"
-                >
-                    {debugMode ? 'Hide Debug' : 'Show Debug'}
-                </button>
+                <h3 className="text-lg font-semibold">Pricing Summary</h3>
+                {hasAdvancedPricing && (
+                    <button 
+                        onClick={() => setDebugMode(!debugMode)}
+                        className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded"
+                    >
+                        {debugMode ? 'Hide Debug' : 'Show Debug'}
+                    </button>
+                )}
             </div>
             
-            {debugMode && (
+            {hasAdvancedPricing && debugMode && (
                 <div className="mb-4 p-3 bg-gray-50 rounded text-xs font-mono max-h-60 overflow-y-auto">
                     <h4 className="font-bold mb-2">Debug Information:</h4>
                     {pricing.debug.map((line, index) => (
@@ -659,70 +662,89 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 </div>
             )}
             
-            <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                    <span>Stocked Material:</span>
-                    <span>${pricing.stockedMaterial.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Misc Materials:</span>
-                    <span>${pricing.miscMaterials.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Sales Tax {isAdmin || !bid.coordinates ? `(${(pricing.effectiveSalesTaxRate * 100).toFixed(3)}%${bid.salesTaxRate ? ' - Location Based' : ''})` : ''}:</span>
-                    <span>${pricing.salesTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between font-medium border-t pt-2">
-                    <span>Total Material:</span>
-                    <span>${pricing.totalMaterialWithTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Hang Labor:</span>
-                    <span>${pricing.hangLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Tape Labor:</span>
-                    <span>${pricing.tapeLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Labor Burden ({(markups.laborBurden * 100).toFixed(1)}%):</span>
-                    <span>${pricing.laborBurden.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                    <span>Total Labor:</span>
-                    <span>${pricing.totalLaborWithBurden.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between font-medium border-t pt-2">
-                    <span>Hard Cost:</span>
-                    <span>${pricing.hardCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Overhead ({(markups.overhead * 100).toFixed(1)}%):</span>
-                    <span>${pricing.overhead.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between font-semibold">
-                    <span>Break Even:</span>
-                    <span>${pricing.breakEven.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Base Profit ({(markups.profit * 100).toFixed(1)}%):</span>
-                    <span>${pricing.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                {pricing.finishExtraProfit > 0 && (
+            {hasAdvancedPricing ? (
+                // Advanced View - Full Breakdown
+                <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                        <span>Finish Extra Profit:</span>
-                        <span>${pricing.finishExtraProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span>Stocked Material:</span>
+                        <span>${pricing.stockedMaterial.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                )}
-                <div className="flex justify-between font-medium">
-                    <span>Total Profit:</span>
-                    <span>${pricing.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <div className="flex justify-between">
+                        <span>Misc Materials:</span>
+                        <span>${pricing.miscMaterials.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Sales Tax {isAdmin || !bid.coordinates ? `(${(pricing.effectiveSalesTaxRate * 100).toFixed(3)}%${bid.salesTaxRate ? ' - Location Based' : ''})` : ''}:</span>
+                        <span>${pricing.salesTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between font-medium border-t pt-2">
+                        <span>Total Material:</span>
+                        <span>${pricing.totalMaterialWithTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Hang Labor:</span>
+                        <span>${pricing.hangLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Tape Labor:</span>
+                        <span>${pricing.tapeLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Labor Burden ({(markups.laborBurden * 100).toFixed(1)}%):</span>
+                        <span>${pricing.laborBurden.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                        <span>Total Labor:</span>
+                        <span>${pricing.totalLaborWithBurden.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between font-medium border-t pt-2">
+                        <span>Hard Cost:</span>
+                        <span>${pricing.hardCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Overhead ({(markups.overhead * 100).toFixed(1)}%):</span>
+                        <span>${pricing.overhead.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                        <span>Break Even:</span>
+                        <span>${pricing.breakEven.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Base Profit ({(markups.profit * 100).toFixed(1)}%):</span>
+                        <span>${pricing.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    {pricing.finishExtraProfit > 0 && (
+                        <div className="flex justify-between">
+                            <span>Finish Extra Profit:</span>
+                            <span>${pricing.finishExtraProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between font-medium">
+                        <span>Total Profit:</span>
+                        <span>${pricing.totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 font-bold text-base">
+                        <span>Net Quote:</span>
+                        <span>${pricing.netQuote.toLocaleString()}</span>
+                    </div>
                 </div>
-                <div className="flex justify-between border-t pt-2 font-bold text-base">
-                    <span>Net Quote:</span>
-                    <span>${pricing.netQuote.toLocaleString()}</span>
+            ) : (
+                // Basic View - Key Totals Only
+                <div className="space-y-3 text-sm">
+                    <div className="flex justify-between font-medium">
+                        <span>Total Hang Labor:</span>
+                        <span>${pricing.hangLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                        <span>Total Tape Labor:</span>
+                        <span>${pricing.tapeLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 font-bold text-lg text-green-600">
+                        <span>Bid Total:</span>
+                        <span>${pricing.netQuote.toLocaleString()}</span>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

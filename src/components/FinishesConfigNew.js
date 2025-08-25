@@ -15,8 +15,6 @@ const FinishesConfig = ({ db }) => {
     const [expandedFinish, setExpandedFinish] = useState(null);
     const [newFinish, setNewFinish] = useState({ type: 'wallTextures', value: '' });
 
-    const [localValues, setLocalValues] = useState({});
-
     useEffect(() => {
         if (!db) return;
         const finishesDocRef = doc(db, configPath, 'finishes');
@@ -86,18 +84,6 @@ const FinishesConfig = ({ db }) => {
     };
 
     const handleFinishDetailChange = (type, name, field, value) => {
-        const key = `${type}_${name}_${field}`;
-        setLocalValues(prev => ({ ...prev, [key]: value }));
-    };
-
-    const handleFinishDetailBlur = async (type, name, field, value) => {
-        const key = `${type}_${name}_${field}`;
-        setLocalValues(prev => {
-            const newLocal = { ...prev };
-            delete newLocal[key];
-            return newLocal;
-        });
-
         const updatedFinishes = {
             ...finishes,
             [type]: finishes[type].map(item => {
@@ -112,26 +98,11 @@ const FinishesConfig = ({ db }) => {
                 return item;
             })
         };
-        
         setFinishes(updatedFinishes);
-        await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
     };
 
-    const getFieldValue = (type, name, field) => {
-        const key = `${type}_${name}_${field}`;
-        if (localValues.hasOwnProperty(key)) {
-            return localValues[key];
-        }
-        
-        const finish = finishes[type]?.find(f => {
-            const itemName = typeof f === 'object' ? f.name : f;
-            return itemName === name;
-        });
-        
-        if (typeof finish === 'object') {
-            return finish[field] || '';
-        }
-        return '';
+    const handleFinishDetailBlur = async (type) => {
+        await setDoc(doc(db, configPath, 'finishes'), { [type]: finishes[type] }, { merge: true });
     };
 
     const handleAddPayout = async (type, name) => {
@@ -201,18 +172,18 @@ const FinishesConfig = ({ db }) => {
                                 <input
                                     type="number"
                                     step="0.01"
-                                    value={getFieldValue(type, finishName, 'pay')}
+                                    value={typeof finish === 'object' ? (finish.pay || '') : ''}
                                     onChange={(e) => handleFinishDetailChange(type, finishName, 'pay', e.target.value)}
-                                    onBlur={(e) => handleFinishDetailBlur(type, finishName, 'pay', e.target.value)}
+                                    onBlur={() => handleFinishDetailBlur(type)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Crew</label>
                                 <select
-                                    value={getFieldValue(type, finishName, 'crew')}
+                                    value={typeof finish === 'object' ? (finish.crew || '') : ''}
                                     onChange={(e) => handleFinishDetailChange(type, finishName, 'crew', e.target.value)}
-                                    onBlur={(e) => handleFinishDetailBlur(type, finishName, 'crew', e.target.value)}
+                                    onBlur={() => handleFinishDetailBlur(type)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 >
                                     <option value="">Select Crew</option>
@@ -226,9 +197,9 @@ const FinishesConfig = ({ db }) => {
                                 <input
                                     type="number"
                                     step="0.01"
-                                    value={getFieldValue(type, finishName, 'charge')}
+                                    value={typeof finish === 'object' ? (finish.charge || '') : ''}
                                     onChange={(e) => handleFinishDetailChange(type, finishName, 'charge', e.target.value)}
-                                    onBlur={(e) => handleFinishDetailBlur(type, finishName, 'charge', e.target.value)}
+                                    onBlur={() => handleFinishDetailBlur(type)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -242,18 +213,18 @@ const FinishesConfig = ({ db }) => {
                                     <input
                                         type="number"
                                         step="0.01"
-                                        value={getFieldValue(type, finishName, 'pay2')}
+                                        value={finish.pay2 || ''}
                                         onChange={(e) => handleFinishDetailChange(type, finishName, 'pay2', e.target.value)}
-                                        onBlur={(e) => handleFinishDetailBlur(type, finishName, 'pay2', e.target.value)}
+                                        onBlur={() => handleFinishDetailBlur(type)}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Secondary Crew</label>
                                     <select
-                                        value={getFieldValue(type, finishName, 'crew2')}
+                                        value={finish.crew2 || ''}
                                         onChange={(e) => handleFinishDetailChange(type, finishName, 'crew2', e.target.value)}
-                                        onBlur={(e) => handleFinishDetailBlur(type, finishName, 'crew2', e.target.value)}
+                                        onBlur={() => handleFinishDetailBlur(type)}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     >
                                         <option value="">Select Crew</option>

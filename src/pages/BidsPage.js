@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, onSnapshot, addDoc, getDocs, query, where, orderBy, limit, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
-import ExpandableBidHeader from '../components/bids/ExpandableBidHeader';
+import BidHeader from '../components/bids/BidHeader';
 import Area from '../components/bids/Area';
 import ChangeLog from '../components/bids/ChangeLog';
 import BidPricingSummary from '../components/bids/BidPricingSummary';
+import AreaNameModal from '../components/bids/AreaNameModal';
 import { getTaperRate } from '../Helpers';
 
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
@@ -74,6 +75,12 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     const [crewTypes, setCrewTypes] = useState([]);
     const [laborBreakdown, setLaborBreakdown] = useState({ hanging: { labor: 0, sqFt: 0 }, taping: { labor: 0, sqFt: 0 } });
     const [totalMaterialCost, setTotalMaterialCost] = useState(0);
+    const [showAreaNameModal, setShowAreaNameModal] = useState(false);
+    const [locationSettings, setLocationSettings] = useState({
+        reverseGeocodeAccuracy: 50,
+        enableAutoAddressFill: true,
+        enableLocationServices: true
+    });
 
     // Fetch crew types
     useEffect(() => {
@@ -96,6 +103,45 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         });
         return unsubscribe;
     }, [db]);
+
+    // Load location settings from Firebase
+    useEffect(() => {
+        if (!db) return;
+        const locationConfigRef = doc(db, configPath, 'locationSettings');
+        const unsubscribe = onSnapshot(locationConfigRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setLocationSettings(prev => ({ ...prev, ...docSnap.data() }));
+            }
+        });
+        return unsubscribe;
+    }, [db]);
+
+    // Populate default labor rates when crew types load
+    useEffect(() => {
+        if (crewTypes.length > 0 && !bid.id && (bid.finishedHangingRate === '' || bid.finishedTapeRate === '' || bid.unfinishedTapingRate === '')) {
+            const hangerCrew = crewTypes.find(crew => crew.name.toLowerCase().includes('hang'));
+            const taperCrew = crewTypes.find(crew => crew.name.toLowerCase().includes('tap'));
+
+            const updates = {};
+            
+            if (hangerCrew && hangerCrew.rates && hangerCrew.rates.hang && bid.finishedHangingRate === '') {
+                updates.finishedHangingRate = hangerCrew.rates.hang;
+            }
+            
+            if (taperCrew && taperCrew.rates) {
+                if (taperCrew.rates.finishedTape && bid.finishedTapeRate === '') {
+                    updates.finishedTapeRate = taperCrew.rates.finishedTape;
+                }
+                if (taperCrew.rates.unfinishedTape && bid.unfinishedTapingRate === '') {
+                    updates.unfinishedTapingRate = taperCrew.rates.unfinishedTape;
+                }
+            }
+
+            if (Object.keys(updates).length > 0) {
+                setBid(prev => ({ ...prev, ...updates }));
+            }
+        }
+    }, [crewTypes, bid.id, bid.finishedHangingRate, bid.finishedTapeRate, bid.unfinishedTapingRate]);
 
     // Populate default material IDs when materials load
     useEffect(() => {
@@ -277,11 +323,15 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     }, []);
 
     const addArea = () => {
+        setShowAreaNameModal(true);
+    };
+
+    const handleAreaNameConfirm = (areaName) => {
         const regularMaterial = materials.find(m => m.name === '1/2" Regular');
         
         const newArea = {
             id: crypto.randomUUID(),
-            name: `Area ${bid.areas.length + 1}`,
+            name: areaName,
             materials: regularMaterial ? [{
                 materialId: regularMaterial.id,
                 materialName: regularMaterial.name,
@@ -299,6 +349,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             autoTapeRate: true
         };
         setBid(prev => ({ ...prev, areas: [...prev.areas, newArea] }));
+        setShowAreaNameModal(false);
     };
 
     const removeArea = (areaId) => {
@@ -381,15 +432,16 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 </div>
             </div>
 
-            <ExpandableBidHeader 
+            <BidHeader 
                 bid={bid} 
                 handleInputChange={handleInputChange} 
                 supervisors={supervisors} 
                 finishes={finishes}
-                db={db}
-                userData={userData}
                 materials={materials}
                 crewTypes={crewTypes}
+                userPermissions={userData?.permissions || {}}
+                db={db}
+                locationSettings={locationSettings}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -423,6 +475,12 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     finishes={finishes}
                 />
             </div>
+
+            <AreaNameModal
+                isOpen={showAreaNameModal}
+                onClose={() => setShowAreaNameModal(false)}
+                onConfirm={handleAreaNameConfirm}
+            />
         </div>
     );
 }

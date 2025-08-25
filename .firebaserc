@@ -1,5 +1,23 @@
 {
   "projects": {
-    "default": "tolman-app"
-  }
+    "default": "tolman-app",
+    "staging": "tolmantest"
+  },
+  "targets": {
+    "tolman-app": {
+      "hosting": {
+        "production": [
+          "tolman-app"
+        ]
+      }
+    },
+    "tolmantest": {
+      "hosting": {
+        "production": [
+          "tolmantest"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

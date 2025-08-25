@@ -69,36 +69,49 @@ export default function App() {
             if (currentUser) {
                 const userDocRef = doc(dbInstance, usersPath, currentUser.uid);
                 userDocUnsubscribe = onSnapshot(userDocRef, async (docSnap) => {
-                    if (docSnap.exists()) {
-                        const uData = { id: docSnap.id, ...docSnap.data() };
-                        if (uData.role && uData.role !== 'admin') {
-                            const roleDocRef = doc(dbInstance, rolesPath, uData.role);
-                            const roleSnap = await getDoc(roleDocRef);
-                            if (roleSnap.exists()) {
-                                uData.permissions = roleSnap.data().permissions;
+                    try {
+                        if (docSnap.exists()) {
+                            const uData = { id: docSnap.id, ...docSnap.data() };
+                            if (uData.role && uData.role !== 'admin') {
+                                try {
+                                    const roleDocRef = doc(dbInstance, rolesPath, uData.role);
+                                    const roleSnap = await getDoc(roleDocRef);
+                                    if (roleSnap.exists()) {
+                                        uData.permissions = roleSnap.data().permissions;
+                                    } else {
+                                        console.warn(`Role document ${uData.role} not found, proceeding without permissions`);
+                                        uData.permissions = {};
+                                    }
+                                } catch (roleError) {
+                                    console.error("Error fetching role permissions:", roleError);
+                                    uData.permissions = {};
+                                }
                             }
-                        }
-                        setUserData(uData);
-                    } else {
-                        // Create user document if it doesn't exist
-                        const isAdminEmail = currentUser.email === 'brett@tolmandrywall.com';
-                        const nameParts = currentUser.displayName?.split(' ') || ['New', 'User'];
-                        const firstName = nameParts[0];
-                        const lastName = nameParts.slice(1).join(' ');
+                            setUserData(uData);
+                        } else {
+                            // Create user document if it doesn't exist
+                            const isAdminEmail = currentUser.email === 'brett@tolmandrywall.com';
+                            const nameParts = currentUser.displayName?.split(' ') || ['New', 'User'];
+                            const firstName = nameParts[0];
+                            const lastName = nameParts.slice(1).join(' ');
 
-                        const newUserDoc = {
-                            email: currentUser.email,
-                            firstName: firstName,
-                            lastName: lastName,
-                            photoURL: currentUser.photoURL || '',
-                            role: isAdminEmail ? 'admin' : 'pending',
-                        };
-                        setDoc(userDocRef, newUserDoc)
-                            .then(() => setUserData(newUserDoc))
-                            .catch(err => console.warn("Could not create user document", err));
+                            const newUserDoc = {
+                                email: currentUser.email,
+                                firstName: firstName,
+                                lastName: lastName,
+                                photoURL: currentUser.photoURL || '',
+                                role: isAdminEmail ? 'admin' : 'pending',
+                            };
+                            await setDoc(userDocRef, newUserDoc);
+                            setUserData(newUserDoc);
+                        }
+                        setUser(currentUser);
+                        if (loading) setLoading(false);
+                    } catch (error) {
+                        console.error("Error in user doc listener:", error);
+                        setError("Failed to load user data.");
+                        if (loading) setLoading(false);
                     }
-                    setUser(currentUser);
-                    if (loading) setLoading(false);
                 }, (err) => {
                     console.error("Error fetching user data:", err);
                     setError("Could not fetch user data.");
@@ -202,7 +215,13 @@ export default function App() {
     const hasAccess = (pageId) => {
         if (pageId === 'profile') return true; // All authenticated users can access their profile
         if (userData?.role === 'admin') return true;
-        return !!userData?.permissions?.[pageId];
+        
+        // Check if user has any permissions for this page
+        const pagePermissions = userData?.permissions?.[pageId];
+        if (!pagePermissions) return false;
+        
+        // Check if user has at least one permission enabled for this page
+        return Object.values(pagePermissions).some(permission => permission === true);
     };
 
     const AccessDeniedPage = () => (
@@ -221,7 +240,7 @@ export default function App() {
             case 'users':
                 return hasAccess('users') ? <UsersPage db={db} currentUser={user} /> : <AccessDeniedPage />;
             case 'profile':
-                return hasAccess('profile') ? <ProfilePage db={db} user={user} userData={userData} storage={storage} appId={appId} /> : <AccessDeniedPage />;
+                return <ProfilePage db={db} user={user} userData={userData} storage={storage} appId={appId} />;
             case 'bids':
                 return hasAccess('bids') ? <BidsPage db={db} setCurrentPage={navigateToPage} editingProjectId={editingProjectId} userData={userData} onNewBid={handleNewBid} /> : <AccessDeniedPage />;
             case 'schedule':

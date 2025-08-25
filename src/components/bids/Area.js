@@ -38,7 +38,14 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
 
     // Handle overall labor checkbox
     const handleUseOverallLaborChange = (checked) => {
-        onUpdate({ ...area, useOverallLabor: checked });
+        const updates = { ...area, useOverallLabor: checked };
+        
+        // If unchecking "Use Overall Labor Rates", fill in the current bid header hang rate
+        if (!checked && bid?.finishedHangingRate) {
+            updates.hangRate = bid.finishedHangingRate;
+        }
+        
+        onUpdate(updates);
     };
 
     // Calculate total square feet for this area
@@ -190,7 +197,8 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                     type="text"
                     value={area.name || ''}
                     onBlur={handleNameChange}
-                    className="text-xl font-bold border-b-2 border-transparent focus:border-gray-300 outline-none flex-grow min-w-[100px]"
+                    className="text-xl font-bold border-2 border-gray-300 rounded-md px-3 py-2 focus:border-blue-500 outline-none flex-grow min-w-[100px] bg-gray-50 focus:bg-white transition-colors"
+                    placeholder="Enter area name..."
                 />
                 <div className="flex items-center space-x-4 ml-4">
                     {totalSqFt > 0 && (
