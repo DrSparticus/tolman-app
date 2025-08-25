@@ -37,4 +37,3 @@ pglite-debug.log
 
 # Project info folder (contains sensitive API data)
 /info/
-.env.staging
