@@ -24,6 +24,10 @@ jobs:
         
     - name: Install dependencies
       run: npm ci
+    
+    # Skip tests for now to focus on deployment  
+    # - name: Run tests
+    #   run: npm test -- --coverage --watchAll=false
       
     - name: Build for staging
       run: npm run build
