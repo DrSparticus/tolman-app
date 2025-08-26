@@ -211,7 +211,7 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                         value={area.vaultHeights || ''}
                         onBlur={handleVaultHeightsChange}
                         className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:border-blue-500 outline-none bg-gray-50 focus:bg-white transition-colors"
-                        placeholder="Vault heights (e.g., 9', 10', 12')..."
+                        placeholder="Vault heights (e.g., 12', 16', 18')..."
                     />
                 </div>
                 <div className="flex items-center space-x-4 ml-4">

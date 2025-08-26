@@ -154,21 +154,6 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                                 Update Material Pricing
                             </button>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => setIsExpanded(!isExpanded)}
-                            className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-                        >
-                            <span className="mr-2">{isExpanded ? 'Hide Advanced' : 'Show Advanced'}</span>
-                            <svg
-                                className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
                     </div>
                 </div>
 
@@ -345,11 +330,42 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                 </div>
             </div>
 
+            {/* Expand/Collapse Button */}
+            <div className="px-6">
+                <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className={`w-full flex items-center justify-center py-3 text-sm font-medium transition-all duration-200 ${
+                        isExpanded 
+                            ? 'text-gray-600 hover:text-gray-800 bg-gray-50 border-t border-gray-200' 
+                            : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50 border-t border-gray-200'
+                    }`}
+                >
+                    <span className="mr-2">
+                        {isExpanded ? 'Hide Advanced Options' : 'Show Advanced Options'}
+                    </span>
+                    <svg
+                        className={`w-4 h-4 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            </div>
+
             {/* Advanced View - Collapsible */}
             {isExpanded && (
-                <div className="px-6 pb-6 border-t bg-gray-50">
+                <div className="px-6 pb-6 bg-gray-50 border-t border-gray-200">
                     <div className="py-4">
-                        <h3 className="text-md font-medium text-gray-800 mb-4">Advanced Settings</h3>
+                        <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center">
+                            <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Advanced Options
+                        </h3>
                         
                         {/* Miscellaneous Items */}
                         {finishes.miscellaneous && finishes.miscellaneous.length > 0 && (
