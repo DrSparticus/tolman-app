@@ -581,7 +581,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 
                 // Add the change log entry to bidData before saving
                 const newChangeLogEntry = {
-                    timestamp: serverTimestamp(), 
+                    timestamp: new Date().toISOString(), 
                     change: changeDescription, 
                     user: { 
                         name: userData?.name || 
@@ -605,7 +605,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 }));
             } else {
                 const initialChangeLogEntry = {
-                    timestamp: serverTimestamp(), 
+                    timestamp: new Date().toISOString(), 
                     change: 'Bid created', 
                     user: { 
                         name: userData?.name || 
@@ -687,7 +687,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 changeLog: [
                     ...(prev.changeLog || []), 
                     { 
-                        timestamp: serverTimestamp(), 
+                        timestamp: new Date().toISOString(), 
                         change: 'Material pricing updated to current rates', 
                         user: { 
                             name: userData?.name || 

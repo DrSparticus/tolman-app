@@ -194,6 +194,43 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Project Address"
                         />
+                        
+                        {/* Location Details */}
+                        {bid.coordinates && (
+                            <div className="mt-2 text-xs text-gray-600">
+                                <div className="flex items-center justify-between">
+                                    <span>Coordinates: {bid.coordinates.lat.toFixed(6)}, {bid.coordinates.lng.toFixed(6)}</span>
+                                    <div className="flex space-x-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => locationServices.openInMaps(bid.coordinates)}
+                                            className="text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                            Map
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={locationServices.openManualCoordinateInput}
+                                            className="text-purple-600 hover:text-purple-800 underline ml-2"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={locationServices.removeLocation}
+                                            className="text-red-600 hover:text-red-800 underline ml-2"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                                {bid.salesTaxRate && (
+                                    <div className="mt-1 text-green-600">
+                                        Auto-calculated sales tax: {(bid.salesTaxRate * 100).toFixed(3)}%
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Supervisor</label>
