@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, onSnapshot, setDoc, collection } from 'firebase/firestore';
 import { PlusIcon, DeleteIcon } from '../Icons';
 
@@ -19,6 +19,7 @@ const FinishesConfig = ({ db }) => {
     const [changedFinishes, setChangedFinishes] = useState(new Set());
     const [isSaving, setIsSaving] = useState(false);
     const [ignoreNextUpdate, setIgnoreNextUpdate] = useState(false);
+    const inputRefs = useRef({});
 
     useEffect(() => {
         if (!db) return;
@@ -112,6 +113,32 @@ const FinishesConfig = ({ db }) => {
         // Mark this finish as changed
         const finishKey = `${type}-${name}`;
         setChangedFinishes(prev => new Set([...prev, finishKey]));
+    }, []);
+
+    // Special handler for number inputs that doesn't cause re-renders
+    const handleNumberInputChange = useCallback((type, name, field, e) => {
+        const value = e.target.value;
+        const key = `${type}_${name}_${field}`;
+        
+        // Store in ref without triggering re-render
+        if (!inputRefs.current[key]) {
+            inputRefs.current[key] = {};
+        }
+        inputRefs.current[key].value = value;
+        
+        // Mark as changed but don't update localValues yet
+        const finishKey = `${type}-${name}`;
+        setChangedFinishes(prev => new Set([...prev, finishKey]));
+    }, []);
+
+    // Update localValues on blur to sync with refs
+    const handleNumberInputBlur = useCallback((type, name, field) => {
+        const key = `${type}_${name}_${field}`;
+        const refValue = inputRefs.current[key]?.value;
+        
+        if (refValue !== undefined) {
+            setLocalValues(prev => ({ ...prev, [key]: refValue }));
+        }
     }, []);
 
     const handleSaveFinish = async (type, name) => {
@@ -291,11 +318,17 @@ const FinishesConfig = ({ db }) => {
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Pay Rate</label>
                                 <input
-                                    key={`${type}-${finishName}-pay`}
+                                    ref={(el) => {
+                                        const key = `${type}_${finishName}_pay`;
+                                        if (el && !inputRefs.current[key]) {
+                                            inputRefs.current[key] = el;
+                                        }
+                                    }}
                                     type="number"
                                     step="0.01"
                                     defaultValue={getFieldValue(type, finishName, 'pay')}
-                                    onInput={(e) => handleFinishDetailChange(type, finishName, 'pay', e.target.value)}
+                                    onChange={(e) => handleNumberInputChange(type, finishName, 'pay', e)}
+                                    onBlur={() => handleNumberInputBlur(type, finishName, 'pay')}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -315,11 +348,17 @@ const FinishesConfig = ({ db }) => {
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Charge Rate</label>
                                 <input
-                                    key={`${type}-${finishName}-charge`}
+                                    ref={(el) => {
+                                        const key = `${type}_${finishName}_charge`;
+                                        if (el && !inputRefs.current[key]) {
+                                            inputRefs.current[key] = el;
+                                        }
+                                    }}
                                     type="number"
                                     step="0.01"
                                     defaultValue={getFieldValue(type, finishName, 'charge')}
-                                    onInput={(e) => handleFinishDetailChange(type, finishName, 'charge', e.target.value)}
+                                    onChange={(e) => handleNumberInputChange(type, finishName, 'charge', e)}
+                                    onBlur={() => handleNumberInputBlur(type, finishName, 'charge')}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -331,11 +370,17 @@ const FinishesConfig = ({ db }) => {
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Secondary Pay Rate</label>
                                     <input
-                                        key={`${type}-${finishName}-pay2`}
+                                        ref={(el) => {
+                                            const key = `${type}_${finishName}_pay2`;
+                                            if (el && !inputRefs.current[key]) {
+                                                inputRefs.current[key] = el;
+                                            }
+                                        }}
                                         type="number"
                                         step="0.01"
                                         defaultValue={getFieldValue(type, finishName, 'pay2')}
-                                        onInput={(e) => handleFinishDetailChange(type, finishName, 'pay2', e.target.value)}
+                                        onChange={(e) => handleNumberInputChange(type, finishName, 'pay2', e)}
+                                        onBlur={() => handleNumberInputBlur(type, finishName, 'pay2')}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     />
                                 </div>
