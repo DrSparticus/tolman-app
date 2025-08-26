@@ -161,6 +161,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             let totalHangLabor = 0;
             let totalTapeLabor = 0;
             let totalHangingSqFt = 0;
+            let finishExtraProfit = 0;
 
             debug.push('\n=== AREA-BY-AREA CALCULATIONS ===');
 
@@ -448,20 +449,58 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                     const fieldName = `misc_${miscItem.name.toLowerCase().replace(/\s+/g, '_')}`;
                     const quantity = parseInt(bid[fieldName] || 0, 10);
                     
-                    if (quantity > 0 && miscItem.pay) {
-                        const miscCost = quantity * (parseFloat(miscItem.pay) || 0);
+                    if (quantity > 0) {
+                        let totalMiscCost = 0;
+                        let miscDetails = [];
                         
-                        // Determine which crew type this misc item belongs to
-                        if (miscItem.crew === hangingCrewId) {
-                            totalHangLabor += miscCost;
-                            debug.push(`  ${miscItem.name} (Hanging): ${quantity} @ $${miscItem.pay} = $${miscCost.toFixed(2)}`);
-                        } else if (miscItem.crew === taperCrewId) {
-                            totalTapeLabor += miscCost;
-                            debug.push(`  ${miscItem.name} (Taping): ${quantity} @ $${miscItem.pay} = $${miscCost.toFixed(2)}`);
-                        } else {
-                            // If no specific crew type, add to hanging by default
-                            totalHangLabor += miscCost;
-                            debug.push(`  ${miscItem.name} (Default to Hanging): ${quantity} @ $${miscItem.pay} = $${miscCost.toFixed(2)}`);
+                        // First payout
+                        if (miscItem.pay) {
+                            const primaryCost = quantity * (parseFloat(miscItem.pay) || 0);
+                            totalMiscCost += primaryCost;
+                            miscDetails.push(`Primary: $${(parseFloat(miscItem.pay) || 0).toFixed(3)}`);
+                        }
+                        
+                        // Second payout (pay2)
+                        if (miscItem.pay2) {
+                            const secondaryCost = quantity * (parseFloat(miscItem.pay2) || 0);
+                            
+                            // Determine which crew type for secondary payout
+                            if (miscItem.crew2 === hangingCrewId) {
+                                totalHangLabor += secondaryCost;
+                                debug.push(`  ${miscItem.name} Secondary (Hanging): ${quantity} @ $${miscItem.pay2} = $${secondaryCost.toFixed(2)}`);
+                            } else if (miscItem.crew2 === taperCrewId) {
+                                totalTapeLabor += secondaryCost;
+                                debug.push(`  ${miscItem.name} Secondary (Taping): ${quantity} @ $${miscItem.pay2} = $${secondaryCost.toFixed(2)}`);
+                            } else {
+                                // Default to hanging if no crew2 specified
+                                totalHangLabor += secondaryCost;
+                                debug.push(`  ${miscItem.name} Secondary (Default to Hanging): ${quantity} @ $${miscItem.pay2} = $${secondaryCost.toFixed(2)}`);
+                            }
+                            
+                            miscDetails.push(`Secondary: $${(parseFloat(miscItem.pay2) || 0).toFixed(3)}`);
+                        }
+                        
+                        // Extra profit calculation
+                        if (miscItem.extraProfit) {
+                            const extraProfitAmount = quantity * (parseFloat(miscItem.extraProfit) || 0);
+                            finishExtraProfit += extraProfitAmount;
+                            miscDetails.push(`Extra Profit: $${(parseFloat(miscItem.extraProfit) || 0).toFixed(3)}`);
+                            debug.push(`  ${miscItem.name} Extra Profit: ${quantity} @ $${miscItem.extraProfit} = $${extraProfitAmount.toFixed(2)}`);
+                        }
+                        
+                        // Primary payout assignment to crew
+                        if (totalMiscCost > 0) {
+                            if (miscItem.crew === hangingCrewId) {
+                                totalHangLabor += totalMiscCost;
+                                debug.push(`  ${miscItem.name} Primary (Hanging): ${quantity} @ $${miscItem.pay} = $${totalMiscCost.toFixed(2)} [${miscDetails.join(', ')}]`);
+                            } else if (miscItem.crew === taperCrewId) {
+                                totalTapeLabor += totalMiscCost;
+                                debug.push(`  ${miscItem.name} Primary (Taping): ${quantity} @ $${miscItem.pay} = $${totalMiscCost.toFixed(2)} [${miscDetails.join(', ')}]`);
+                            } else {
+                                // If no specific crew type, add to hanging by default
+                                totalHangLabor += totalMiscCost;
+                                debug.push(`  ${miscItem.name} Primary (Default to Hanging): ${quantity} @ $${miscItem.pay} = $${totalMiscCost.toFixed(2)} [${miscDetails.join(', ')}]`);
+                            }
                         }
                     }
                 });
@@ -572,8 +611,7 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             const breakEven = hardCost + overhead;
             const profit = breakEven * markups.profit;
 
-            // No additional finish extra profit - already included in area calculations
-            const finishExtraProfit = 0;
+            // finishExtraProfit is accumulated from miscellaneous finishes
             const totalProfit = profit + finishExtraProfit;
             const netQuote = breakEven + totalProfit;
 
