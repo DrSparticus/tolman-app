@@ -480,29 +480,36 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                             miscDetails.push(`Secondary: $${(parseFloat(miscItem.pay2) || 0).toFixed(3)}`);
                         }
                         
-                        // Extra profit calculation: Charge * Quantity - (Pay * Quantity + Burden + Overhead + Profit)
-                        if (miscItem.charge && miscItem.pay) {
+                        // Extra profit calculation: make total equal to Charge * Quantity
+                        if (miscItem.charge && parseFloat(miscItem.charge) > 0) {
                             const chargeRate = parseFloat(miscItem.charge) || 0;
                             const payRate = parseFloat(miscItem.pay) || 0;
+                            const pay2Rate = parseFloat(miscItem.pay2) || 0;
                             
-                            // Total revenue from charge
-                            const totalCharge = chargeRate * quantity;
+                            // Total target revenue from charge
+                            const totalTargetRevenue = chargeRate * quantity;
                             
-                            // Total costs: labor + burden + overhead + profit on that labor
-                            const laborCost = payRate * quantity;
-                            const laborBurdenCost = laborCost * markups.laborBurden;
-                            const totalLaborWithBurden = laborCost + laborBurdenCost;
+                            // Total labor costs (both primary and secondary payouts)
+                            const primaryLaborCost = payRate * quantity;
+                            const secondaryLaborCost = pay2Rate * quantity;
+                            const totalLaborCost = primaryLaborCost + secondaryLaborCost;
+                            
+                            // Calculate markups on total labor
+                            const laborBurdenCost = totalLaborCost * markups.laborBurden;
+                            const totalLaborWithBurden = totalLaborCost + laborBurdenCost;
                             const overheadCost = totalLaborWithBurden * markups.overhead;
                             const profitCost = (totalLaborWithBurden + overheadCost) * markups.profit;
-                            const totalCost = laborCost + laborBurdenCost + overheadCost + profitCost;
                             
-                            // Extra profit is revenue minus total cost
-                            const extraProfitAmount = totalCharge - totalCost;
+                            // Total cost including all markups
+                            const totalCost = totalLaborCost + laborBurdenCost + overheadCost + profitCost;
+                            
+                            // Extra profit is the difference needed to reach target revenue
+                            const extraProfitAmount = totalTargetRevenue - totalCost;
                             finishExtraProfit += extraProfitAmount;
                             
-                            miscDetails.push(`Extra Profit: $${(extraProfitAmount).toFixed(3)} (charge $${totalCharge.toFixed(2)} - cost $${totalCost.toFixed(2)})`);
-                            debug.push(`  ${miscItem.name} Extra Profit: Charge $${totalCharge.toFixed(2)} - Cost $${totalCost.toFixed(2)} = $${extraProfitAmount.toFixed(2)}`);
-                            debug.push(`    Cost breakdown: Labor $${laborCost.toFixed(2)} + Burden $${laborBurdenCost.toFixed(2)} + Overhead $${overheadCost.toFixed(2)} + Profit $${profitCost.toFixed(2)}`);
+                            miscDetails.push(`Extra Profit: $${(extraProfitAmount).toFixed(3)} (target $${totalTargetRevenue.toFixed(2)} - cost $${totalCost.toFixed(2)})`);
+                            debug.push(`  ${miscItem.name} Extra Profit: Target $${totalTargetRevenue.toFixed(2)} - Cost $${totalCost.toFixed(2)} = $${extraProfitAmount.toFixed(2)}`);
+                            debug.push(`    Cost breakdown: Labor $${totalLaborCost.toFixed(2)} (Primary $${primaryLaborCost.toFixed(2)} + Secondary $${secondaryLaborCost.toFixed(2)}) + Burden $${laborBurdenCost.toFixed(2)} + Overhead $${overheadCost.toFixed(2)} + Profit $${profitCost.toFixed(2)}`);
                         }
                         
                         // Primary payout assignment to crew
