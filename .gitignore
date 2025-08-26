@@ -32,6 +32,10 @@ pglite-debug.log
 /.firebase/
 .firebase/hosting.YnVpbGQ.cache
 
+# Service Account Keys (keep secure!)
+*-service-account.json
+scripts/*-service-account.json
+
 # IDE
 /.vscode
 
