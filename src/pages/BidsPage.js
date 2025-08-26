@@ -368,6 +368,12 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 updatedAt: new Date().toISOString(),
             };
 
+            // On first save, capture material pricing snapshot
+            if (!bid.id && !bid.materialPricing) {
+                bidData.materialPricing = await captureMaterialPricing();
+                bidData.materialPricingDate = new Date().toISOString();
+            }
+
             if (bid.materialStockDate && bid.status === 'bid') {
                 const nextJobNumber = await getNextJobNumber();
                 bidData.jobNumber = nextJobNumber;
@@ -392,10 +398,83 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 }));
             } else {
                 const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
-                setBid(prev => ({ ...prev, id: docRef.id }));
+                setBid(prev => ({ ...prev, id: docRef.id, materialPricing: bidData.materialPricing, materialPricingDate: bidData.materialPricingDate }));
             }
         } catch (error) {
             console.error("Error saving bid:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Capture current material pricing for the bid
+    const captureMaterialPricing = async () => {
+        if (!materials || materials.length === 0) return {};
+        
+        const materialPricing = {};
+        materials.forEach(material => {
+            materialPricing[material.id] = {
+                id: material.id,
+                name: material.name,
+                price: material.price,
+                category: material.category,
+                unit: material.unit
+            };
+        });
+        
+        return materialPricing;
+    };
+
+    // Update material pricing for existing bid (requires permission)
+    const handleUpdateMaterialPricing = async () => {
+        if (!bid.id || !db) return;
+        
+        const hasPermission = userData?.role === 'admin' || 
+                             (userData?.permissions?.materials?.updatePricing === true);
+        
+        if (!hasPermission) {
+            alert('You do not have permission to update material pricing.');
+            return;
+        }
+
+        if (!window.confirm('This will update the material pricing for this bid to current market rates. This action cannot be undone. Continue?')) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const newMaterialPricing = await captureMaterialPricing();
+            
+            const bidData = {
+                materialPricing: newMaterialPricing,
+                materialPricingDate: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            };
+
+            await updateDoc(doc(db, projectsPath, bid.id), bidData);
+            
+            setBid(prev => ({ 
+                ...prev, 
+                materialPricing: newMaterialPricing,
+                materialPricingDate: bidData.materialPricingDate,
+                changeLog: [
+                    ...(prev.changeLog || []), 
+                    { 
+                        timestamp: serverTimestamp(), 
+                        change: 'Material pricing updated to current rates', 
+                        user: { 
+                            name: userData?.name || userData?.email || 'Unknown',
+                            email: userData?.email || 'Unknown'
+                        }
+                    }
+                ] 
+            }));
+            
+            alert('Material pricing has been updated successfully.');
+            
+        } catch (error) {
+            console.error("Error updating material pricing:", error);
+            alert('Error updating material pricing. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -439,9 +518,10 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 finishes={finishes}
                 materials={materials}
                 crewTypes={crewTypes}
-                userPermissions={userData?.permissions || {}}
+                userPermissions={userData}
                 db={db}
                 locationSettings={locationSettings}
+                onUpdateMaterialPricing={handleUpdateMaterialPricing}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">

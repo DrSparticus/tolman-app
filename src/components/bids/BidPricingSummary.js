@@ -441,6 +441,34 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 totalHangingSqFt += areaSqFt;
             });
 
+            // Calculate miscellaneous finishes labor cost
+            debug.push('\n=== MISCELLANEOUS FINISHES ===');
+            if (finishes?.miscellaneous && finishes.miscellaneous.length > 0) {
+                finishes.miscellaneous.forEach(miscItem => {
+                    const fieldName = `misc_${miscItem.name.toLowerCase().replace(/\s+/g, '_')}`;
+                    const quantity = parseInt(bid[fieldName] || 0, 10);
+                    
+                    if (quantity > 0 && miscItem.pay) {
+                        const miscCost = quantity * (parseFloat(miscItem.pay) || 0);
+                        
+                        // Determine which crew type this misc item belongs to
+                        if (miscItem.crew === hangingCrewId) {
+                            totalHangLabor += miscCost;
+                            debug.push(`  ${miscItem.name} (Hanging): ${quantity} @ $${miscItem.pay} = $${miscCost.toFixed(2)}`);
+                        } else if (miscItem.crew === taperCrewId) {
+                            totalTapeLabor += miscCost;
+                            debug.push(`  ${miscItem.name} (Taping): ${quantity} @ $${miscItem.pay} = $${miscCost.toFixed(2)}`);
+                        } else {
+                            // If no specific crew type, add to hanging by default
+                            totalHangLabor += miscCost;
+                            debug.push(`  ${miscItem.name} (Default to Hanging): ${quantity} @ $${miscItem.pay} = $${miscCost.toFixed(2)}`);
+                        }
+                    }
+                });
+            } else {
+                debug.push('  No miscellaneous finishes configured');
+            }
+
             // Add material dependencies (calculated bid-wide)
             let miscMaterials = 0;
             debug.push('\n=== MATERIAL DEPENDENCIES ===');

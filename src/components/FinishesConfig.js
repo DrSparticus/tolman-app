@@ -300,7 +300,7 @@ const FinishesConfig = ({ db }) => {
                             <option value="miscellaneous">Miscellaneous</option>
                         </select>
                     </div>
-                    <div className="flex-2">
+                    <div className="flex-1">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Finish Name</label>
                         <input
                             type="text"
@@ -323,9 +323,9 @@ const FinishesConfig = ({ db }) => {
             </form>
 
             {/* Finish categories */}
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-6">
                 {Object.keys(finishes).map(type => (
-                    <div key={type}>
+                    <div key={type} className="bg-gray-50 p-4 rounded-lg">
                         <h3 className="text-lg font-semibold text-gray-800 mb-3">{getCategoryTitle(type)}</h3>
                         <div className="space-y-2">
                             {finishes[type].map((finish, index) => (

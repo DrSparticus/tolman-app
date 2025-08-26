@@ -1,9 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LocationControls, useLocationServices } from '../LocationServices';
 
-export default function BidHeader({ bid, handleInputChange, supervisors, finishes, materials, crewTypes, userPermissions = {}, db, locationSettings }) {
+export default function BidHeader({ bid, handleInputChange, supervisors, finishes, materials, crewTypes, userPermissions = {}, db, locationSettings, onUpdateMaterialPricing }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const locationServices = useLocationServices(db, handleInputChange);
+    const notesRef = useRef(null);
+
+    // Auto-resize textarea function
+    const autoResizeTextarea = (textarea) => {
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.max(60, textarea.scrollHeight) + 'px';
+        }
+    };
+
+    // Auto-resize notes field when content changes
+    useEffect(() => {
+        autoResizeTextarea(notesRef.current);
+    }, [bid.notes]);
+
+    // Auto-resize on mount
+    useEffect(() => {
+        autoResizeTextarea(notesRef.current);
+    }, []);
+
+    const handleNotesChange = (e) => {
+        handleInputChange(e);
+        autoResizeTextarea(e.target);
+    };
 
     const calculateFinishedTapeRate = () => {
         const hangRate = parseFloat(bid.finishedHangingRate) || 0;
@@ -87,21 +111,34 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
             <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-800">Project Information</h2>
-                    <button
-                        type="button"
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                        <span className="mr-2">{isExpanded ? 'Hide Advanced' : 'Show Advanced'}</span>
-                        <svg
-                            className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                    <div className="flex items-center gap-4">
+                        {/* Update Material Pricing Button */}
+                        {bid.id && (userPermissions?.role === 'admin' || userPermissions?.permissions?.materials?.updatePricing) && onUpdateMaterialPricing && (
+                            <button
+                                type="button"
+                                onClick={onUpdateMaterialPricing}
+                                className="px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                                title="Update material pricing to current rates"
+                            >
+                                Update Material Pricing
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
                         >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
+                            <span className="mr-2">{isExpanded ? 'Hide Advanced' : 'Show Advanced'}</span>
+                            <svg
+                                className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -265,12 +302,13 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Notes</label>
                         <textarea
+                            ref={notesRef}
                             name="notes"
                             value={bid.notes || ''}
-                            onChange={handleInputChange}
-                            rows={3}
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            onChange={handleNotesChange}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
                             placeholder="Enter project notes..."
+                            style={{ minHeight: '60px' }}
                         />
                     </div>
                 </div>

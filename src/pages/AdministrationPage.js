@@ -50,7 +50,8 @@ const AdministrationPage = ({ db }) => {
             { id: 'create', name: 'Create Materials' },
             { id: 'edit', name: 'Edit Materials' },
             { id: 'delete', name: 'Delete Materials' },
-            { id: 'pricing', name: 'View/Edit Pricing' }
+            { id: 'pricing', name: 'View/Edit Pricing' },
+            { id: 'updatePricing', name: 'Update Material Pricing' }
         ],
         projects: [
             { id: 'view', name: 'View Projects' },
