@@ -342,7 +342,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                     }`}
                 >
                     <span className="mr-2">
-                        {isExpanded ? 'Hide Advanced Options' : 'Show Advanced Options'}
+                        {isExpanded ? 'Less Options' : 'More Options'}
                     </span>
                     <svg
                         className={`w-4 h-4 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
@@ -374,7 +374,9 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {finishes.miscellaneous.map(misc => (
                                         <div key={misc.name}>
-                                            <label className="block text-sm font-medium text-gray-700">{misc.name} (Count)</label>
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                {misc.name} {misc.description ? `(${misc.description})` : '(Count)'}
+                                            </label>
                                             <DeferredInput
                                                 type="number"
                                                 name={`misc_${misc.name.toLowerCase().replace(/\s+/g, '_')}`}

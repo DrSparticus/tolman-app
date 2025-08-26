@@ -360,10 +360,194 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     };
 
     // --- Save Logic ---
+    
+    // Function to generate detailed change descriptions
+    const generateChangeLog = (oldBid, newBid, materials, finishes, supervisors) => {
+        const changes = [];
+        
+        // Track basic field changes
+        const basicFields = {
+            projectName: 'Project Name',
+            contractor: 'Customer',
+            address: 'Address',
+            supervisor: 'Supervisor',
+            wallTexture: 'Wall Texture',
+            ceilingTexture: 'Ceiling Texture',
+            corners: 'Corners',
+            finishedHangingRate: 'Hang Labor Rate',
+            finishedTapeRate: 'Tape Labor Rate',
+            unfinishedTapingRate: 'Unfinished Tape Rate',
+            notes: 'Notes',
+            materialStockDate: 'Material Stock Date'
+        };
+        
+        // Check basic field changes
+        Object.entries(basicFields).forEach(([field, displayName]) => {
+            const oldValue = oldBid[field];
+            const newValue = newBid[field];
+            if (oldValue !== newValue) {
+                // Special handling for supervisor field to show names instead of IDs
+                if (field === 'supervisor') {
+                    const oldSupervisor = supervisors?.find(s => s.id === oldValue);
+                    const newSupervisor = supervisors?.find(s => s.id === newValue);
+                    const oldName = oldSupervisor ? `${oldSupervisor.firstName} ${oldSupervisor.lastName}` : oldValue;
+                    const newName = newSupervisor ? `${newSupervisor.firstName} ${newSupervisor.lastName}` : newValue;
+                    
+                    if (!oldValue && newValue) {
+                        changes.push(`Set ${displayName} to "${newName}"`);
+                    } else if (oldValue && !newValue) {
+                        changes.push(`Cleared ${displayName} (was "${oldName}")`);
+                    } else if (oldValue && newValue) {
+                        changes.push(`Changed ${displayName} from "${oldName}" to "${newName}"`);
+                    }
+                } else {
+                    if (!oldValue && newValue) {
+                        changes.push(`Set ${displayName} to "${newValue}"`);
+                    } else if (oldValue && !newValue) {
+                        changes.push(`Cleared ${displayName} (was "${oldValue}")`);
+                    } else if (oldValue && newValue) {
+                        changes.push(`Changed ${displayName} from "${oldValue}" to "${newValue}"`);
+                    }
+                }
+            }
+        });
+        
+        // Check miscellaneous items changes
+        if (finishes?.miscellaneous) {
+            finishes.miscellaneous.forEach(misc => {
+                const fieldName = `misc_${misc.name.toLowerCase().replace(/\s+/g, '_')}`;
+                const oldValue = parseInt(oldBid[fieldName] || 0, 10);
+                const newValue = parseInt(newBid[fieldName] || 0, 10);
+                
+                if (oldValue !== newValue) {
+                    if (oldValue === 0 && newValue > 0) {
+                        changes.push(`Added ${newValue} ${misc.name}`);
+                    } else if (oldValue > 0 && newValue === 0) {
+                        changes.push(`Removed ${oldValue} ${misc.name}`);
+                    } else {
+                        changes.push(`Changed ${misc.name} from ${oldValue} to ${newValue}`);
+                    }
+                }
+            });
+        }
+        
+        // Check area changes
+        const oldAreas = oldBid.areas || [];
+        const newAreas = newBid.areas || [];
+        
+        // Track area additions/removals
+        const oldAreaIds = new Set(oldAreas.map(a => a.id));
+        const newAreaIds = new Set(newAreas.map(a => a.id));
+        
+        // Added areas
+        newAreas.forEach(area => {
+            if (!oldAreaIds.has(area.id)) {
+                changes.push(`Added area "${area.name}"`);
+            }
+        });
+        
+        // Removed areas
+        oldAreas.forEach(area => {
+            if (!newAreaIds.has(area.id)) {
+                changes.push(`Removed area "${area.name}"`);
+            }
+        });
+        
+        // Track material changes within areas
+        newAreas.forEach(newArea => {
+            const oldArea = oldAreas.find(a => a.id === newArea.id);
+            if (!oldArea) return; // New area, already handled above
+            
+            // Check area name changes
+            if (oldArea.name !== newArea.name) {
+                changes.push(`Renamed area from "${oldArea.name}" to "${newArea.name}"`);
+            }
+            
+            // Check vault heights changes
+            if (oldArea.vaultHeights !== newArea.vaultHeights) {
+                if (!oldArea.vaultHeights && newArea.vaultHeights) {
+                    changes.push(`Added vault heights "${newArea.vaultHeights}" to ${newArea.name}`);
+                } else if (oldArea.vaultHeights && !newArea.vaultHeights) {
+                    changes.push(`Removed vault heights from ${newArea.name}`);
+                } else {
+                    changes.push(`Changed vault heights in ${newArea.name} from "${oldArea.vaultHeights}" to "${newArea.vaultHeights}"`);
+                }
+            }
+            
+            // Track material changes
+            const oldMaterials = oldArea.materials || [];
+            const newMaterials = newArea.materials || [];
+            
+            // Compare materials by materialId and variants
+            oldMaterials.forEach(oldMat => {
+                const newMat = newMaterials.find(m => m.materialId === oldMat.materialId);
+                const material = materials?.find(m => m.id === oldMat.materialId);
+                const materialName = material?.name || 'Unknown Material';
+                
+                if (!newMat) {
+                    // Material removed entirely
+                    const totalOldQuantity = (oldMat.variants || []).reduce((sum, v) => sum + (parseInt(v.quantity || 0, 10)), 0);
+                    if (totalOldQuantity > 0) {
+                        changes.push(`Removed ${totalOldQuantity} - ${materialName} from ${newArea.name}`);
+                    }
+                } else {
+                    // Compare variants
+                    const oldVariants = oldMat.variants || [];
+                    const newVariants = newMat.variants || [];
+                    
+                    // Track variant changes
+                    const variantChanges = {};
+                    
+                    // Check old variants
+                    oldVariants.forEach(oldVariant => {
+                        const key = `${oldVariant.width || 'Unknown'}x${oldVariant.height || 'Unknown'}`;
+                        variantChanges[key] = (variantChanges[key] || 0) - (parseInt(oldVariant.quantity || 0, 10));
+                    });
+                    
+                    // Check new variants
+                    newVariants.forEach(newVariant => {
+                        const key = `${newVariant.width || 'Unknown'}x${newVariant.height || 'Unknown'}`;
+                        variantChanges[key] = (variantChanges[key] || 0) + (parseInt(newVariant.quantity || 0, 10));
+                    });
+                    
+                    // Generate change descriptions for variants
+                    Object.entries(variantChanges).forEach(([variant, diff]) => {
+                        if (diff !== 0) {
+                            const sizeStr = variant.includes('x') ? ` ${variant.replace('x', '" x ')}` : '';
+                            if (diff > 0) {
+                                changes.push(`Added ${diff} - ${materialName}${sizeStr}" to ${newArea.name}`);
+                            } else {
+                                changes.push(`Removed ${Math.abs(diff)} - ${materialName}${sizeStr}" from ${newArea.name}`);
+                            }
+                        }
+                    });
+                }
+            });
+            
+            // Check for completely new materials
+            newMaterials.forEach(newMat => {
+                const oldMat = oldMaterials.find(m => m.materialId === newMat.materialId);
+                if (!oldMat) {
+                    const material = materials?.find(m => m.id === newMat.materialId);
+                    const materialName = material?.name || 'Unknown Material';
+                    const totalQuantity = (newMat.variants || []).reduce((sum, v) => sum + (parseInt(v.quantity || 0, 10)), 0);
+                    if (totalQuantity > 0) {
+                        changes.push(`Added ${totalQuantity} - ${materialName} to ${newArea.name}`);
+                    }
+                }
+            });
+        });
+        
+        return changes;
+    };
+
     const handleSave = async () => {
         if (!db) return;
         setLoading(true);
         try {
+            // Capture the original bid state for change tracking
+            const originalBid = { ...bid };
+            
             const taperRate = getTaperRate(bid.finishedHangingRate);
             const bidData = {
                 ...bid,
@@ -384,6 +568,14 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             }
 
             if (bid.id) {
+                // Generate detailed change log for existing bids
+                const changes = generateChangeLog(originalBid, bidData, materials, finishes, supervisors);
+                let changeDescription = 'Bid updated';
+                
+                if (changes.length > 0) {
+                    changeDescription = changes.length === 1 ? changes[0] : `${changes.length} changes made:\n${changes.map(c => `- ${c}`).join('\n')}`;
+                }
+                
                 await updateDoc(doc(db, projectsPath, bid.id), bidData);
                 setBid(prev => ({ 
                     ...prev, 
@@ -391,7 +583,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                         ...(prev.changeLog || []), 
                         { 
                             timestamp: serverTimestamp(), 
-                            change: 'Bid updated', 
+                            change: changeDescription, 
                             user: { 
                                 name: userData?.name || userData?.email || 'Unknown',
                                 email: userData?.email || 'Unknown'
@@ -401,7 +593,22 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 }));
             } else {
                 const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
-                setBid(prev => ({ ...prev, id: docRef.id, materialPricing: bidData.materialPricing, materialPricingDate: bidData.materialPricingDate }));
+                setBid(prev => ({ 
+                    ...prev, 
+                    id: docRef.id, 
+                    materialPricing: bidData.materialPricing, 
+                    materialPricingDate: bidData.materialPricingDate,
+                    changeLog: [
+                        { 
+                            timestamp: serverTimestamp(), 
+                            change: 'Bid created', 
+                            user: { 
+                                name: userData?.name || userData?.email || 'Unknown',
+                                email: userData?.email || 'Unknown'
+                            }
+                        }
+                    ]
+                }));
             }
         } catch (error) {
             console.error("Error saving bid:", error);
