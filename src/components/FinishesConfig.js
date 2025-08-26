@@ -291,10 +291,11 @@ const FinishesConfig = ({ db }) => {
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Pay Rate</label>
                                 <input
+                                    key={`${type}-${finishName}-pay`}
                                     type="number"
                                     step="0.01"
-                                    value={getFieldValue(type, finishName, 'pay')}
-                                    onChange={(e) => handleFinishDetailChange(type, finishName, 'pay', e.target.value)}
+                                    defaultValue={getFieldValue(type, finishName, 'pay')}
+                                    onInput={(e) => handleFinishDetailChange(type, finishName, 'pay', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -314,10 +315,11 @@ const FinishesConfig = ({ db }) => {
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Charge Rate</label>
                                 <input
+                                    key={`${type}-${finishName}-charge`}
                                     type="number"
                                     step="0.01"
-                                    value={getFieldValue(type, finishName, 'charge')}
-                                    onChange={(e) => handleFinishDetailChange(type, finishName, 'charge', e.target.value)}
+                                    defaultValue={getFieldValue(type, finishName, 'charge')}
+                                    onInput={(e) => handleFinishDetailChange(type, finishName, 'charge', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -329,10 +331,11 @@ const FinishesConfig = ({ db }) => {
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Secondary Pay Rate</label>
                                     <input
+                                        key={`${type}-${finishName}-pay2`}
                                         type="number"
                                         step="0.01"
-                                        value={getFieldValue(type, finishName, 'pay2')}
-                                        onChange={(e) => handleFinishDetailChange(type, finishName, 'pay2', e.target.value)}
+                                        defaultValue={getFieldValue(type, finishName, 'pay2')}
+                                        onInput={(e) => handleFinishDetailChange(type, finishName, 'pay2', e.target.value)}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     />
                                 </div>
