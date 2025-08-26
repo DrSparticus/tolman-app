@@ -576,38 +576,55 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     changeDescription = changes.length === 1 ? changes[0] : `${changes.length} changes made:\n${changes.map(c => `- ${c}`).join('\n')}`;
                 }
                 
+                // Debug user data structure
+                console.log('User data structure:', userData);
+                
+                // Add the change log entry to bidData before saving
+                const newChangeLogEntry = {
+                    timestamp: serverTimestamp(), 
+                    change: changeDescription, 
+                    user: { 
+                        name: userData?.name || 
+                              (userData?.firstName && userData?.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
+                              userData?.displayName || 
+                              userData?.email || 'Unknown',
+                        email: userData?.email || 'Unknown'
+                    }
+                };
+                
+                bidData.changeLog = [
+                    ...(bid.changeLog || []), 
+                    newChangeLogEntry
+                ];
+                
                 await updateDoc(doc(db, projectsPath, bid.id), bidData);
                 setBid(prev => ({ 
-                    ...prev, 
-                    changeLog: [
-                        ...(prev.changeLog || []), 
-                        { 
-                            timestamp: serverTimestamp(), 
-                            change: changeDescription, 
-                            user: { 
-                                name: userData?.name || userData?.email || 'Unknown',
-                                email: userData?.email || 'Unknown'
-                            }
-                        }
-                    ] 
+                    ...prev,
+                    ...bidData,
+                    changeLog: bidData.changeLog
                 }));
             } else {
+                const initialChangeLogEntry = {
+                    timestamp: serverTimestamp(), 
+                    change: 'Bid created', 
+                    user: { 
+                        name: userData?.name || 
+                              (userData?.firstName && userData?.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
+                              userData?.displayName || 
+                              userData?.email || 'Unknown',
+                        email: userData?.email || 'Unknown'
+                    }
+                };
+                
+                bidData.changeLog = [initialChangeLogEntry];
+                
                 const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
                 setBid(prev => ({ 
                     ...prev, 
                     id: docRef.id, 
                     materialPricing: bidData.materialPricing, 
                     materialPricingDate: bidData.materialPricingDate,
-                    changeLog: [
-                        { 
-                            timestamp: serverTimestamp(), 
-                            change: 'Bid created', 
-                            user: { 
-                                name: userData?.name || userData?.email || 'Unknown',
-                                email: userData?.email || 'Unknown'
-                            }
-                        }
-                    ]
+                    changeLog: bidData.changeLog
                 }));
             }
         } catch (error) {
@@ -673,7 +690,10 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                         timestamp: serverTimestamp(), 
                         change: 'Material pricing updated to current rates', 
                         user: { 
-                            name: userData?.name || userData?.email || 'Unknown',
+                            name: userData?.name || 
+                                  (userData?.firstName && userData?.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
+                                  userData?.displayName || 
+                                  userData?.email || 'Unknown',
                             email: userData?.email || 'Unknown'
                         }
                     }
