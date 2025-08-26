@@ -2,6 +2,37 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, onSnapshot, setDoc, collection } from 'firebase/firestore';
 import { PlusIcon, DeleteIcon } from '../Icons';
 
+// Component for inputs that defer updates until blur to prevent cursor jumping
+const DeferredInput = React.memo(({ value, onBlur, onChange, ...inputProps }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+    
+    // Update local value when prop value changes
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+    
+    const handleLocalChange = (e) => {
+        setLocalValue(e.target.value);
+        // Call onChange if provided (for special cases)
+        if (onChange) {
+            onChange(e);
+        }
+    };
+    
+    const handleBlur = (e) => {
+        onBlur(e);
+    };
+    
+    return (
+        <input
+            {...inputProps}
+            value={localValue}
+            onChange={handleLocalChange}
+            onBlur={handleBlur}
+        />
+    );
+});
+
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
 
 const FinishesConfig = ({ db }) => {
@@ -19,7 +50,6 @@ const FinishesConfig = ({ db }) => {
     const [changedFinishes, setChangedFinishes] = useState(new Set());
     const [isSaving, setIsSaving] = useState(false);
     const [ignoreNextUpdate, setIgnoreNextUpdate] = useState(false);
-    const inputRefs = useRef({});
 
     useEffect(() => {
         if (!db) return;
@@ -106,39 +136,16 @@ const FinishesConfig = ({ db }) => {
         await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
     };
 
-    const handleFinishDetailChange = useCallback((type, name, field, value) => {
-        const key = `${type}_${name}_${field}`;
+    const handleFinishDetailChange = useCallback((e) => {
+        const { name, value } = e.target;
+        const [type, finishName, field] = name.split('|');
+        
+        const key = `${type}_${finishName}_${field}`;
         setLocalValues(prev => ({ ...prev, [key]: value }));
         
         // Mark this finish as changed
-        const finishKey = `${type}-${name}`;
+        const finishKey = `${type}-${finishName}`;
         setChangedFinishes(prev => new Set([...prev, finishKey]));
-    }, []);
-
-    // Special handler for number inputs that doesn't cause re-renders
-    const handleNumberInputChange = useCallback((type, name, field, e) => {
-        const value = e.target.value;
-        const key = `${type}_${name}_${field}`;
-        
-        // Store in ref without triggering re-render
-        if (!inputRefs.current[key]) {
-            inputRefs.current[key] = {};
-        }
-        inputRefs.current[key].value = value;
-        
-        // Mark as changed but don't update localValues yet
-        const finishKey = `${type}-${name}`;
-        setChangedFinishes(prev => new Set([...prev, finishKey]));
-    }, []);
-
-    // Update localValues on blur to sync with refs
-    const handleNumberInputBlur = useCallback((type, name, field) => {
-        const key = `${type}_${name}_${field}`;
-        const refValue = inputRefs.current[key]?.value;
-        
-        if (refValue !== undefined) {
-            setLocalValues(prev => ({ ...prev, [key]: refValue }));
-        }
     }, []);
 
     const handleSaveFinish = async (type, name) => {
@@ -317,26 +324,21 @@ const FinishesConfig = ({ db }) => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Pay Rate</label>
-                                <input
-                                    ref={(el) => {
-                                        const key = `${type}_${finishName}_pay`;
-                                        if (el && !inputRefs.current[key]) {
-                                            inputRefs.current[key] = el;
-                                        }
-                                    }}
+                                <DeferredInput
                                     type="number"
                                     step="0.01"
-                                    defaultValue={getFieldValue(type, finishName, 'pay')}
-                                    onChange={(e) => handleNumberInputChange(type, finishName, 'pay', e)}
-                                    onBlur={() => handleNumberInputBlur(type, finishName, 'pay')}
+                                    name={`${type}|${finishName}|pay`}
+                                    value={getFieldValue(type, finishName, 'pay')}
+                                    onBlur={handleFinishDetailChange}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Crew</label>
                                 <select
+                                    name={`${type}|${finishName}|crew`}
                                     value={getFieldValue(type, finishName, 'crew')}
-                                    onChange={(e) => handleFinishDetailChange(type, finishName, 'crew', e.target.value)}
+                                    onChange={handleFinishDetailChange}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 >
                                     <option value="">Select Crew</option>
@@ -347,18 +349,12 @@ const FinishesConfig = ({ db }) => {
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Charge Rate</label>
-                                <input
-                                    ref={(el) => {
-                                        const key = `${type}_${finishName}_charge`;
-                                        if (el && !inputRefs.current[key]) {
-                                            inputRefs.current[key] = el;
-                                        }
-                                    }}
+                                <DeferredInput
                                     type="number"
                                     step="0.01"
-                                    defaultValue={getFieldValue(type, finishName, 'charge')}
-                                    onChange={(e) => handleNumberInputChange(type, finishName, 'charge', e)}
-                                    onBlur={() => handleNumberInputBlur(type, finishName, 'charge')}
+                                    name={`${type}|${finishName}|charge`}
+                                    value={getFieldValue(type, finishName, 'charge')}
+                                    onBlur={handleFinishDetailChange}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -369,26 +365,21 @@ const FinishesConfig = ({ db }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t">
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Secondary Pay Rate</label>
-                                    <input
-                                        ref={(el) => {
-                                            const key = `${type}_${finishName}_pay2`;
-                                            if (el && !inputRefs.current[key]) {
-                                                inputRefs.current[key] = el;
-                                            }
-                                        }}
+                                    <DeferredInput
                                         type="number"
                                         step="0.01"
-                                        defaultValue={getFieldValue(type, finishName, 'pay2')}
-                                        onChange={(e) => handleNumberInputChange(type, finishName, 'pay2', e)}
-                                        onBlur={() => handleNumberInputBlur(type, finishName, 'pay2')}
+                                        name={`${type}|${finishName}|pay2`}
+                                        value={getFieldValue(type, finishName, 'pay2')}
+                                        onBlur={handleFinishDetailChange}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Secondary Crew</label>
                                     <select
+                                        name={`${type}|${finishName}|crew2`}
                                         value={getFieldValue(type, finishName, 'crew2')}
-                                        onChange={(e) => handleFinishDetailChange(type, finishName, 'crew2', e.target.value)}
+                                        onChange={handleFinishDetailChange}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     >
                                         <option value="">Select Crew</option>
