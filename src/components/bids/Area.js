@@ -36,6 +36,11 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
         onUpdate({ ...area, name: e.target.value });
     };
 
+    // Handle vault heights change
+    const handleVaultHeightsChange = (e) => {
+        onUpdate({ ...area, vaultHeights: e.target.value });
+    };
+
     // Handle overall labor checkbox
     const handleUseOverallLaborChange = (checked) => {
         const updates = { ...area, useOverallLabor: checked };
@@ -193,13 +198,22 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg">
             <div className="flex flex-wrap justify-between items-center gap-y-2 mb-4">
-                <DeferredInput
-                    type="text"
-                    value={area.name || ''}
-                    onBlur={handleNameChange}
-                    className="text-xl font-bold border-2 border-gray-300 rounded-md px-3 py-2 focus:border-blue-500 outline-none flex-grow min-w-[100px] bg-gray-50 focus:bg-white transition-colors"
-                    placeholder="Enter area name..."
-                />
+                <div className="flex flex-col flex-grow min-w-[100px]">
+                    <DeferredInput
+                        type="text"
+                        value={area.name || ''}
+                        onBlur={handleNameChange}
+                        className="text-xl font-bold border-2 border-gray-300 rounded-md px-3 py-2 focus:border-blue-500 outline-none bg-gray-50 focus:bg-white transition-colors mb-2"
+                        placeholder="Enter area name..."
+                    />
+                    <DeferredInput
+                        type="text"
+                        value={area.vaultHeights || ''}
+                        onBlur={handleVaultHeightsChange}
+                        className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:border-blue-500 outline-none bg-gray-50 focus:bg-white transition-colors"
+                        placeholder="Vault heights (e.g., 9', 10', 12')..."
+                    />
+                </div>
                 <div className="flex items-center space-x-4 ml-4">
                     {totalSqFt > 0 && (
                         <span className="text-lg font-semibold text-blue-600 whitespace-nowrap">

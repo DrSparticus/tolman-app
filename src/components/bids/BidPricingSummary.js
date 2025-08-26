@@ -637,7 +637,10 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
 
             // finishExtraProfit is accumulated from miscellaneous finishes
             const totalProfit = profit + finishExtraProfit;
-            const netQuote = breakEven + totalProfit;
+            const rawNetQuote = breakEven + totalProfit;
+            
+            // Round up to nearest $5
+            const netQuote = Math.ceil(rawNetQuote / 5) * 5;
 
             debug.push(`Hard Cost: $${hardCost.toFixed(2)}`);
             debug.push(`Overhead (${(markups.overhead * 100).toFixed(1)}%): $${overhead.toFixed(2)}`);
@@ -645,7 +648,8 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             debug.push(`Base Profit (${(markups.profit * 100).toFixed(1)}%): $${profit.toFixed(2)}`);
             debug.push(`Finish Extra Profit: $${finishExtraProfit.toFixed(2)} (included in area labor)`);
             debug.push(`Total Profit: $${totalProfit.toFixed(2)}`);
-            debug.push(`Net Quote: $${netQuote.toFixed(2)}`);
+            debug.push(`Raw Net Quote: $${rawNetQuote.toFixed(2)}`);
+            debug.push(`Net Quote (rounded up to nearest $5): $${netQuote.toFixed(2)}`);
 
             return {
                 stockedMaterial: totalStockedMaterial,

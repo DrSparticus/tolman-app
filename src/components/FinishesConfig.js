@@ -107,6 +107,7 @@ const FinishesConfig = ({ db }) => {
             pay: 0,
             crew: '',
             charge: 0,
+            description: '', // New field for tooltip/description
         };
 
         const updatedFinishes = {
@@ -169,7 +170,7 @@ const FinishesConfig = ({ db }) => {
                     if (itemName === name) {
                         const baseObj = typeof item === 'object'
                             ? item
-                            : { name: item, pay: 0, crew: '', charge: 0 };
+                            : { name: item, pay: 0, crew: '', charge: 0, description: '' };
                         
                         return { ...baseObj, ...finishLocalValues };
                     }
@@ -259,7 +260,7 @@ const FinishesConfig = ({ db }) => {
                 if (itemName === name) {
                     const baseObj = typeof item === 'object' 
                         ? item 
-                        : { name: item, pay: 0, crew: '', charge: 0 };
+                        : { name: item, pay: 0, crew: '', charge: 0, description: '' };
                     return { ...baseObj, pay2: 0, crew2: '' };
                 }
                 return item;
@@ -359,6 +360,21 @@ const FinishesConfig = ({ db }) => {
                                 />
                             </div>
                         </div>
+
+                        {/* Description field for misc finishes */}
+                        {type === 'miscellaneous' && (
+                            <div className="mb-3">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Description/Tooltip</label>
+                                <DeferredInput
+                                    type="text"
+                                    name={`${type}|${finishName}|description`}
+                                    value={getFieldValue(type, finishName, 'description')}
+                                    onBlur={handleFinishDetailChange}
+                                    placeholder="Enter description for tooltip (optional)"
+                                    className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                            </div>
+                        )}
 
                         {/* Second payout option */}
                         {(typeof finish === 'object' && finish.pay2 !== undefined) ? (

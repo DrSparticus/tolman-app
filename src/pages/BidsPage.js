@@ -42,7 +42,8 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 corners: '',
                 hangRate: '',
                 tapeRate: '',
-                autoTapeRate: true
+                autoTapeRate: true,
+                vaultHeights: ''
             },
             { 
                 id: crypto.randomUUID(), 
@@ -56,7 +57,8 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 corners: '',
                 hangRate: '',
                 tapeRate: '',
-                autoTapeRate: true
+                autoTapeRate: true,
+                vaultHeights: ''
             }
         ],
         changeLog: [],
@@ -346,7 +348,8 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             corners: '',
             hangRate: '',
             tapeRate: '',
-            autoTapeRate: true
+            autoTapeRate: true,
+            vaultHeights: ''
         };
         setBid(prev => ({ ...prev, areas: [...prev.areas, newArea] }));
         setShowAreaNameModal(false);
