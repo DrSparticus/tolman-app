@@ -15,8 +15,9 @@ const FinishesConfig = ({ db }) => {
     const [expandedFinish, setExpandedFinish] = useState(null);
     const [newFinish, setNewFinish] = useState({ type: 'wallTextures', value: '' });
     const [localNewFinishValue, setLocalNewFinishValue] = useState('');
-
     const [localValues, setLocalValues] = useState({});
+    const [changedFinishes, setChangedFinishes] = useState(new Set());
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!db) return;
@@ -100,33 +101,89 @@ const FinishesConfig = ({ db }) => {
     const handleFinishDetailChange = (type, name, field, value) => {
         const key = `${type}_${name}_${field}`;
         setLocalValues(prev => ({ ...prev, [key]: value }));
+        
+        // Mark this finish as changed
+        const finishKey = `${type}-${name}`;
+        setChangedFinishes(prev => new Set([...prev, finishKey]));
     };
 
-    const handleFinishDetailBlur = async (type, name, field, value) => {
-        const key = `${type}_${name}_${field}`;
+    const handleSaveFinish = async (type, name) => {
+        setIsSaving(true);
+        const finishKey = `${type}-${name}`;
+        
+        try {
+            // Get all local values for this finish
+            const finishLocalValues = {};
+            Object.keys(localValues).forEach(key => {
+                if (key.startsWith(`${type}_${name}_`)) {
+                    const field = key.split('_').pop();
+                    finishLocalValues[field] = localValues[key];
+                }
+            });
+
+            const updatedFinishes = {
+                ...finishes,
+                [type]: finishes[type].map(item => {
+                    const itemName = typeof item === 'object' ? item.name : item;
+                    if (itemName === name) {
+                        const baseObj = typeof item === 'object'
+                            ? item
+                            : { name: item, pay: 0, crew: '', charge: 0 };
+                        
+                        return { ...baseObj, ...finishLocalValues };
+                    }
+                    return item;
+                })
+            };
+            
+            await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
+            
+            // Clear local values for this finish
+            setLocalValues(prev => {
+                const newLocal = { ...prev };
+                Object.keys(newLocal).forEach(key => {
+                    if (key.startsWith(`${type}_${name}_`)) {
+                        delete newLocal[key];
+                    }
+                });
+                return newLocal;
+            });
+            
+            // Remove from changed finishes
+            setChangedFinishes(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(finishKey);
+                return newSet;
+            });
+            
+        } catch (error) {
+            console.error('Error saving finish:', error);
+            alert('Error saving changes. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDiscardChanges = (type, name) => {
+        const finishKey = `${type}-${name}`;
+        
+        // Clear local values for this finish
         setLocalValues(prev => {
             const newLocal = { ...prev };
-            delete newLocal[key];
+            Object.keys(newLocal).forEach(key => {
+                if (key.startsWith(`${type}_${name}_`)) {
+                    delete newLocal[key];
+                }
+            });
             return newLocal;
         });
-
-        const updatedFinishes = {
-            ...finishes,
-            [type]: finishes[type].map(item => {
-                const itemName = typeof item === 'object' ? item.name : item;
-                if (itemName === name) {
-                    const baseObj = typeof item === 'object'
-                        ? item
-                        : { name: item, pay: 0, crew: '', charge: 0 };
-                    
-                    return { ...baseObj, [field]: String(value) };
-                }
-                return item;
-            })
-        };
         
-        // Only save to Firestore - don't update local state as the listener will handle that
-        await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
+        // Remove from changed finishes
+        setChangedFinishes(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(finishKey);
+            return newSet;
+        });
     };
 
     const getFieldValue = (type, name, field) => {
@@ -176,6 +233,8 @@ const FinishesConfig = ({ db }) => {
     const FinishItem = ({ finish, type }) => {
         const finishName = typeof finish === 'object' ? finish.name : finish;
         const isExpanded = expandedFinish === `${type}-${finishName}`;
+        const finishKey = `${type}-${finishName}`;
+        const hasChanges = changedFinishes.has(finishKey);
         
         return (
             <div className="border border-gray-200 rounded-lg mb-2">
@@ -183,7 +242,14 @@ const FinishesConfig = ({ db }) => {
                     className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
                     onClick={() => setExpandedFinish(isExpanded ? null : `${type}-${finishName}`)}
                 >
-                    <span className="font-medium text-gray-800">{finishName}</span>
+                    <div className="flex items-center space-x-2">
+                        <span className="font-medium text-gray-800">{finishName}</span>
+                        {hasChanges && (
+                            <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                                Unsaved changes
+                            </span>
+                        )}
+                    </div>
                     <div className="flex items-center space-x-2">
                         <button
                             onClick={(e) => {
@@ -215,7 +281,6 @@ const FinishesConfig = ({ db }) => {
                                     step="0.01"
                                     value={getFieldValue(type, finishName, 'pay')}
                                     onChange={(e) => handleFinishDetailChange(type, finishName, 'pay', e.target.value)}
-                                    onBlur={(e) => handleFinishDetailBlur(type, finishName, 'pay', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -223,7 +288,7 @@ const FinishesConfig = ({ db }) => {
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Crew</label>
                                 <select
                                     value={getFieldValue(type, finishName, 'crew')}
-                                    onChange={(e) => handleFinishDetailBlur(type, finishName, 'crew', e.target.value)}
+                                    onChange={(e) => handleFinishDetailChange(type, finishName, 'crew', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 >
                                     <option value="">Select Crew</option>
@@ -239,7 +304,6 @@ const FinishesConfig = ({ db }) => {
                                     step="0.01"
                                     value={getFieldValue(type, finishName, 'charge')}
                                     onChange={(e) => handleFinishDetailChange(type, finishName, 'charge', e.target.value)}
-                                    onBlur={(e) => handleFinishDetailBlur(type, finishName, 'charge', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
                             </div>
@@ -255,7 +319,6 @@ const FinishesConfig = ({ db }) => {
                                         step="0.01"
                                         value={getFieldValue(type, finishName, 'pay2')}
                                         onChange={(e) => handleFinishDetailChange(type, finishName, 'pay2', e.target.value)}
-                                        onBlur={(e) => handleFinishDetailBlur(type, finishName, 'pay2', e.target.value)}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     />
                                 </div>
@@ -263,7 +326,7 @@ const FinishesConfig = ({ db }) => {
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Secondary Crew</label>
                                     <select
                                         value={getFieldValue(type, finishName, 'crew2')}
-                                        onChange={(e) => handleFinishDetailBlur(type, finishName, 'crew2', e.target.value)}
+                                        onChange={(e) => handleFinishDetailChange(type, finishName, 'crew2', e.target.value)}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     >
                                         <option value="">Select Crew</option>
@@ -281,6 +344,26 @@ const FinishesConfig = ({ db }) => {
                                 >
                                     <PlusIcon className="w-4 h-4 mr-1" />
                                     Add Secondary Payout
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Save/Discard buttons */}
+                        {hasChanges && (
+                            <div className="flex items-center justify-end space-x-2 pt-3 border-t mt-3">
+                                <button
+                                    onClick={() => handleDiscardChanges(type, finishName)}
+                                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded hover:bg-gray-50"
+                                    disabled={isSaving}
+                                >
+                                    Discard
+                                </button>
+                                <button
+                                    onClick={() => handleSaveFinish(type, finishName)}
+                                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                                    disabled={isSaving}
+                                >
+                                    {isSaving ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         )}
