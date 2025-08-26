@@ -1,6 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LocationControls, useLocationServices } from '../LocationServices';
 
+// Component for inputs that defer updates until blur to prevent cursor jumping
+const DeferredInput = React.memo(({ value, onBlur, onChange, ...inputProps }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+    
+    // Update local value when prop value changes
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+    
+    const handleLocalChange = (e) => {
+        setLocalValue(e.target.value);
+        // Call onChange if provided (for special cases like notes with auto-resize)
+        if (onChange) {
+            onChange(e);
+        }
+    };
+    
+    const handleBlur = (e) => {
+        onBlur(e);
+    };
+    
+    return (
+        <input
+            {...inputProps}
+            value={localValue}
+            onChange={handleLocalChange}
+            onBlur={handleBlur}
+        />
+    );
+});
+
 export default function BidHeader({ bid, handleInputChange, supervisors, finishes, materials, crewTypes, userPermissions = {}, db, locationSettings, onUpdateMaterialPricing }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const locationServices = useLocationServices(db, handleInputChange);
@@ -144,22 +175,22 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Project Name</label>
-                        <input
+                        <DeferredInput
                             type="text"
                             name="projectName"
                             value={bid.projectName}
-                            onChange={handleInputChange}
+                            onBlur={handleInputChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Enter Project Name"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Customer</label>
-                        <input
+                        <DeferredInput
                             type="text"
                             name="contractor"
                             value={bid.contractor}
-                            onChange={handleInputChange}
+                            onBlur={handleInputChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Customer Name"
                         />
@@ -170,11 +201,11 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             locationSettings={locationSettings}
                             locationServices={locationServices}
                         />
-                        <input
+                        <DeferredInput
                             type="text"
                             name="address"
                             value={bid.address}
-                            onChange={handleInputChange}
+                            onBlur={handleInputChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Project Address"
                         />
@@ -250,12 +281,12 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 mt-4 border-t">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Hang Labor Rate</label>
-                        <input 
+                        <DeferredInput 
                             type="number" 
                             step="0.01" 
                             name="finishedHangingRate" 
                             value={bid.finishedHangingRate ?? ''} 
-                            onChange={handleInputChange} 
+                            onBlur={handleInputChange} 
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                         />
                     </div>
@@ -274,24 +305,24 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                                 <label htmlFor="auto-tape-rate" className="ml-1 text-xs text-gray-600">Auto</label>
                             </div>
                         </div>
-                        <input 
+                        <DeferredInput 
                             type="number" 
                             step="0.01" 
                             name="finishedTapeRate" 
                             value={bid.autoTapeRate ? calculateFinishedTapeRate() : (bid.finishedTapeRate ?? '')}
-                            onChange={handleInputChange}
+                            onBlur={handleInputChange}
                             disabled={bid.autoTapeRate}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 disabled:bg-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Unfinished Tape Rate</label>
-                        <input 
+                        <DeferredInput 
                             type="number" 
                             step="0.01" 
                             name="unfinishedTapingRate" 
                             value={bid.unfinishedTapingRate ?? ''} 
-                            onChange={handleInputChange} 
+                            onBlur={handleInputChange} 
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                         />
                     </div>
@@ -328,11 +359,11 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                                     {finishes.miscellaneous.map(misc => (
                                         <div key={misc.name}>
                                             <label className="block text-sm font-medium text-gray-700">{misc.name} (Count)</label>
-                                            <input
+                                            <DeferredInput
                                                 type="number"
                                                 name={`misc_${misc.name.toLowerCase().replace(/\s+/g, '_')}`}
                                                 value={bid[`misc_${misc.name.toLowerCase().replace(/\s+/g, '_')}`] || ''}
-                                                onChange={handleInputChange}
+                                                onBlur={handleInputChange}
                                                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                                 placeholder="Enter count"
                                             />
@@ -349,11 +380,11 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Material Stock Date</label>
                                     <p className="text-xs text-gray-500 mb-2">Setting this date will convert the bid into a project and assign a new job number.</p>
-                                    <input 
+                                    <DeferredInput 
                                         type="date" 
                                         name="materialStockDate" 
                                         value={bid.materialStockDate || ''} 
-                                        onChange={handleInputChange} 
+                                        onBlur={handleInputChange} 
                                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 max-w-xs" 
                                     />
                                 </div>

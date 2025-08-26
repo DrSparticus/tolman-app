@@ -14,6 +14,7 @@ const FinishesConfig = ({ db }) => {
     const [crewTypes, setCrewTypes] = useState([]);
     const [expandedFinish, setExpandedFinish] = useState(null);
     const [newFinish, setNewFinish] = useState({ type: 'wallTextures', value: '' });
+    const [localNewFinishValue, setLocalNewFinishValue] = useState('');
 
     const [localValues, setLocalValues] = useState({});
 
@@ -53,16 +54,17 @@ const FinishesConfig = ({ db }) => {
 
     const handleAddFinish = async (e) => {
         e.preventDefault();
-        if (!newFinish.value.trim()) return;
+        const finishValue = localNewFinishValue.trim() || newFinish.value.trim();
+        if (!finishValue) return;
 
         const currentFinishes = finishes[newFinish.type] || [];
-        if (currentFinishes.some(f => (typeof f === 'object' ? f.name : f).toLowerCase() === newFinish.value.trim().toLowerCase())) {
+        if (currentFinishes.some(f => (typeof f === 'object' ? f.name : f).toLowerCase() === finishValue.toLowerCase())) {
             alert('This finish already exists.');
             return;
         }
 
         const newFinishItem = {
-            name: newFinish.value.trim(),
+            name: finishValue,
             pay: 0,
             crew: '',
             charge: 0,
@@ -75,6 +77,16 @@ const FinishesConfig = ({ db }) => {
 
         await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
         setNewFinish({ ...newFinish, value: '' });
+        setLocalNewFinishValue('');
+    };
+
+    const handleNewFinishNameChange = (e) => {
+        setLocalNewFinishValue(e.target.value);
+    };
+
+    const handleNewFinishNameBlur = (e) => {
+        setNewFinish({ ...newFinish, value: e.target.value });
+        setLocalNewFinishValue('');
     };
 
     const handleDeleteFinish = async (type, valueToDelete) => {
@@ -211,8 +223,7 @@ const FinishesConfig = ({ db }) => {
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Crew</label>
                                 <select
                                     value={getFieldValue(type, finishName, 'crew')}
-                                    onChange={(e) => handleFinishDetailChange(type, finishName, 'crew', e.target.value)}
-                                    onBlur={(e) => handleFinishDetailBlur(type, finishName, 'crew', e.target.value)}
+                                    onChange={(e) => handleFinishDetailBlur(type, finishName, 'crew', e.target.value)}
                                     className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 >
                                     <option value="">Select Crew</option>
@@ -252,8 +263,7 @@ const FinishesConfig = ({ db }) => {
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Secondary Crew</label>
                                     <select
                                         value={getFieldValue(type, finishName, 'crew2')}
-                                        onChange={(e) => handleFinishDetailChange(type, finishName, 'crew2', e.target.value)}
-                                        onBlur={(e) => handleFinishDetailBlur(type, finishName, 'crew2', e.target.value)}
+                                        onChange={(e) => handleFinishDetailBlur(type, finishName, 'crew2', e.target.value)}
                                         className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     >
                                         <option value="">Select Crew</option>
@@ -304,8 +314,9 @@ const FinishesConfig = ({ db }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Finish Name</label>
                         <input
                             type="text"
-                            value={newFinish.value}
-                            onChange={(e) => setNewFinish({ ...newFinish, value: e.target.value })}
+                            value={localNewFinishValue || newFinish.value}
+                            onChange={handleNewFinishNameChange}
+                            onBlur={handleNewFinishNameBlur}
                             placeholder="Enter finish name"
                             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         />

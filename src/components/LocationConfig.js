@@ -43,6 +43,17 @@ const LocationConfig = ({ db }) => {
             ...prev,
             [field]: value
         }));
+        // Auto-save the changes
+        saveLocationSettings(field, value);
+    };
+
+    const saveLocationSettings = async (field, value) => {
+        try {
+            const locationConfigRef = doc(db, configPath, 'locationSettings');
+            await setDoc(locationConfigRef, { [field]: value }, { merge: true });
+        } catch (error) {
+            console.error('Error saving location settings:', error);
+        }
     };
 
     if (isLoading) {

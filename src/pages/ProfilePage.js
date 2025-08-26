@@ -6,6 +6,33 @@ import { EditIcon } from '../Icons.js';
 
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
 
+// Component for inputs that defer updates until blur to prevent cursor jumping
+const DeferredInput = React.memo(({ value, onBlur, ...inputProps }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+    
+    // Update local value when prop value changes
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+    
+    const handleLocalChange = (e) => {
+        setLocalValue(e.target.value);
+    };
+    
+    const handleBlur = (e) => {
+        onBlur(e);
+    };
+    
+    return (
+        <input
+            {...inputProps}
+            value={localValue}
+            onChange={handleLocalChange}
+            onBlur={handleBlur}
+        />
+    );
+});
+
 const ProfilePage = ({ db, user, userData, storage, appId }) => {
     const [profileData, setProfileData] = useState(userData);
     const [isUploading, setIsUploading] = useState(false);
@@ -81,11 +108,11 @@ const ProfilePage = ({ db, user, userData, storage, appId }) => {
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">First Name</label>
-                        <input type="text" name="firstName" value={profileData.firstName || ''} onChange={handleProfileChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                        <DeferredInput type="text" name="firstName" value={profileData.firstName || ''} onBlur={handleProfileChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                        <input type="text" name="lastName" value={profileData.lastName || ''} onChange={handleProfileChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                        <DeferredInput type="text" name="lastName" value={profileData.lastName || ''} onBlur={handleProfileChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
                     </div>
                 </div>
 
