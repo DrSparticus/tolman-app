@@ -125,7 +125,7 @@ const FinishesConfig = ({ db }) => {
             })
         };
         
-        setFinishes(updatedFinishes);
+        // Only save to Firestore - don't update local state as the listener will handle that
         await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
     };
 
