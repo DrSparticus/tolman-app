@@ -480,12 +480,15 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                             miscDetails.push(`Secondary: $${(parseFloat(miscItem.pay2) || 0).toFixed(3)}`);
                         }
                         
-                        // Extra profit calculation (using charge field)
-                        if (miscItem.charge) {
-                            const extraProfitAmount = quantity * (parseFloat(miscItem.charge) || 0);
+                        // Extra profit calculation (charge - pay = extra profit margin)
+                        if (miscItem.charge && miscItem.pay) {
+                            const chargeRate = parseFloat(miscItem.charge) || 0;
+                            const payRate = parseFloat(miscItem.pay) || 0;
+                            const extraProfitRate = chargeRate - payRate;
+                            const extraProfitAmount = quantity * extraProfitRate;
                             finishExtraProfit += extraProfitAmount;
-                            miscDetails.push(`Extra Profit: $${(parseFloat(miscItem.charge) || 0).toFixed(3)}`);
-                            debug.push(`  ${miscItem.name} Extra Profit: ${quantity} @ $${miscItem.charge} = $${extraProfitAmount.toFixed(2)}`);
+                            miscDetails.push(`Extra Profit: $${extraProfitRate.toFixed(3)} (charge $${chargeRate.toFixed(3)} - pay $${payRate.toFixed(3)})`);
+                            debug.push(`  ${miscItem.name} Extra Profit: ${quantity} @ $${extraProfitRate.toFixed(3)} = $${extraProfitAmount.toFixed(2)}`);
                         }
                         
                         // Primary payout assignment to crew
