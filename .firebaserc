@@ -8,12 +8,15 @@
       "hosting": {
         "production": [
           "tolman-app"
+        ],
+        "staging": [
+          "tolmantest"
         ]
       }
     },
     "tolmantest": {
       "hosting": {
-        "production": [
+        "staging": [
           "tolmantest"
         ]
       }
