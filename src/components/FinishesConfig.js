@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { doc, onSnapshot, setDoc, collection } from 'firebase/firestore';
 import { PlusIcon, DeleteIcon } from '../Icons';
 
@@ -18,11 +18,18 @@ const FinishesConfig = ({ db }) => {
     const [localValues, setLocalValues] = useState({});
     const [changedFinishes, setChangedFinishes] = useState(new Set());
     const [isSaving, setIsSaving] = useState(false);
+    const [ignoreNextUpdate, setIgnoreNextUpdate] = useState(false);
 
     useEffect(() => {
         if (!db) return;
         const finishesDocRef = doc(db, configPath, 'finishes');
         const unsubscribe = onSnapshot(finishesDocRef, (docSnap) => {
+            // Skip update if we just saved and are expecting this update
+            if (ignoreNextUpdate) {
+                setIgnoreNextUpdate(false);
+                return;
+            }
+            
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setFinishes({
@@ -41,7 +48,7 @@ const FinishesConfig = ({ db }) => {
             }
         });
         return unsubscribe;
-    }, [db]);
+    }, [db, ignoreNextUpdate]);
 
     useEffect(() => {
         if (!db) return;
@@ -98,14 +105,14 @@ const FinishesConfig = ({ db }) => {
         await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
     };
 
-    const handleFinishDetailChange = (type, name, field, value) => {
+    const handleFinishDetailChange = useCallback((type, name, field, value) => {
         const key = `${type}_${name}_${field}`;
         setLocalValues(prev => ({ ...prev, [key]: value }));
         
         // Mark this finish as changed
         const finishKey = `${type}-${name}`;
         setChangedFinishes(prev => new Set([...prev, finishKey]));
-    };
+    }, []);
 
     const handleSaveFinish = async (type, name) => {
         setIsSaving(true);
@@ -136,7 +143,13 @@ const FinishesConfig = ({ db }) => {
                 })
             };
             
+            // Set flag to ignore the next Firestore update to prevent re-render
+            setIgnoreNextUpdate(true);
+            
             await setDoc(doc(db, configPath, 'finishes'), updatedFinishes);
+            
+            // Update local state immediately to prevent flickering
+            setFinishes(updatedFinishes);
             
             // Clear local values for this finish
             setLocalValues(prev => {
@@ -159,6 +172,7 @@ const FinishesConfig = ({ db }) => {
         } catch (error) {
             console.error('Error saving finish:', error);
             alert('Error saving changes. Please try again.');
+            setIgnoreNextUpdate(false); // Reset flag on error
         } finally {
             setIsSaving(false);
         }
@@ -186,7 +200,7 @@ const FinishesConfig = ({ db }) => {
         });
     };
 
-    const getFieldValue = (type, name, field) => {
+    const getFieldValue = useCallback((type, name, field) => {
         const key = `${type}_${name}_${field}`;
         if (localValues.hasOwnProperty(key)) {
             return localValues[key];
@@ -201,7 +215,7 @@ const FinishesConfig = ({ db }) => {
             return finish[field] || '';
         }
         return '';
-    };
+    }, [localValues, finishes]);
 
     const handleAddPayout = async (type, name) => {
         const updatedFinishes = {
@@ -230,7 +244,7 @@ const FinishesConfig = ({ db }) => {
         return titles[type] || type;
     };
 
-    const FinishItem = ({ finish, type }) => {
+    const FinishItem = React.memo(({ finish, type }) => {
         const finishName = typeof finish === 'object' ? finish.name : finish;
         const isExpanded = expandedFinish === `${type}-${finishName}`;
         const finishKey = `${type}-${finishName}`;
@@ -371,7 +385,10 @@ const FinishesConfig = ({ db }) => {
                 )}
             </div>
         );
-    };
+    }, (prevProps, nextProps) => {
+        // Only re-render if the finish data has actually changed
+        return prevProps.finish === nextProps.finish && prevProps.type === nextProps.type;
+    });
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
