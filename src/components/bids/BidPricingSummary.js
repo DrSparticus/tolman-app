@@ -480,15 +480,29 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                             miscDetails.push(`Secondary: $${(parseFloat(miscItem.pay2) || 0).toFixed(3)}`);
                         }
                         
-                        // Extra profit calculation (charge - pay = extra profit margin)
+                        // Extra profit calculation: Charge * Quantity - (Pay * Quantity + Burden + Overhead + Profit)
                         if (miscItem.charge && miscItem.pay) {
                             const chargeRate = parseFloat(miscItem.charge) || 0;
                             const payRate = parseFloat(miscItem.pay) || 0;
-                            const extraProfitRate = chargeRate - payRate;
-                            const extraProfitAmount = quantity * extraProfitRate;
+                            
+                            // Total revenue from charge
+                            const totalCharge = chargeRate * quantity;
+                            
+                            // Total costs: labor + burden + overhead + profit on that labor
+                            const laborCost = payRate * quantity;
+                            const laborBurdenCost = laborCost * markups.laborBurden;
+                            const totalLaborWithBurden = laborCost + laborBurdenCost;
+                            const overheadCost = totalLaborWithBurden * markups.overhead;
+                            const profitCost = (totalLaborWithBurden + overheadCost) * markups.profit;
+                            const totalCost = laborCost + laborBurdenCost + overheadCost + profitCost;
+                            
+                            // Extra profit is revenue minus total cost
+                            const extraProfitAmount = totalCharge - totalCost;
                             finishExtraProfit += extraProfitAmount;
-                            miscDetails.push(`Extra Profit: $${extraProfitRate.toFixed(3)} (charge $${chargeRate.toFixed(3)} - pay $${payRate.toFixed(3)})`);
-                            debug.push(`  ${miscItem.name} Extra Profit: ${quantity} @ $${extraProfitRate.toFixed(3)} = $${extraProfitAmount.toFixed(2)}`);
+                            
+                            miscDetails.push(`Extra Profit: $${(extraProfitAmount).toFixed(3)} (charge $${totalCharge.toFixed(2)} - cost $${totalCost.toFixed(2)})`);
+                            debug.push(`  ${miscItem.name} Extra Profit: Charge $${totalCharge.toFixed(2)} - Cost $${totalCost.toFixed(2)} = $${extraProfitAmount.toFixed(2)}`);
+                            debug.push(`    Cost breakdown: Labor $${laborCost.toFixed(2)} + Burden $${laborBurdenCost.toFixed(2)} + Overhead $${overheadCost.toFixed(2)} + Profit $${profitCost.toFixed(2)}`);
                         }
                         
                         // Primary payout assignment to crew
