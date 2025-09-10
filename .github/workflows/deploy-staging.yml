@@ -48,9 +48,10 @@ jobs:
         npm install -g firebase-tools@13
         echo "Configuring Firebase for staging deployment..."
         echo '{"hosting":{"public":"build","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}],"headers":[{"source":"**/*.@(js|css)","headers":[{"key":"Cache-Control","value":"max-age=31536000"}]},{"source":"**","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"X-Frame-Options","value":"DENY"},{"key":"X-XSS-Protection","value":"1; mode=block"}]}]}}' > firebase-staging.json
+        echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}' > /tmp/firebase-service-account.json
         firebase deploy --only hosting --project tolmantest --config firebase-staging.json --non-interactive
       env:
-        FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-service-account.json
         
     - name: Comment PR
       if: github.event_name == 'pull_request'
