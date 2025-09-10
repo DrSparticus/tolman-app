@@ -365,6 +365,18 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     const generateChangeLog = (oldBid, newBid, materials, finishes, supervisors) => {
         const changes = [];
         
+        console.log('=== GENERATE CHANGE LOG DEBUG ===');
+        console.log('Old bid sample:', {
+            projectName: oldBid.projectName,
+            contractor: oldBid.contractor,
+            notes: oldBid.notes
+        });
+        console.log('New bid sample:', {
+            projectName: newBid.projectName,
+            contractor: newBid.contractor,
+            notes: newBid.notes
+        });
+        
         // Track basic field changes
         const basicFields = {
             projectName: 'Project Name',
@@ -385,7 +397,10 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         Object.entries(basicFields).forEach(([field, displayName]) => {
             const oldValue = oldBid[field];
             const newValue = newBid[field];
+            
             if (oldValue !== newValue) {
+                console.log(`Field change detected - ${field}:`, { oldValue, newValue });
+                
                 // Special handling for supervisor field to show names instead of IDs
                 if (field === 'supervisor') {
                     const oldSupervisor = supervisors?.find(s => s.id === oldValue);
@@ -570,11 +585,21 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             if (bid.id) {
                 // Generate detailed change log for existing bids
                 const changes = generateChangeLog(originalBid, bidData, materials, finishes, supervisors);
+                
+                // Debug logging
+                console.log('=== CHANGE LOG DEBUG ===');
+                console.log('Original bid keys:', Object.keys(originalBid));
+                console.log('New bid data keys:', Object.keys(bidData));
+                console.log('Generated changes:', changes);
+                console.log('Changes length:', changes.length);
+                
                 let changeDescription = 'Bid updated';
                 
                 if (changes.length > 0) {
                     changeDescription = changes.length === 1 ? changes[0] : `${changes.length} changes made:\n${changes.map(c => `- ${c}`).join('\n')}`;
                 }
+                
+                console.log('Final change description:', changeDescription);
                 
                 // Debug user data structure
                 console.log('User data structure:', userData);
@@ -584,13 +609,14 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     timestamp: new Date().toISOString(), 
                     change: changeDescription, 
                     user: { 
-                        name: userData?.name || 
-                              (userData?.firstName && userData?.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
-                              userData?.displayName || 
-                              userData?.email || 'Unknown',
+                        name: userData?.firstName && userData?.lastName 
+                              ? `${userData.firstName} ${userData.lastName}` 
+                              : userData?.name || userData?.displayName || userData?.email || 'Unknown',
                         email: userData?.email || 'Unknown'
                     }
                 };
+                
+                console.log('New change log entry:', newChangeLogEntry);
                 
                 bidData.changeLog = [
                     ...(bid.changeLog || []), 
