@@ -640,11 +640,32 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 updatedAt: new Date().toISOString(),
             };
 
+            // Normalize numeric fields to numbers for consistent storage and comparison
+            const numericFields = ['finishedHangingRate', 'finishedTapeRate', 'unfinishedTapingRate', 'salesTaxRate'];
+            numericFields.forEach(field => {
+                if (bidData[field] !== undefined && bidData[field] !== '') {
+                    const numValue = parseFloat(bidData[field]);
+                    if (!isNaN(numValue)) {
+                        bidData[field] = numValue;
+                    }
+                }
+            });
+
             // Fix the original bid's auto-calculated fields for proper comparison
             if (originalBid.autoTapeRate) {
                 const originalTaperRate = getTaperRate(originalBid.finishedHangingRate, originalBid, finishes, materials, crewTypes);
                 originalBid.finishedTapeRate = originalTaperRate;
             }
+
+            // Normalize original bid numeric fields to match bidData normalization
+            numericFields.forEach(field => {
+                if (originalBid[field] !== undefined && originalBid[field] !== '') {
+                    const numValue = parseFloat(originalBid[field]);
+                    if (!isNaN(numValue)) {
+                        originalBid[field] = numValue;
+                    }
+                }
+            });
             
             console.log('New bid data snapshot:', {
                 projectName: bidData.projectName,
