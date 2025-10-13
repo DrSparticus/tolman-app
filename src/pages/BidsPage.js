@@ -446,7 +446,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     oldType: typeof oldValue, 
                     newType: typeof newValue,
                     strictEqual: oldValue === newValue,
-                    looseEqual: oldValue == newValue
+                    looseEqual: oldValue === newValue
                 });
                 
                 // Special handling for different field types
