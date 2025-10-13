@@ -782,6 +782,13 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     ...bidData,
                     changeLog: bidData.changeLog
                 }));
+                
+                // Update originalBid state to reflect the new saved state for future comparisons
+                setOriginalBid(JSON.parse(JSON.stringify({
+                    ...bid,
+                    ...bidData,
+                    changeLog: bidData.changeLog
+                })));
             } else {
                 const initialChangeLogEntry = {
                     timestamp: new Date().toISOString(), 
@@ -795,13 +802,18 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 bidData.changeLog = [initialChangeLogEntry];
                 
                 const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
-                setBid(prev => ({ 
-                    ...prev, 
+                const newBidState = { 
+                    ...bid, 
                     id: docRef.id, 
                     materialPricing: bidData.materialPricing, 
                     materialPricingDate: bidData.materialPricingDate,
-                    changeLog: bidData.changeLog
-                }));
+                    changeLog: bidData.changeLog,
+                    ...bidData
+                };
+                setBid(newBidState);
+                
+                // Set original state for newly created bid
+                setOriginalBid(JSON.parse(JSON.stringify(newBidState)));
             }
         } catch (error) {
             console.error("Error saving bid:", error);
