@@ -414,6 +414,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         };
         
         // Check basic field changes
+        console.log('🔍 FIELD-BY-FIELD COMPARISON:');
         Object.entries(basicFields).forEach(([field, displayName]) => {
             const oldValue = oldBid[field];
             const newValue = newBid[field];
@@ -424,6 +425,14 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 const oldExists = oldValue && oldValue.lat !== undefined && oldValue.lng !== undefined;
                 const newExists = newValue && newValue.lat !== undefined && newValue.lng !== undefined;
                 hasChanged = oldExists !== newExists || (oldExists && newExists && (oldValue.lat !== newValue.lat || oldValue.lng !== newValue.lng));
+                
+                console.log(`🔍 Field ${field}:`, { 
+                    oldValue, 
+                    newValue, 
+                    oldExists,
+                    newExists,
+                    hasChanged
+                });
             } else {
                 // Normalize values for comparison (handle string vs number)
                 let normalizedOld = oldValue;
@@ -437,10 +446,24 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 }
                 
                 hasChanged = normalizedOld !== normalizedNew;
+                
+                console.log(`🔍 Field ${field}:`, { 
+                    oldValue, 
+                    newValue, 
+                    normalizedOld, 
+                    normalizedNew,
+                    oldType: typeof oldValue,
+                    newType: typeof newValue,
+                    hasChanged,
+                    isNaN: {
+                        old: isNaN(normalizedOld),
+                        new: isNaN(normalizedNew)
+                    }
+                });
             }
             
             if (hasChanged) {
-                console.log(`Field change detected - ${field}:`, { 
+                console.log(`✅ CHANGE DETECTED in ${field}:`, { 
                     oldValue, 
                     newValue, 
                     oldType: typeof oldValue, 
@@ -456,33 +479,48 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     const oldName = oldSupervisor ? `${oldSupervisor.firstName} ${oldSupervisor.lastName}` : oldValue;
                     const newName = newSupervisor ? `${newSupervisor.firstName} ${newSupervisor.lastName}` : newValue;
                     
+                    let changeMessage;
                     if (!oldValue && newValue) {
-                        changes.push(`Set ${displayName} to "${newName}"`);
+                        changeMessage = `Set ${displayName} to "${newName}"`;
+                        changes.push(changeMessage);
                     } else if (oldValue && !newValue) {
-                        changes.push(`Cleared ${displayName} (was "${oldName}")`);
+                        changeMessage = `Cleared ${displayName} (was "${oldName}")`;
+                        changes.push(changeMessage);
                     } else if (oldValue && newValue) {
-                        changes.push(`Changed ${displayName} from "${oldName}" to "${newName}"`);
+                        changeMessage = `Changed ${displayName} from "${oldName}" to "${newName}"`;
+                        changes.push(changeMessage);
                     }
+                    console.log(`📝 Added supervisor change: "${changeMessage}"`);
                 } else if (field === 'coordinates') {
                     // Special handling for coordinates object
                     const oldCoords = oldValue ? `${oldValue.lat?.toFixed(6)}, ${oldValue.lng?.toFixed(6)}` : null;
                     const newCoords = newValue ? `${newValue.lat?.toFixed(6)}, ${newValue.lng?.toFixed(6)}` : null;
                     
+                    let changeMessage;
                     if (!oldValue && newValue) {
-                        changes.push(`Set ${displayName} to "${newCoords}"`);
+                        changeMessage = `Set ${displayName} to "${newCoords}"`;
+                        changes.push(changeMessage);
                     } else if (oldValue && !newValue) {
-                        changes.push(`Cleared ${displayName} (was "${oldCoords}")`);
+                        changeMessage = `Cleared ${displayName} (was "${oldCoords}")`;
+                        changes.push(changeMessage);
                     } else if (oldValue && newValue && (oldValue.lat !== newValue.lat || oldValue.lng !== newValue.lng)) {
-                        changes.push(`Changed ${displayName} from "${oldCoords}" to "${newCoords}"`);
+                        changeMessage = `Changed ${displayName} from "${oldCoords}" to "${newCoords}"`;
+                        changes.push(changeMessage);
                     }
+                    if (changeMessage) console.log(`📝 Added coordinates change: "${changeMessage}"`);
                 } else {
+                    let changeMessage;
                     if (!oldValue && newValue) {
-                        changes.push(`Set ${displayName} to "${newValue}"`);
+                        changeMessage = `Set ${displayName} to "${newValue}"`;
+                        changes.push(changeMessage);
                     } else if (oldValue && !newValue) {
-                        changes.push(`Cleared ${displayName} (was "${oldValue}")`);
+                        changeMessage = `Cleared ${displayName} (was "${oldValue}")`;
+                        changes.push(changeMessage);
                     } else if (oldValue && newValue) {
-                        changes.push(`Changed ${displayName} from "${oldValue}" to "${newValue}"`);
+                        changeMessage = `Changed ${displayName} from "${oldValue}" to "${newValue}"`;
+                        changes.push(changeMessage);
                     }
+                    console.log(`📝 Added change: "${changeMessage}"`);
                 }
             }
         });
@@ -613,6 +651,8 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             });
         });
         
+        console.log('🔍 FINAL CHANGES ARRAY:', changes);
+        console.log('🔍 Total changes found:', changes.length);
         return changes;
     };
 
