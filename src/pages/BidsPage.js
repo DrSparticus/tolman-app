@@ -363,6 +363,15 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     
     // Function to generate detailed change descriptions
     const generateChangeLog = (oldBid, newBid, materials, finishes, supervisors) => {
+        console.log('=== GENERATE CHANGE LOG CALLED ===');
+        console.log('Function parameters received:', {
+            oldBid: !!oldBid,
+            newBid: !!newBid,
+            materials: !!materials,
+            finishes: !!finishes,
+            supervisors: !!supervisors
+        });
+        
         const changes = [];
         
         console.log('=== GENERATE CHANGE LOG DEBUG ===');
@@ -560,8 +569,18 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         if (!db) return;
         setLoading(true);
         try {
-            // Capture the original bid state for change tracking
-            const originalBid = { ...bid };
+            // Capture the original bid state for change tracking BEFORE any modifications
+            const originalBid = JSON.parse(JSON.stringify(bid)); // Deep copy to avoid reference issues
+            
+            console.log('=== SAVE DEBUG ===');
+            console.log('Original bid snapshot:', {
+                projectName: originalBid.projectName,
+                contractor: originalBid.contractor,
+                notes: originalBid.notes,
+                finishedHangingRate: originalBid.finishedHangingRate,
+                wallTexture: originalBid.wallTexture,
+                corners: originalBid.corners
+            });
             
             const taperRate = getTaperRate(bid.finishedHangingRate);
             const bidData = {
@@ -569,6 +588,15 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 finishedTapeRate: bid.autoTapeRate ? taperRate : bid.finishedTapeRate,
                 updatedAt: new Date().toISOString(),
             };
+            
+            console.log('New bid data snapshot:', {
+                projectName: bidData.projectName,
+                contractor: bidData.contractor,
+                notes: bidData.notes,
+                finishedHangingRate: bidData.finishedHangingRate,
+                wallTexture: bidData.wallTexture,
+                corners: bidData.corners
+            });
 
             // On first save, capture material pricing snapshot
             if (!bid.id && !bid.materialPricing) {
@@ -584,6 +612,13 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
 
             if (bid.id) {
                 // Generate detailed change log for existing bids
+                console.log('Calling generateChangeLog with:', {
+                    hasOriginalBid: !!originalBid,
+                    hasBidData: !!bidData,
+                    hasMaterials: !!materials,
+                    hasFinishes: !!finishes,
+                    hasSupervisors: !!supervisors
+                });
                 const changes = generateChangeLog(originalBid, bidData, materials, finishes, supervisors);
                 
                 // Debug logging
