@@ -432,6 +432,7 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                                             <div className="flex items-center space-x-2 ml-4">
                                                 <button
                                                     type="button"
+                                                    tabIndex={-1}
                                                     onClick={() => updateVariantQuantity(materialIndex, variant.id, Math.max(0, (variant.quantity || 0) - 1))}
                                                     className="w-8 h-8 bg-red-100 hover:bg-red-200 text-red-600 rounded-full flex items-center justify-center font-bold text-lg"
                                                 >
@@ -462,6 +463,7 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                                                 
                                                 <button
                                                     type="button"
+                                                    tabIndex={-1}
                                                     onClick={() => updateVariantQuantity(materialIndex, variant.id, (variant.quantity || 0) + 1)}
                                                     className="w-8 h-8 bg-green-100 hover:bg-green-200 text-green-600 rounded-full flex items-center justify-center font-bold text-lg"
                                                 >
