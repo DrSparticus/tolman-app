@@ -70,6 +70,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     };
 
     const [bid, setBid] = useState(newBidState);
+    const [originalBid, setOriginalBid] = useState(null);
     const [loading, setLoading] = useState(false);
     const [supervisors, setSupervisors] = useState([]);
     const [finishes, setFinishes] = useState({ wallTextures: [], ceilingTextures: [], corners: [] });
@@ -299,7 +300,10 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     const projectDoc = await getDoc(doc(db, projectsPath, editingProjectId));
                     if (projectDoc.exists()) {
                         const projectData = projectDoc.data();
-                        setBid({ id: editingProjectId, ...projectData });
+                        const loadedBid = { id: editingProjectId, ...projectData };
+                        setBid(loadedBid);
+                        // Capture the original bid state from Firebase data (before any form processing)
+                        setOriginalBid(JSON.parse(JSON.stringify(loadedBid)));
                     }
                 } catch (error) {
                     console.error("Error fetching project:", error);
@@ -660,18 +664,15 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         if (!db) return;
         setLoading(true);
         try {
-            // Capture the original bid state for change tracking BEFORE any modifications
-            const originalBid = JSON.parse(JSON.stringify(bid)); // Deep copy to avoid reference issues
-            
             console.log('=== SAVE DEBUG ===');
-            console.log('Original bid snapshot:', {
+            console.log('Original bid from state (Firebase data):', originalBid ? {
                 projectName: originalBid.projectName,
                 contractor: originalBid.contractor,
                 notes: originalBid.notes,
                 finishedHangingRate: originalBid.finishedHangingRate,
                 wallTexture: originalBid.wallTexture,
                 corners: originalBid.corners
-            });
+            } : null);
             
             const taperRate = getTaperRate(bid.finishedHangingRate, bid, finishes, materials, crewTypes);
             const bidData = {
@@ -728,14 +729,15 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 bidData.status = 'project';
             }
 
-            if (bid.id) {
-                // Generate detailed change log for existing bids
+            if (bid.id && originalBid) {
+                // Generate detailed change log for existing bids using original Firebase data
                 console.log('Calling generateChangeLog with:', {
                     hasOriginalBid: !!originalBid,
                     hasBidData: !!bidData,
                     hasMaterials: !!materials,
                     hasFinishes: !!finishes,
-                    hasSupervisors: !!supervisors
+                    hasSupervisors: !!supervisors,
+                    originalBidSource: 'Firebase state capture'
                 });
                 const changes = generateChangeLog(originalBid, bidData, materials, finishes, supervisors);
                 
