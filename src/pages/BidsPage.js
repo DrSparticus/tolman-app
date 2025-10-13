@@ -361,6 +361,16 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
 
     // --- Save Logic ---
     
+    // Function to resolve user name consistently
+    const getUserName = (userData) => {
+        // Prioritize firstName + lastName combination for accuracy
+        if (userData?.firstName && userData?.lastName) {
+            return `${userData.firstName} ${userData.lastName}`;
+        }
+        // Fall back to other name fields
+        return userData?.name || userData?.displayName || userData?.email || 'Unknown';
+    };
+
     // Function to generate detailed change descriptions
     const generateChangeLog = (oldBid, newBid, materials, finishes, supervisors) => {
         console.log('=== GENERATE CHANGE LOG CALLED ===');
@@ -588,6 +598,12 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 finishedTapeRate: bid.autoTapeRate ? taperRate : bid.finishedTapeRate,
                 updatedAt: new Date().toISOString(),
             };
+
+            // Fix the original bid's auto-calculated fields for proper comparison
+            if (originalBid.autoTapeRate) {
+                const originalTaperRate = getTaperRate(originalBid.finishedHangingRate);
+                originalBid.finishedTapeRate = originalTaperRate;
+            }
             
             console.log('New bid data snapshot:', {
                 projectName: bidData.projectName,
@@ -644,9 +660,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     timestamp: new Date().toISOString(), 
                     change: changeDescription, 
                     user: { 
-                        name: userData?.firstName && userData?.lastName 
-                              ? `${userData.firstName} ${userData.lastName}` 
-                              : userData?.name || userData?.displayName || userData?.email || 'Unknown',
+                        name: getUserName(userData),
                         email: userData?.email || 'Unknown'
                     }
                 };
@@ -669,10 +683,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     timestamp: new Date().toISOString(), 
                     change: 'Bid created', 
                     user: { 
-                        name: userData?.name || 
-                              (userData?.firstName && userData?.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
-                              userData?.displayName || 
-                              userData?.email || 'Unknown',
+                        name: getUserName(userData),
                         email: userData?.email || 'Unknown'
                     }
                 };

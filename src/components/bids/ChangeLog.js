@@ -34,12 +34,16 @@ export default function ChangeLog({ log = [], hasLogAccess = false }) {
                         
                         if (a.timestamp?.toMillis) {
                             aTime = a.timestamp.toMillis();
+                        } else if (typeof a.timestamp === 'string') {
+                            aTime = new Date(a.timestamp).getTime();
                         } else if (a.date) {
                             aTime = new Date(a.date).getTime();
                         }
                         
                         if (b.timestamp?.toMillis) {
                             bTime = b.timestamp.toMillis();
+                        } else if (typeof b.timestamp === 'string') {
+                            bTime = new Date(b.timestamp).getTime();
                         } else if (b.date) {
                             bTime = new Date(b.date).getTime();
                         }
@@ -68,6 +72,8 @@ export default function ChangeLog({ log = [], hasLogAccess = false }) {
                                     }</strong> on {
                                         entry.timestamp?.toDate 
                                             ? entry.timestamp.toDate().toLocaleString()
+                                            : typeof entry.timestamp === 'string'
+                                            ? new Date(entry.timestamp).toLocaleString()
                                             : entry.date 
                                             ? new Date(entry.date).toLocaleString()
                                             : 'Unknown date'
