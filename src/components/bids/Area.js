@@ -443,7 +443,21 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                                                     min="0"
                                                     value={variant.quantity || 0}
                                                     onBlur={(e) => updateVariantQuantity(materialIndex, variant.id, Math.max(0, parseInt(e.target.value) || 0))}
-                                                    className="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium"
+                                                    onKeyDown={(e) => {
+                                                        // Handle keyboard navigation
+                                                        if (e.key === 'Tab') {
+                                                            // Let default tab behavior handle moving to next field
+                                                            return;
+                                                        }
+                                                        if (e.key === 'ArrowUp') {
+                                                            e.preventDefault();
+                                                            updateVariantQuantity(materialIndex, variant.id, (variant.quantity || 0) + 1);
+                                                        } else if (e.key === 'ArrowDown') {
+                                                            e.preventDefault();
+                                                            updateVariantQuantity(materialIndex, variant.id, Math.max(0, (variant.quantity || 0) - 1));
+                                                        }
+                                                    }}
+                                                    className="w-16 text-center border border-gray-300 rounded px-2 py-1 text-sm font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                 />
                                                 
                                                 <button
