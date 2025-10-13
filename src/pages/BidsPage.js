@@ -418,18 +418,36 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             const oldValue = oldBid[field];
             const newValue = newBid[field];
             
-            // Special comparison for coordinates object
+            // Special comparison for coordinates object and numeric fields
             let hasChanged = false;
             if (field === 'coordinates') {
                 const oldExists = oldValue && oldValue.lat !== undefined && oldValue.lng !== undefined;
                 const newExists = newValue && newValue.lat !== undefined && newValue.lng !== undefined;
                 hasChanged = oldExists !== newExists || (oldExists && newExists && (oldValue.lat !== newValue.lat || oldValue.lng !== newValue.lng));
             } else {
-                hasChanged = oldValue !== newValue;
+                // Normalize values for comparison (handle string vs number)
+                let normalizedOld = oldValue;
+                let normalizedNew = newValue;
+                
+                // For numeric fields, convert strings to numbers for comparison
+                const numericFields = ['finishedHangingRate', 'finishedTapeRate', 'unfinishedTapingRate'];
+                if (numericFields.includes(field)) {
+                    normalizedOld = typeof oldValue === 'string' ? parseFloat(oldValue) || 0 : oldValue;
+                    normalizedNew = typeof newValue === 'string' ? parseFloat(newValue) || 0 : newValue;
+                }
+                
+                hasChanged = normalizedOld !== normalizedNew;
             }
             
             if (hasChanged) {
-                console.log(`Field change detected - ${field}:`, { oldValue, newValue });
+                console.log(`Field change detected - ${field}:`, { 
+                    oldValue, 
+                    newValue, 
+                    oldType: typeof oldValue, 
+                    newType: typeof newValue,
+                    strictEqual: oldValue === newValue,
+                    looseEqual: oldValue == newValue
+                });
                 
                 // Special handling for different field types
                 if (field === 'supervisor') {
