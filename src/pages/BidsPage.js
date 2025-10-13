@@ -401,6 +401,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             projectName: 'Project Name',
             contractor: 'Customer',
             address: 'Address',
+            coordinates: 'Location Coordinates',
             supervisor: 'Supervisor',
             wallTexture: 'Wall Texture',
             ceilingTexture: 'Ceiling Texture',
@@ -417,10 +418,20 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             const oldValue = oldBid[field];
             const newValue = newBid[field];
             
-            if (oldValue !== newValue) {
+            // Special comparison for coordinates object
+            let hasChanged = false;
+            if (field === 'coordinates') {
+                const oldExists = oldValue && oldValue.lat !== undefined && oldValue.lng !== undefined;
+                const newExists = newValue && newValue.lat !== undefined && newValue.lng !== undefined;
+                hasChanged = oldExists !== newExists || (oldExists && newExists && (oldValue.lat !== newValue.lat || oldValue.lng !== newValue.lng));
+            } else {
+                hasChanged = oldValue !== newValue;
+            }
+            
+            if (hasChanged) {
                 console.log(`Field change detected - ${field}:`, { oldValue, newValue });
                 
-                // Special handling for supervisor field to show names instead of IDs
+                // Special handling for different field types
                 if (field === 'supervisor') {
                     const oldSupervisor = supervisors?.find(s => s.id === oldValue);
                     const newSupervisor = supervisors?.find(s => s.id === newValue);
@@ -433,6 +444,18 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                         changes.push(`Cleared ${displayName} (was "${oldName}")`);
                     } else if (oldValue && newValue) {
                         changes.push(`Changed ${displayName} from "${oldName}" to "${newName}"`);
+                    }
+                } else if (field === 'coordinates') {
+                    // Special handling for coordinates object
+                    const oldCoords = oldValue ? `${oldValue.lat?.toFixed(6)}, ${oldValue.lng?.toFixed(6)}` : null;
+                    const newCoords = newValue ? `${newValue.lat?.toFixed(6)}, ${newValue.lng?.toFixed(6)}` : null;
+                    
+                    if (!oldValue && newValue) {
+                        changes.push(`Set ${displayName} to "${newCoords}"`);
+                    } else if (oldValue && !newValue) {
+                        changes.push(`Cleared ${displayName} (was "${oldCoords}")`);
+                    } else if (oldValue && newValue && (oldValue.lat !== newValue.lat || oldValue.lng !== newValue.lng)) {
+                        changes.push(`Changed ${displayName} from "${oldCoords}" to "${newCoords}"`);
                     }
                 } else {
                     if (!oldValue && newValue) {
@@ -592,7 +615,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 corners: originalBid.corners
             });
             
-            const taperRate = getTaperRate(bid.finishedHangingRate);
+            const taperRate = getTaperRate(bid.finishedHangingRate, bid, finishes, materials, crewTypes);
             const bidData = {
                 ...bid,
                 finishedTapeRate: bid.autoTapeRate ? taperRate : bid.finishedTapeRate,
@@ -601,7 +624,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
 
             // Fix the original bid's auto-calculated fields for proper comparison
             if (originalBid.autoTapeRate) {
-                const originalTaperRate = getTaperRate(originalBid.finishedHangingRate);
+                const originalTaperRate = getTaperRate(originalBid.finishedHangingRate, originalBid, finishes, materials, crewTypes);
                 originalBid.finishedTapeRate = originalTaperRate;
             }
             
