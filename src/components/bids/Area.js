@@ -376,6 +376,18 @@ export default function Area({ area, onUpdate, onRemove, db, isOnlyArea, finishe
                             ...materialVariant,
                             quantity: existingVariant?.quantity || 0
                         };
+                    }).sort((a, b) => {
+                        // Calculate total area for each variant (width × length in inches)
+                        const aWidthInches = (parseFloat(a.widthFt || 0) * 12) + parseFloat(a.widthIn || 0);
+                        const aLengthInches = (parseFloat(a.lengthFt || 0) * 12) + parseFloat(a.lengthIn || 0);
+                        const aArea = aWidthInches * aLengthInches;
+                        
+                        const bWidthInches = (parseFloat(b.widthFt || 0) * 12) + parseFloat(b.widthIn || 0);
+                        const bLengthInches = (parseFloat(b.lengthFt || 0) * 12) + parseFloat(b.lengthIn || 0);
+                        const bArea = bWidthInches * bLengthInches;
+                        
+                        // Sort largest to smallest
+                        return bArea - aArea;
                     });
 
                     return (
