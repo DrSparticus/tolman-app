@@ -109,6 +109,7 @@ export const useLocationServices = (db, handleInputChange) => {
         try {
             // Mock sales tax calculation - replace with actual API integration
             return 0.0725; // 7.25% default
+        // eslint-disable-next-line no-unreachable
         } catch (error) {
             console.error('Sales tax lookup error:', error);
             return null;
