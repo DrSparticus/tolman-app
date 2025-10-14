@@ -326,7 +326,14 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         const finishesDocRef = doc(db, configPath, 'finishes');
         const unsubscribe = onSnapshot(finishesDocRef, (docSnap) => {
             if (docSnap.exists()) {
-                setFinishes(docSnap.data());
+                const finishesData = docSnap.data();
+                setFinishes({
+                    wallTextures: finishesData.wallTextures || [],
+                    ceilingTextures: finishesData.ceilingTextures || [],
+                    corners: finishesData.corners || [],
+                    windowWrap: finishesData.windowWrap || [],
+                    miscellaneous: finishesData.miscellaneous || []
+                });
             }
         });
         return unsubscribe;
