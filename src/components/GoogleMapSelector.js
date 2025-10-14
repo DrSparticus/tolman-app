@@ -409,10 +409,6 @@ const GoogleMapSelector = ({
         geocoder.geocode({ address: address }, (results, status) => {
             if (status === 'OK') {
                 const location = results[0].geometry.location;
-                const coordinates = {
-                    lat: location.lat(),
-                    lng: location.lng()
-                };
 
                 // Update map and marker
                 map.setCenter(location);
@@ -422,12 +418,7 @@ const GoogleMapSelector = ({
                 const cleanAddress = removeCountryFromAddress(results[0].formatted_address);
                 setSelectedAddress(cleanAddress);
                 
-                if (onLocationSelect) {
-                    onLocationSelect(coordinates);
-                }
-                if (onAddressUpdate) {
-                    onAddressUpdate(cleanAddress);
-                }
+                // Don't automatically call callbacks - let user decide with buttons
             } else {
                 alert('Geocode was not successful for the following reason: ' + status);
             }
