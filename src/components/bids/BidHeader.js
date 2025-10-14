@@ -188,6 +188,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                         />
                         <DeferredInput
                             type="text"
+                            id="address"
                             name="address"
                             value={bid.address}
                             onBlur={handleInputChange}
