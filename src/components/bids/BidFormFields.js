@@ -293,8 +293,8 @@ export const BidFormFields = React.memo(({
                 </select>
             </div>
             
-            <div>
-                <label htmlFor="windowWrap" className="block text-sm font-medium text-gray-700">Window Wrap</label>
+            <div style={{backgroundColor: '#ffeb3b', border: '2px solid red', padding: '10px'}}>
+                <label htmlFor="windowWrap" className="block text-sm font-medium text-gray-700">🚨 Window Wrap (DEBUG)</label>
                 <select
                     id="windowWrap"
                     name="windowWrap"
@@ -308,6 +308,7 @@ export const BidFormFields = React.memo(({
                         <option key={f.name} value={f.name}>{f.name}</option>
                     ))}
                 </select>
+                <p>WindowWrap options count: {finishes.windowWrap?.length || 0}</p>
             </div>
         </div>
     );
