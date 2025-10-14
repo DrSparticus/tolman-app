@@ -12,9 +12,6 @@ export const useLocationServices = (db, handleInputChange) => {
         enableLocationServices: true
     });
 
-    // Debug: Check if Google Maps API key is loaded
-    console.log('Google Maps API Key:', process.env.REACT_APP_GOOGLE_MAPS_API_KEY);
-
     // Load location settings from Firebase
     useEffect(() => {
         if (!db) return;
@@ -111,7 +108,6 @@ export const useLocationServices = (db, handleInputChange) => {
     const getSalesTaxRate = useCallback(async (coordinates) => {
         try {
             // Mock sales tax calculation - replace with actual API integration
-            console.log('Mock sales tax calculation for coordinates:', coordinates);
             return 0.0725; // 7.25% default
         } catch (error) {
             console.error('Sales tax lookup error:', error);
@@ -183,7 +179,6 @@ export const useLocationServices = (db, handleInputChange) => {
                         handleInputChange({
                             target: { name: 'salesTaxRate', value: taxRate }
                         });
-                        console.log(`Sales tax rate updated to ${(taxRate * 100).toFixed(3)}% based on location`);
                     }
                 } catch (error) {
                     console.log('Could not get sales tax rate:', error);
@@ -321,7 +316,6 @@ export const useLocationServices = (db, handleInputChange) => {
                 handleInputChange({
                     target: { name: 'salesTaxRate', value: taxRate }
                 });
-                console.log(`Sales tax rate updated to ${(taxRate * 100).toFixed(3)}% based on map selection`);
             }
         } catch (error) {
             console.log('Could not get sales tax rate for map selection:', error);
