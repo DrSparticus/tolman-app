@@ -240,7 +240,15 @@ export const BidFormFields = React.memo(({
         </div>
     );
 
-    const FinishesSection = () => (
+    const FinishesSection = () => {
+        console.log('🔍 FINISHES DEBUG:', {
+            finishes,
+            windowWrapExists: !!finishes.windowWrap,
+            windowWrapLength: finishes.windowWrap?.length,
+            windowWrapData: finishes.windowWrap
+        });
+        
+        return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 mt-4 border-t">
                 <div>
                     <label htmlFor="wallTexture" className="block text-sm font-medium text-gray-700">Wall Texture</label>
@@ -311,7 +319,8 @@ export const BidFormFields = React.memo(({
                 <p>WindowWrap options count: {finishes.windowWrap?.length || 0}</p>
             </div>
         </div>
-    );
+        );
+    };
 
     const NotesSection = () => (
         <div className="col-span-4 pt-4 mt-4 border-t">
