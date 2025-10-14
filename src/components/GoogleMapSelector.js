@@ -106,7 +106,7 @@ const GoogleMapSelector = ({
                 setSelectedAddress('Unable to get address for this location');
             }
         });
-    }, [onLocationSelect, onAddressUpdate]);
+    }, []);
 
     // Load Google Maps API
     // eslint-disable-next-line react-hooks/exhaustive-deps
