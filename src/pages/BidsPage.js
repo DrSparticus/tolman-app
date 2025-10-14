@@ -61,6 +61,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         wallTexture: '',
         ceilingTexture: '',
         corners: '',
+        windowWrap: '',
         finishedHangingRate: '',
         finishedTapeRate: '',
         unfinishedTapingRate: '',
@@ -77,6 +78,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 wallTexture: '', 
                 ceilingTexture: '', 
                 corners: '',
+                windowWrap: '',
                 hangRate: '',
                 tapeRate: '',
                 autoTapeRate: true,
@@ -92,6 +94,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 wallTexture: '', 
                 ceilingTexture: '', 
                 corners: '',
+                windowWrap: '',
                 hangRate: '',
                 tapeRate: '',
                 autoTapeRate: true,
@@ -110,7 +113,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     const [originalBid, setOriginalBid] = useState(null);
     const [loading, setLoading] = useState(false);
     const [supervisors, setSupervisors] = useState([]);
-    const [finishes, setFinishes] = useState({ wallTextures: [], ceilingTextures: [], corners: [] });
+    const [finishes, setFinishes] = useState({ wallTextures: [], ceilingTextures: [], corners: [], windowWrap: [] });
     const [materials, setMaterials] = useState([]);
     const [crewTypes, setCrewTypes] = useState([]);
     const [laborBreakdown, setLaborBreakdown] = useState({ hanging: { labor: 0, sqFt: 0 }, taping: { labor: 0, sqFt: 0 } });
@@ -387,6 +390,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             wallTexture: '',
             ceilingTexture: '',
             corners: '',
+            windowWrap: '',
             hangRate: '',
             tapeRate: '',
             autoTapeRate: true,

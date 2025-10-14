@@ -292,6 +292,23 @@ export const BidFormFields = React.memo(({
                     ))}
                 </select>
             </div>
+            
+            <div>
+                <label htmlFor="windowWrap" className="block text-sm font-medium text-gray-700">Window Wrap</label>
+                <select
+                    id="windowWrap"
+                    name="windowWrap"
+                    value={bid.windowWrap || ''}
+                    onChange={handleInputChange}
+                    autoComplete="off"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                    <option value="">-- Select --</option>
+                    {(finishes.windowWrap || []).map(f => (
+                        <option key={f.name} value={f.name}>{f.name}</option>
+                    ))}
+                </select>
+            </div>
         </div>
     );
 

@@ -40,6 +40,7 @@ const FinishesConfig = ({ db }) => {
         wallTextures: [], 
         ceilingTextures: [], 
         corners: [], 
+        windowWrap: [],
         miscellaneous: [] 
     });
     const [crewTypes, setCrewTypes] = useState([]);
@@ -67,6 +68,7 @@ const FinishesConfig = ({ db }) => {
                     wallTextures: data.wallTextures || [],
                     ceilingTextures: data.ceilingTextures || [],
                     corners: data.corners || [],
+                    windowWrap: data.windowWrap || [],
                     miscellaneous: data.miscellaneous || []
                 });
             } else {
@@ -74,6 +76,7 @@ const FinishesConfig = ({ db }) => {
                     wallTextures: [], 
                     ceilingTextures: [], 
                     corners: [], 
+                    windowWrap: [],
                     miscellaneous: [] 
                 });
             }
@@ -274,6 +277,7 @@ const FinishesConfig = ({ db }) => {
             wallTextures: 'Wall Textures',
             ceilingTextures: 'Ceiling Textures',
             corners: 'Corners',
+            windowWrap: 'Window Wrap',
             miscellaneous: 'Miscellaneous'
         };
         return titles[type] || type;
@@ -462,6 +466,7 @@ const FinishesConfig = ({ db }) => {
                             <option value="wallTextures">Wall Textures</option>
                             <option value="ceilingTextures">Ceiling Textures</option>
                             <option value="corners">Corners</option>
+                            <option value="windowWrap">Window Wrap</option>
                             <option value="miscellaneous">Miscellaneous</option>
                         </select>
                     </div>
