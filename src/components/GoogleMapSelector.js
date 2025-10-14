@@ -268,11 +268,17 @@ const GoogleMapSelector = ({
                             // Determine the best location to use
                             let defaultLocation = { lat: 39.8283, lng: -98.5795 }; // Fallback to center of US
                             
+                            console.log('🔍 GoogleMapSelector Props Debug:');
+                            console.log('  - initialCoordinates:', initialCoordinates);
+                            console.log('  - initialAddress:', `"${initialAddress}"`);
+                            console.log('  - initialAddress length:', initialAddress?.length);
+                            
                             if (initialCoordinates) {
                                 // Use provided coordinates
                                 defaultLocation = initialCoordinates;
                             } else if (initialAddress && initialAddress.trim()) {
                                 // Try to geocode the provided address
+                                console.log('🔍 GoogleMapSelector: Received initialAddress:', `"${initialAddress}"`);
                                 try {
                                     const geocoderInstance = new window.google.maps.Geocoder();
                                     let addressToGeocode = initialAddress.trim();
@@ -283,13 +289,24 @@ const GoogleMapSelector = ({
                                         !addressToGeocode.toLowerCase().includes('usa') && 
                                         !addressToGeocode.toLowerCase().includes('united states')) {
                                         addressToGeocode += ', USA';
+                                        console.log('🔍 GoogleMapSelector: Added USA suffix, now searching for:', `"${addressToGeocode}"`);
+                                    } else {
+                                        console.log('🔍 GoogleMapSelector: Address appears complete, searching for:', `"${addressToGeocode}"`);
                                     }
                                     
                                     const result = await geocodeAddress(geocoderInstance, addressToGeocode);
                                     defaultLocation = result.coordinates;
+                                    console.log('✅ GoogleMapSelector: Address geocoded successfully to:', defaultLocation);
                                 } catch (error) {
-                                    // If address geocoding fails, DON'T get user location - just use default location
-                                    // This prevents the map from jumping to current location when user has entered an address
+                                    console.log('❌ GoogleMapSelector: Address geocoding failed:', error.message);
+                                    console.log('🔍 GoogleMapSelector: Will use user location instead of US center');
+                                    // Try to get user location as fallback when address geocoding fails
+                                    try {
+                                        defaultLocation = await getCurrentLocation();
+                                        console.log('📍 GoogleMapSelector: Got user location as fallback:', defaultLocation);
+                                    } catch (locationError) {
+                                        console.log('❌ GoogleMapSelector: User location also failed, using default center');
+                                    }
                                 }
                             } else {
                                 // No coordinates or address provided, try to get user location
