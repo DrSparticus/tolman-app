@@ -103,6 +103,18 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
             }
         }
         
+        // Check window wrap
+        if (bid.windowWrap && finishes.windowWrap) {
+            const windowWrap = finishes.windowWrap.find(f => f.name === bid.windowWrap);
+            if (windowWrap && typeof windowWrap === 'object') {
+                // Check if the crew for this finish is a taper crew
+                const taperCrewId = crewTypes?.find(crew => crew.name.toLowerCase().includes('tap'))?.id;
+                if (windowWrap.crew === taperCrewId) {
+                    taperFinishesTotal += parseFloat(windowWrap.pay) || 0;
+                }
+            }
+        }
+        
         // Add extra taper pay from materials used in bid
         let materialExtraPay = 0;
         if (bid.areas) {
@@ -254,7 +266,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                 {/* Finishes Configuration - Basic View */}
                 <div className="pt-4 mt-4 border-t">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Finishes</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Wall Texture</label>
                             <select 
@@ -293,6 +305,20 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             >
                                 <option value="">-- Select --</option>
                                 {(finishes.corners || []).map(f => (
+                                    <option key={f.name} value={f.name}>{f.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Window Wrap</label>
+                            <select 
+                                name="windowWrap" 
+                                value={bid.windowWrap || ''} 
+                                onChange={handleInputChange} 
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">-- Select --</option>
+                                {(finishes.windowWrap || []).map(f => (
                                     <option key={f.name} value={f.name}>{f.name}</option>
                                 ))}
                             </select>
