@@ -78,11 +78,9 @@ const GoogleMapSelector = ({
                         lat: location.lat(),
                         lng: location.lng()
                     };
-                    console.log('GoogleMapSelector: Address geocoded:', address, '→', coordinates);
                     const cleanAddress = removeCountryFromAddress(results[0].formatted_address);
                     resolve({ coordinates, formattedAddress: cleanAddress });
                 } else {
-                    console.log('GoogleMapSelector: Geocoding failed for address:', address, 'Status:', status);
                     reject(new Error(`Geocoding failed: ${status}`));
                 }
             });
@@ -267,46 +265,42 @@ const GoogleMapSelector = ({
                     // Additional delay to ensure IntersectionObserver can work properly
                     setTimeout(async () => {
                         try {
-                            console.log('GoogleMapSelector: Starting map creation...');
-                            
                             // Determine the best location to use
                             let defaultLocation = { lat: 39.8283, lng: -98.5795 }; // Fallback to center of US
                             
                             if (initialCoordinates) {
                                 // Use provided coordinates
                                 defaultLocation = initialCoordinates;
-                                console.log('GoogleMapSelector: Using provided coordinates:', defaultLocation);
                             } else if (initialAddress && initialAddress.trim()) {
                                 // Try to geocode the provided address
-                                console.log('GoogleMapSelector: Geocoding provided address:', initialAddress);
                                 try {
                                     const geocoderInstance = new window.google.maps.Geocoder();
-                                    const result = await geocodeAddress(geocoderInstance, initialAddress);
-                                    defaultLocation = result.coordinates;
-                                    console.log('GoogleMapSelector: Address geocoded successfully:', defaultLocation);
-                                } catch (error) {
-                                    console.log('GoogleMapSelector: Address geocoding failed, trying user location');
-                                    // If address geocoding fails, try user location
-                                    try {
-                                        defaultLocation = await getCurrentLocation();
-                                    } catch (locationError) {
-                                        console.log('GoogleMapSelector: User location also failed, using default location');
+                                    let addressToGeocode = initialAddress.trim();
+                                    
+                                    // If address doesn't seem to have a state or country, append a default region
+                                    // This helps with incomplete addresses like just "123 Main St"
+                                    if (!addressToGeocode.match(/,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)/i) && 
+                                        !addressToGeocode.toLowerCase().includes('usa') && 
+                                        !addressToGeocode.toLowerCase().includes('united states')) {
+                                        addressToGeocode += ', USA';
                                     }
+                                    
+                                    const result = await geocodeAddress(geocoderInstance, addressToGeocode);
+                                    defaultLocation = result.coordinates;
+                                } catch (error) {
+                                    // If address geocoding fails, DON'T get user location - just use default location
+                                    // This prevents the map from jumping to current location when user has entered an address
                                 }
                             } else {
                                 // No coordinates or address provided, try to get user location
-                                console.log('GoogleMapSelector: No coordinates or address, trying user location...');
                                 try {
                                     defaultLocation = await getCurrentLocation();
                                 } catch (error) {
-                                    console.log('GoogleMapSelector: User location failed, using default location');
+                                    // Use default location if current location fails
                                 }
                             }
                             
-                            console.log('GoogleMapSelector: Final location:', defaultLocation);
-                            
                             // Initialize map
-                            console.log('GoogleMapSelector: Creating Google Maps instance...');
                             const mapInstance = new window.google.maps.Map(container, {
                                 center: defaultLocation,
                                 zoom: (initialCoordinates || userLocation) ? 15 : 13,
