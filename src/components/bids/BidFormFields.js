@@ -241,12 +241,6 @@ export const BidFormFields = React.memo(({
     );
 
     const FinishesSection = () => {
-        console.log('🔍 FINISHES DEBUG:', {
-            finishes,
-            windowWrapExists: !!finishes.windowWrap,
-            windowWrapLength: finishes.windowWrap?.length,
-            windowWrapData: finishes.windowWrap
-        });
         
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 mt-4 border-t">
@@ -301,8 +295,8 @@ export const BidFormFields = React.memo(({
                 </select>
             </div>
             
-            <div style={{backgroundColor: '#ffeb3b', border: '2px solid red', padding: '10px'}}>
-                <label htmlFor="windowWrap" className="block text-sm font-medium text-gray-700">🚨 Window Wrap (DEBUG)</label>
+            <div>
+                <label htmlFor="windowWrap" className="block text-sm font-medium text-gray-700">Window Wrap</label>
                 <select
                     id="windowWrap"
                     name="windowWrap"
@@ -316,7 +310,6 @@ export const BidFormFields = React.memo(({
                         <option key={f.name} value={f.name}>{f.name}</option>
                     ))}
                 </select>
-                <p>WindowWrap options count: {finishes.windowWrap?.length || 0}</p>
             </div>
         </div>
         );
@@ -369,9 +362,6 @@ export const BidFormFields = React.memo(({
         );
     };
 
-    console.log('🚨 BidFormFields RENDERING');
-    console.log('🚨 FINISHES PROP:', finishes);
-    
     return (
         <>
             {/* Main Header Fields */}
@@ -383,9 +373,6 @@ export const BidFormFields = React.memo(({
             <RatesSection />
 
             {/* Finishes Section */}
-            <div style={{backgroundColor: '#ff0000', color: 'white', padding: '10px', margin: '10px'}}>
-                🚨 FINISHES SECTION CONTAINER
-            </div>
             <FinishesSection />
             
             {/* Notes Field */}
