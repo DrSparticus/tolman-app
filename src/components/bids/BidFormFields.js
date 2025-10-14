@@ -369,6 +369,9 @@ export const BidFormFields = React.memo(({
         );
     };
 
+    console.log('🚨 BidFormFields RENDERING');
+    console.log('🚨 FINISHES PROP:', finishes);
+    
     return (
         <>
             {/* Main Header Fields */}
@@ -380,6 +383,9 @@ export const BidFormFields = React.memo(({
             <RatesSection />
 
             {/* Finishes Section */}
+            <div style={{backgroundColor: '#ff0000', color: 'white', padding: '10px', margin: '10px'}}>
+                🚨 FINISHES SECTION CONTAINER
+            </div>
             <FinishesSection />
             
             {/* Notes Field */}
