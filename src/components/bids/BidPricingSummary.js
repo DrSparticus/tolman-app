@@ -161,6 +161,8 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             let totalHangLabor = 0;
             let totalTapeLabor = 0;
             let totalHangingSqFt = 0;
+            let totalFinishedSqFt = 0;
+            let totalUnfinishedSqFt = 0;
             let finishExtraProfit = 0;
 
             debug.push('\n=== AREA-BY-AREA CALCULATIONS ===');
@@ -440,6 +442,13 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 totalHangLabor += areaHangLabor;
                 totalTapeLabor += areaTapeLabor;
                 totalHangingSqFt += areaSqFt;
+                
+                // Track finished vs unfinished square footage
+                if (area.isFinished) {
+                    totalFinishedSqFt += areaSqFt;
+                } else {
+                    totalUnfinishedSqFt += areaSqFt;
+                }
             });
 
             // Calculate miscellaneous finishes labor cost
@@ -536,7 +545,9 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
             let miscMaterials = 0;
             debug.push('\n=== MATERIAL DEPENDENCIES ===');
             debug.push(`Total dependencies loaded: ${materialDependencies.length}`);
-            debug.push(`Using total hanging sq ft: ${totalHangingSqFt}`);
+            debug.push(`Total hanging sq ft: ${totalHangingSqFt}`);
+            debug.push(`Finished sq ft: ${totalFinishedSqFt}`);
+            debug.push(`Unfinished sq ft: ${totalUnfinishedSqFt}`);
             
             materialDependencies.forEach(dep => {
                 debug.push(`\nProcessing dependency: ${dep.materialName || 'Unknown'}`);
@@ -559,14 +570,14 @@ export default function BidPricingSummary({ bid, laborBreakdown, totalMaterialCo
                 try {
                     // Set up variables for formula evaluation using bid-wide totals
                     const totalSqFt = totalHangingSqFt;
-                    const finishedSqFtForFormula = totalHangingSqFt; // For now, assume all hanging is finished for dependencies
+                    const finishedSqFt = totalFinishedSqFt;
                     const secondLayerSqFt = 0;
                     const furringLinearFt = 0;
                     
                     // Replace variables in formula
                     let calculatedFormula = dep.formula
                         .replace(/totalSqFt/g, totalSqFt)
-                        .replace(/finishedSqFt/g, finishedSqFtForFormula)
+                        .replace(/finishedSqFt/g, finishedSqFt)
                         .replace(/secondLayerSqFt/g, secondLayerSqFt)
                         .replace(/furringLinearFt/g, furringLinearFt);
                     

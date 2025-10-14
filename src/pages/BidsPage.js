@@ -13,6 +13,43 @@ const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
 const materialsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/public/data/materials`;
 
+// Job number generation functions
+const generateJobNumber = async (db, type = 'B') => {
+    try {
+        const now = new Date();
+        const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year
+        const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Month with leading zero
+        const yearMonth = `${year}${month}`;
+        
+        // Query for existing job numbers with the same year/month and type
+        const jobNumberQuery = query(
+            collection(db, projectsPath),
+            where('jobNumber', '>=', `${type}${yearMonth}-`),
+            where('jobNumber', '<', `${type}${yearMonth}.`),
+            orderBy('jobNumber', 'desc'),
+            limit(1)
+        );
+        
+        const snapshot = await getDocs(jobNumberQuery);
+        let nextNumber = 1;
+        
+        if (!snapshot.empty) {
+            const lastJob = snapshot.docs[0].data();
+            const lastJobNumber = lastJob.jobNumber;
+            const match = lastJobNumber.match(new RegExp(`${type}${yearMonth}-(\\d+)`));
+            if (match) {
+                nextNumber = parseInt(match[1]) + 1;
+            }
+        }
+        
+        return `${type}${yearMonth}-${nextNumber}`;
+    } catch (error) {
+        console.error('Error generating job number:', error);
+        // Fallback to timestamp-based job number
+        return `${type}${Date.now()}`;
+    }
+};
+
 export default function BidsPage({ db, setCurrentPage, editingProjectId, userData, onNewBid }) {
     const newBidState = {
         projectName: 'New Bid',
@@ -724,8 +761,9 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             }
 
             if (bid.materialStockDate && bid.status === 'bid') {
-                const nextJobNumber = await getNextJobNumber();
-                bidData.jobNumber = nextJobNumber;
+                // Convert bid to project with T-series job number when material stock date is set
+                const projectJobNumber = await generateJobNumber(db, 'T');
+                bidData.jobNumber = projectJobNumber;
                 bidData.status = 'project';
             }
 
@@ -800,6 +838,10 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 };
                 
                 bidData.changeLog = [initialChangeLogEntry];
+                
+                // Generate job number for new bid
+                const jobNumber = await generateJobNumber(db, 'B');
+                bidData.jobNumber = jobNumber;
                 
                 const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
                 const newBidState = { 
@@ -898,23 +940,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         }
     };
 
-    const getNextJobNumber = async () => {
-        const currentYear = new Date().getFullYear();
-        const q = query(
-            collection(db, projectsPath),
-            where('jobNumber', '>=', `${currentYear}-001`),
-            where('jobNumber', '<', `${currentYear + 1}-001`),
-            orderBy('jobNumber', 'desc'),
-            limit(1)
-        );
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            return `${currentYear}-001`;
-        }
-        const lastJobNumber = querySnapshot.docs[0].data().jobNumber;
-        const lastNumber = parseInt(lastJobNumber.split('-')[1]);
-        return `${currentYear}-${String(lastNumber + 1).padStart(3, '0')}`;
-    };
+
 
     if (loading) return <div className="p-6">Loading...</div>;
 
