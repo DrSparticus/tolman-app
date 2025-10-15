@@ -169,7 +169,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${(userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.viewStockDate) ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Project Name</label>
                         <DeferredInput
@@ -261,6 +261,20 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             ))}
                         </select>
                     </div>
+                    
+                    {/* Material Stock Date - Show based on user permissions */}
+                    {(userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.viewStockDate) && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Material Stock Date</label>
+                            <DeferredInput 
+                                type="date" 
+                                name="materialStockDate" 
+                                value={bid.materialStockDate || ''} 
+                                onBlur={handleInputChange} 
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Finishes Configuration - Basic View */}
@@ -455,23 +469,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             </div>
                         )}
 
-                        {/* Project Conversion */}
-                        {bid.status === 'bid' && (
-                            <div className="mt-6 pt-4 border-t">
-                                <h4 className="text-sm font-medium text-gray-700 mb-3">Project Conversion</h4>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Material Stock Date</label>
-                                    <p className="text-xs text-gray-500 mb-2">Setting this date will convert the bid into a project and assign a new job number.</p>
-                                    <DeferredInput 
-                                        type="date" 
-                                        name="materialStockDate" 
-                                        value={bid.materialStockDate || ''} 
-                                        onBlur={handleInputChange} 
-                                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 max-w-xs" 
-                                    />
-                                </div>
-                            </div>
-                        )}
+
                     </div>
                 </div>
             )}

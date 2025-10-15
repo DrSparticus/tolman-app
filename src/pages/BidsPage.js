@@ -423,6 +423,31 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         return userData?.name || userData?.displayName || userData?.email || 'Unknown';
     };
 
+    // Helper function to format material dimensions
+    const formatDimensions = (variant) => {
+        if (!variant) return 'N/A';
+        
+        const widthFtStr = (variant.widthFt && variant.widthFt > 0) ? `${variant.widthFt}'` : '';
+        const widthInStr = (variant.widthIn && variant.widthIn > 0) ? `${variant.widthIn}"` : '';
+        const widthParts = [widthFtStr, widthInStr].filter(Boolean);
+        const width = widthParts.join(' ');
+
+        const lengthFtStr = (variant.lengthFt && variant.lengthFt > 0) ? `${variant.lengthFt}'` : '';
+        const lengthInStr = (variant.lengthIn && variant.lengthIn > 0) ? `${variant.lengthIn}"` : '';
+        const lengthParts = [lengthFtStr, lengthInStr].filter(Boolean);
+        const length = lengthParts.join(' ');
+
+        if (width && length) {
+            return `${width} x ${length}`;
+        } else if (width) {
+            return width;
+        } else if (length) {
+            return length;
+        }
+        
+        return 'N/A';
+    };
+
     // Function to generate detailed change descriptions
     const generateChangeLog = (oldBid, newBid, materials, finishes, supervisors) => {
         console.log('=== GENERATE CHANGE LOG CALLED ===');
@@ -665,24 +690,26 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                     
                     // Check old variants
                     oldVariants.forEach(oldVariant => {
-                        const key = `${oldVariant.width || 'Unknown'}x${oldVariant.height || 'Unknown'}`;
+                        const dimensions = formatDimensions(oldVariant);
+                        const key = dimensions;
                         variantChanges[key] = (variantChanges[key] || 0) - (parseInt(oldVariant.quantity || 0, 10));
                     });
                     
                     // Check new variants
                     newVariants.forEach(newVariant => {
-                        const key = `${newVariant.width || 'Unknown'}x${newVariant.height || 'Unknown'}`;
+                        const dimensions = formatDimensions(newVariant);
+                        const key = dimensions;
                         variantChanges[key] = (variantChanges[key] || 0) + (parseInt(newVariant.quantity || 0, 10));
                     });
                     
                     // Generate change descriptions for variants
                     Object.entries(variantChanges).forEach(([variant, diff]) => {
                         if (diff !== 0) {
-                            const sizeStr = variant.includes('x') ? ` ${variant.replace('x', '" x ')}` : '';
+                            const sizeStr = variant !== 'N/A' ? ` ${variant}` : '';
                             if (diff > 0) {
-                                changes.push(`Added ${diff} - ${materialName}${sizeStr}" to ${newArea.name}`);
+                                changes.push(`Added ${diff} -${sizeStr} ${materialName} to ${newArea.name}`);
                             } else {
-                                changes.push(`Removed ${Math.abs(diff)} - ${materialName}${sizeStr}" from ${newArea.name}`);
+                                changes.push(`Removed ${Math.abs(diff)} -${sizeStr} ${materialName} from ${newArea.name}`);
                             }
                         }
                     });
