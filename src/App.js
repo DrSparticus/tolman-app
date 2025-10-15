@@ -244,7 +244,7 @@ export default function App() {
             case 'bids':
                 return hasAccess('bids') ? <BidsPage db={db} setCurrentPage={navigateToPage} editingProjectId={editingProjectId} userData={userData} onNewBid={handleNewBid} /> : <AccessDeniedPage />;
             case 'schedule':
-                return hasAccess('schedule') ? <SchedulePage /> : <AccessDeniedPage />;
+                return hasAccess('schedule') ? <SchedulePage db={db} userData={userData} onEditProject={handleEditProject} /> : <AccessDeniedPage />;
             case 'change-orders':
                 return hasAccess('change-orders') ? <ChangeOrdersPage /> : <AccessDeniedPage />;
             case 'customers':

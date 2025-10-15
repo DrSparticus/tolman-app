@@ -12,7 +12,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [projectToDelete, setProjectToDelete] = useState(null);
-    const [activeTab, setActiveTab] = useState('active');
+    const [activeTab, setActiveTab] = useState('all');
     const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
     const [projectToRestore, setProjectToRestore] = useState(null);
     const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false);
@@ -47,7 +47,32 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
 
     const sortedProjects = useMemo(() => {
         let sortableItems = projects
-            .filter(p => activeTab === 'active' ? !p.deleted : p.deleted)
+            .filter(p => {
+                // First filter out deleted projects (except for trash tab)
+                if (activeTab === 'trash') return p.deleted;
+                if (p.deleted) return false;
+
+                // Check for inactive projects (bids not updated in 90+ days)
+                const isOldBid = p.status === 'bid' && p.updatedAt && 
+                    (new Date() - new Date(p.updatedAt)) > (90 * 24 * 60 * 60 * 1000);
+
+                switch (activeTab) {
+                    case 'all':
+                        return !isOldBid; // All active projects except old bids
+                    case 'bids':
+                        return p.status === 'bid' && !isOldBid;
+                    case 'scheduled':
+                        return ['stocked', 'hung', 'taped'].includes(p.status);
+                    case 'qcd':
+                        return p.status === 'qcd';
+                    case 'finished':
+                        return p.status === 'paid';
+                    case 'inactive':
+                        return isOldBid;
+                    default:
+                        return true;
+                }
+            })
             .map(p => {
                 const supervisor = supervisors.find(s => s.id === p.supervisor);
                 const supervisorName = supervisor ? `${supervisor.firstName} ${supervisor.lastName}` : 'N/A';
@@ -151,27 +176,32 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             {/* Tabs */}
             <div className="mb-6">
                 <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-8">
-                        <button
-                            onClick={() => setActiveTab('active')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                activeTab === 'active'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            Active Projects
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('trash')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                activeTab === 'trash'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            Trash
-                        </button>
+                    <nav className="-mb-px flex flex-wrap space-x-8">
+                        {['all', 'bids', 'scheduled', 'qcd', 'finished', 'inactive', 'trash'].map(tab => {
+                            const labels = {
+                                all: 'All',
+                                bids: 'Bids',
+                                scheduled: 'Scheduled',
+                                qcd: "QC'd",
+                                finished: 'Finished',
+                                inactive: 'Inactive',
+                                trash: 'Trash'
+                            };
+                            
+                            return (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                        activeTab === tab
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
+                                >
+                                    {labels[tab]}
+                                </button>
+                            );
+                        })}
                     </nav>
                 </div>
             </div>
@@ -204,7 +234,14 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                             {sortedProjects.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                        {activeTab === 'active' ? 'No active projects found.' : 'No deleted projects found.'}
+                                        {activeTab === 'all' ? 'No projects found.' :
+                                         activeTab === 'bids' ? 'No active bids found.' :
+                                         activeTab === 'scheduled' ? 'No scheduled jobs found.' :
+                                         activeTab === 'qcd' ? 'No QC\'d projects found.' :
+                                         activeTab === 'finished' ? 'No finished projects found.' :
+                                         activeTab === 'inactive' ? 'No inactive bids found.' :
+                                         activeTab === 'trash' ? 'No deleted projects found.' :
+                                         'No projects found.'}
                                     </td>
                                 </tr>
                             ) : (
@@ -218,9 +255,15 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${
-                                            project.status === 'bid' ? 'bg-yellow-200 text-yellow-800' : 'bg-green-200 text-green-800'
+                                            project.status === 'bid' ? 'bg-yellow-200 text-yellow-800' :
+                                            project.status === 'stocked' ? 'bg-blue-200 text-blue-800' :
+                                            project.status === 'hung' ? 'bg-orange-200 text-orange-800' :
+                                            project.status === 'taped' ? 'bg-purple-200 text-purple-800' :
+                                            project.status === 'qcd' ? 'bg-indigo-200 text-indigo-800' :
+                                            project.status === 'paid' ? 'bg-green-200 text-green-800' :
+                                            'bg-gray-200 text-gray-800'
                                         }`}>
-                                            {project.status}
+                                            {project.status === 'qcd' ? "QC'd" : project.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">{project.address}</td>

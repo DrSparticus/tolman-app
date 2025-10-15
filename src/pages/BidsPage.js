@@ -804,7 +804,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 // Convert bid to project with T-series job number when material stock date is set
                 const projectJobNumber = await generateJobNumber(db, 'T');
                 bidData.jobNumber = projectJobNumber;
-                bidData.status = 'project';
+                bidData.status = 'stocked';
             }
 
             if (bid.id && originalBid) {
