@@ -250,7 +250,7 @@ export default function App() {
             case 'customers':
                 return hasAccess('customers') ? <CustomersPage db={db} /> : <AccessDeniedPage />;
             case 'projects':
-                return hasAccess('projects') ? <ProjectsPage db={db} onNewBid={handleNewBid} onEditProject={handleEditProject} /> : <AccessDeniedPage />;
+                return hasAccess('projects') ? <ProjectsPage db={db} userData={userData} onNewBid={handleNewBid} onEditProject={handleEditProject} /> : <AccessDeniedPage />;
             case 'suppliers':
                 return hasAccess('suppliers') ? <SuppliersPage db={db} /> : <AccessDeniedPage />;
             case 'administration':

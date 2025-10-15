@@ -1,17 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, where, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { PlusIcon, DeleteIcon, SortIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
 
-const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
+const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
     const [projects, setProjects] = useState([]);
     const [supervisors, setSupervisors] = useState([]);
     const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [projectToDelete, setProjectToDelete] = useState(null);
+    const [activeTab, setActiveTab] = useState('active');
+    const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+    const [projectToRestore, setProjectToRestore] = useState(null);
+    const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false);
+    const [projectToPermanentlyDelete, setProjectToPermanentlyDelete] = useState(null);
+    
+    const isAdmin = userData?.role === 'admin';
 
     useEffect(() => {
         if (!db) return;
@@ -39,11 +46,13 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
     }, [db]);
 
     const sortedProjects = useMemo(() => {
-        let sortableItems = projects.map(p => {
-            const supervisor = supervisors.find(s => s.id === p.supervisor);
-            const supervisorName = supervisor ? `${supervisor.firstName} ${supervisor.lastName}` : 'N/A';
-            return { ...p, supervisorName };
-        });
+        let sortableItems = projects
+            .filter(p => activeTab === 'active' ? !p.deleted : p.deleted)
+            .map(p => {
+                const supervisor = supervisors.find(s => s.id === p.supervisor);
+                const supervisorName = supervisor ? `${supervisor.firstName} ${supervisor.lastName}` : 'N/A';
+                return { ...p, supervisorName };
+            });
 
         if (sortConfig !== null) {
             sortableItems.sort((a, b) => {
@@ -60,7 +69,7 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
             });
         }
         return sortableItems;
-    }, [projects, sortConfig, supervisors]);
+    }, [projects, sortConfig, supervisors, activeTab]);
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -82,8 +91,46 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
 
     const handleDeleteProject = async () => {
         if (!projectToDelete) return;
-        await deleteDoc(doc(db, projectsPath, projectToDelete.id));
+        await updateDoc(doc(db, projectsPath, projectToDelete.id), {
+            deleted: true,
+            deletedAt: new Date()
+        });
         closeDeleteModal();
+    };
+
+    const openRestoreModal = (project) => {
+        setProjectToRestore(project);
+        setIsRestoreModalOpen(true);
+    };
+
+    const closeRestoreModal = () => {
+        setIsRestoreModalOpen(false);
+        setProjectToRestore(null);
+    };
+
+    const handleRestoreProject = async () => {
+        if (!projectToRestore) return;
+        await updateDoc(doc(db, projectsPath, projectToRestore.id), {
+            deleted: false,
+            deletedAt: null
+        });
+        closeRestoreModal();
+    };
+
+    const openPermanentDeleteModal = (project) => {
+        setProjectToPermanentlyDelete(project);
+        setIsPermanentDeleteModalOpen(true);
+    };
+
+    const closePermanentDeleteModal = () => {
+        setIsPermanentDeleteModalOpen(false);
+        setProjectToPermanentlyDelete(null);
+    };
+
+    const handlePermanentDeleteProject = async () => {
+        if (!projectToPermanentlyDelete) return;
+        await deleteDoc(doc(db, projectsPath, projectToPermanentlyDelete.id));
+        closePermanentDeleteModal();
     };
 
     const getSortDirection = (name) => sortConfig.key === name ? sortConfig.direction : undefined;
@@ -99,6 +146,34 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
                     <PlusIcon />
                     <span className="ml-2">New Bid</span>
                 </button>
+            </div>
+            
+            {/* Tabs */}
+            <div className="mb-6">
+                <div className="border-b border-gray-200">
+                    <nav className="-mb-px flex space-x-8">
+                        <button
+                            onClick={() => setActiveTab('active')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                activeTab === 'active'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            Active Projects
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('trash')}
+                            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                activeTab === 'trash'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            Trash
+                        </button>
+                    </nav>
+                </div>
             </div>
             <div className="bg-white shadow-lg rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
@@ -126,8 +201,15 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedProjects.map(project => (
-                                <tr key={project.id} className="bg-white border-b hover:bg-gray-50">
+                            {sortedProjects.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                                        {activeTab === 'active' ? 'No active projects found.' : 'No deleted projects found.'}
+                                    </td>
+                                </tr>
+                            ) : (
+                                sortedProjects.map(project => (
+                                <tr key={project.id} className={`border-b hover:bg-gray-50 ${activeTab === 'trash' ? 'bg-red-50' : 'bg-white'}`}>
                                     <td className="px-6 py-4 font-mono text-gray-500">{project.jobNumber}</td>
                                     <td className="px-6 py-4">
                                         <button onClick={() => onEditProject(project.id)} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
@@ -144,12 +226,34 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
                                     <td className="px-6 py-4">{project.address}</td>
                                     <td className="px-6 py-4">{project.supervisorName}</td>
                                     <td className="px-6 py-4 text-right">
-                                        <button onClick={() => openDeleteModal(project)} className="p-2 text-red-600 hover:text-red-900 hover:bg-red-100 rounded-full">
-                                            <DeleteIcon />
-                                        </button>
+                                        {activeTab === 'active' ? (
+                                            <button onClick={() => openDeleteModal(project)} className="p-2 text-red-600 hover:text-red-900 hover:bg-red-100 rounded-full" title="Move to Trash">
+                                                <DeleteIcon />
+                                            </button>
+                                        ) : (
+                                            <div className="flex justify-end space-x-2">
+                                                <button 
+                                                    onClick={() => openRestoreModal(project)} 
+                                                    className="px-3 py-1 text-green-600 hover:text-green-800 hover:bg-green-100 rounded text-sm font-medium"
+                                                    title="Restore Project"
+                                                >
+                                                    Restore
+                                                </button>
+                                                {isAdmin && (
+                                                    <button 
+                                                        onClick={() => openPermanentDeleteModal(project)} 
+                                                        className="px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded text-sm font-medium"
+                                                        title="Permanently Delete"
+                                                    >
+                                                        Delete Forever
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
-                            ))}
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -158,8 +262,22 @@ const ProjectsPage = ({ db, onNewBid, onEditProject }) => {
                 isOpen={isDeleteModalOpen}
                 onClose={closeDeleteModal}
                 onConfirm={handleDeleteProject}
-                title="Delete Project"
-                message={`Are you sure you want to delete the project "${projectToDelete?.projectName}"? This action cannot be undone.`}
+                title="Move to Trash"
+                message={`Are you sure you want to move the project "${projectToDelete?.projectName}" to trash? You can restore it later.`}
+            />
+            <ConfirmationModal
+                isOpen={isRestoreModalOpen}
+                onClose={closeRestoreModal}
+                onConfirm={handleRestoreProject}
+                title="Restore Project"
+                message={`Are you sure you want to restore the project "${projectToRestore?.projectName}"?`}
+            />
+            <ConfirmationModal
+                isOpen={isPermanentDeleteModalOpen}
+                onClose={closePermanentDeleteModal}
+                onConfirm={handlePermanentDeleteProject}
+                title="Permanently Delete Project"
+                message={`Are you sure you want to permanently delete the project "${projectToPermanentlyDelete?.projectName}"? This action cannot be undone.`}
             />
         </div>
     );
