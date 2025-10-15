@@ -37,6 +37,19 @@ export default function MaterialSelectModal({ db, isOpen, onClose, onSelect, exi
             filtered = filtered.filter(material => material.category === selectedCategory);
         }
 
+        // Sort by priority first (lower numbers first), then alphabetically by name
+        filtered.sort((a, b) => {
+            const priorityA = a.sortingPriority || 99;
+            const priorityB = b.sortingPriority || 99;
+            
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+            }
+            
+            // If priorities are equal, sort alphabetically by name
+            return a.name.localeCompare(b.name);
+        });
+
         setFilteredMaterials(filtered);
     }, [materials, searchTerm, selectedCategory, existingMaterials]);
 

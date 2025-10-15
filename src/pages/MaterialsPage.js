@@ -300,6 +300,9 @@ const MaterialsPage = ({ db }) => {
                                         <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('category')}>
                                             Category <SortIcon direction={getSortDirection('category')} />
                                         </th>
+                                        <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('sortingPriority')}>
+                                            Priority <SortIcon direction={getSortDirection('sortingPriority')} />
+                                        </th>
                                         <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('unit')}>
                                             Base Unit <SortIcon direction={getSortDirection('unit')} />
                                         </th>
@@ -322,6 +325,11 @@ const MaterialsPage = ({ db }) => {
                                                     {material.name}
                                                 </th>
                                                 <td className="px-6 py-4 capitalize">{material.category ? material.category.replace('-', ' ') : 'General'}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        {material.sortingPriority || 99}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4">{material.unit}</td>
                                                 <td className="px-6 py-4">${parseFloat(material.price || 0).toFixed(3)}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

@@ -17,6 +17,7 @@ const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
         price: '',
         laborFormula: 'none',
         laborCost: '',
+        sortingPriority: 99,
         variants: [emptyVariant]
     }), [emptyVariant]);
 
@@ -33,6 +34,7 @@ const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
                 price: material.price || '',
                 laborFormula: material.laborFormula || 'none',
                 laborCost: material.laborCost || '',
+                sortingPriority: material.sortingPriority || 99,
                 variants: material.variants?.length ? material.variants : [emptyVariant],
             });
             setExtraLabor(material.extraLabor || []);
@@ -202,7 +204,7 @@ const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
                                 <option value="ceilings">Ceilings</option>
                             </select>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="unit">Base Unit</label>
                                 <select id="unit" name="unit" value={formData.unit} onChange={handleFormChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700">
@@ -215,6 +217,23 @@ const MaterialModal = ({ isOpen, onClose, onSave, material, crewTypes }) => {
                             <div>
                                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="price">Base Price</label>
                                 <input id="price" name="price" type="number" step="0.001" value={formData.price} onChange={handleFormChange} className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" required />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="sortingPriority">
+                                    Sort Priority
+                                    <span className="text-xs text-gray-500 block font-normal">Lower numbers appear first</span>
+                                </label>
+                                <input 
+                                    id="sortingPriority" 
+                                    name="sortingPriority" 
+                                    type="number" 
+                                    min="1" 
+                                    max="999" 
+                                    value={formData.sortingPriority} 
+                                    onChange={handleFormChange} 
+                                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" 
+                                    placeholder="99" 
+                                />
                             </div>
                         </div>
 
