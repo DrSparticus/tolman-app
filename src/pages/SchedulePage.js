@@ -12,6 +12,7 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     const [crews, setCrews] = useState([]);
     const [sortConfig, setSortConfig] = useState({ key: 'jobNumber', direction: 'asc' });
     const [expandedRows, setExpandedRows] = useState(new Set());
+    const [qcModal, setQcModal] = useState({ isOpen: false, projectId: null, projectName: '' });
     
     // Check permissions
     const canViewAllSupervisors = userData?.role === 'admin' || userData?.permissions?.schedule?.viewAllSupervisors;
@@ -182,6 +183,31 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
             qcdDate: isQCd ? new Date().toISOString() : null,
             status: isQCd ? 'qcd' : 'taped'
         });
+    };
+
+    const handleQCButtonClick = (project) => {
+        if (project.qcd) {
+            // If already QC'd, allow unchecking directly
+            handleQCToggle(project.id, false);
+        } else {
+            // If not QC'd, show confirmation modal
+            setQcModal({
+                isOpen: true,
+                projectId: project.id,
+                projectName: project.projectName
+            });
+        }
+    };
+
+    const handleQCConfirm = () => {
+        if (qcModal.projectId) {
+            handleQCToggle(qcModal.projectId, true);
+        }
+        setQcModal({ isOpen: false, projectId: null, projectName: '' });
+    };
+
+    const handleQCCancel = () => {
+        setQcModal({ isOpen: false, projectId: null, projectName: '' });
     };
 
     const generateShortMapsUrl = async (coordinates, address) => {
@@ -396,7 +422,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                                 className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                             >
                                                                 <option value="">Select crew...</option>
-                                                                {crews.filter(crew => crew.name.toLowerCase().includes('hang')).map(crew => (
+                                                                {crews.filter(crew => crew.crewTypes?.hanger).map(crew => (
                                                                     <option key={crew.id} value={crew.id}>{crew.name}</option>
                                                                 ))}
                                                             </select>
@@ -418,7 +444,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                                 className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                             >
                                                                 <option value="">Select crew...</option>
-                                                                {crews.filter(crew => crew.name.toLowerCase().includes('tap')).map(crew => (
+                                                                {crews.filter(crew => crew.crewTypes?.taper).map(crew => (
                                                                     <option key={crew.id} value={crew.id}>{crew.name}</option>
                                                                 ))}
                                                             </select>
@@ -443,17 +469,24 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                             />
                                                         </div>
 
-                                                        {/* QC Checkbox */}
+                                                        {/* QC Button */}
                                                         <div className="flex items-center">
-                                                            <label className="flex items-center space-x-2 cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={project.qcd || false}
-                                                                    onChange={(e) => handleQCToggle(project.id, e.target.checked)}
-                                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                                />
-                                                                <span className="text-xs font-medium text-gray-700">QC'd</span>
-                                                            </label>
+                                                            {(project.hangCrew && project.tapeCrew) ? (
+                                                                <button
+                                                                    onClick={() => handleQCButtonClick(project)}
+                                                                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                                                        project.qcd 
+                                                                            ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                                                            : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                                                    }`}
+                                                                >
+                                                                    {project.qcd ? 'QC\'d ✓' : 'Mark QC\'d'}
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-xs text-gray-400">
+                                                                    Assign both crews first
+                                                                </span>
+                                                            )}
                                                             {project.qcdDate && (
                                                                 <div className="text-xs text-gray-500 ml-2">
                                                                     {new Date(project.qcdDate).toLocaleDateString()}
@@ -588,7 +621,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                     >
                                                         <option value="">Select crew...</option>
-                                                        {crews.filter(crew => crew.name.toLowerCase().includes('hang')).map(crew => (
+                                                        {crews.filter(crew => crew.crewTypes?.hanger).map(crew => (
                                                             <option key={crew.id} value={crew.id}>{crew.name}</option>
                                                         ))}
                                                     </select>
@@ -609,7 +642,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                     >
                                                         <option value="">Select crew...</option>
-                                                        {crews.filter(crew => crew.name.toLowerCase().includes('tap')).map(crew => (
+                                                        {crews.filter(crew => crew.crewTypes?.taper).map(crew => (
                                                             <option key={crew.id} value={crew.id}>{crew.name}</option>
                                                         ))}
                                                     </select>
@@ -634,15 +667,22 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                 </div>
 
                                                 <div className="flex items-center justify-between">
-                                                    <label className="flex items-center space-x-2 cursor-pointer">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={project.qcd || false}
-                                                            onChange={(e) => handleQCToggle(project.id, e.target.checked)}
-                                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                        />
-                                                        <span className="text-sm font-medium text-gray-700">QC'd</span>
-                                                    </label>
+                                                    {(project.hangCrew && project.tapeCrew) ? (
+                                                        <button
+                                                            onClick={() => handleQCButtonClick(project)}
+                                                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                                                project.qcd 
+                                                                    ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                                                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                                            }`}
+                                                        >
+                                                            {project.qcd ? 'QC\'d ✓' : 'Mark QC\'d'}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-sm text-gray-400">
+                                                            Assign both crews first
+                                                        </span>
+                                                    )}
                                                     {project.qcdDate && (
                                                         <div className="text-xs text-gray-500">
                                                             {new Date(project.qcdDate).toLocaleDateString()}
@@ -669,6 +709,60 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                     )}
                 </div>
             </div>
+
+            {/* QC Confirmation Modal */}
+            {qcModal.isOpen && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                        </div>
+                        
+                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                        
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="sm:flex sm:items-start">
+                                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
+                                        <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                        <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                            Quality Control Check
+                                        </h3>
+                                        <div className="mt-2">
+                                            <p className="text-sm text-gray-500">
+                                                <strong>{qcModal.projectName}</strong>
+                                            </p>
+                                            <p className="text-sm text-gray-600 mt-2">
+                                                Have you walked the job and approve of the quality of work?
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <button
+                                    type="button"
+                                    onClick={handleQCConfirm}
+                                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
+                                >
+                                    Yes, Mark QC'd
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleQCCancel}
+                                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                >
+                                    No, Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
