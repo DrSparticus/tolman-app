@@ -12,6 +12,7 @@ const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/confi
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
 const materialsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/public/data/materials`;
+const crewsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/crews`;
 
 // Job number generation functions
 const generateJobNumber = async (db, type = 'B') => {
@@ -67,6 +68,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         unfinishedTapingRate: '',
         autoTapeRate: true,
         notes: '',
+        crewNotes: '',
         areas: [
             { 
                 id: crypto.randomUUID(), 
@@ -116,6 +118,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
     const [finishes, setFinishes] = useState({ wallTextures: [], ceilingTextures: [], corners: [], windowWrap: [] });
     const [materials, setMaterials] = useState([]);
     const [crewTypes, setCrewTypes] = useState([]);
+    const [crews, setCrews] = useState([]);
     const [laborBreakdown, setLaborBreakdown] = useState({ hanging: { labor: 0, sqFt: 0 }, taping: { labor: 0, sqFt: 0 } });
     const [totalMaterialCost, setTotalMaterialCost] = useState(0);
     const [showAreaNameModal, setShowAreaNameModal] = useState(false);
@@ -132,6 +135,17 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         const unsubscribe = onSnapshot(crewCollectionRef, (snapshot) => {
             const crewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setCrewTypes(crewsData);
+        });
+        return unsubscribe;
+    }, [db]);
+
+    // Fetch crews
+    useEffect(() => {
+        if (!db) return;
+        const crewsCollection = collection(db, crewsPath);
+        const unsubscribe = onSnapshot(crewsCollection, (snapshot) => {
+            const crewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setCrews(crewsData);
         });
         return unsubscribe;
     }, [db]);
@@ -493,7 +507,8 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             finishedHangingRate: 'Hang Labor Rate',
             finishedTapeRate: 'Tape Labor Rate',
             unfinishedTapingRate: 'Unfinished Tape Rate',
-            notes: 'Notes',
+            notes: 'Bid Notes',
+            crewNotes: 'Crew Notes',
             materialStockDate: 'Material Stock Date'
         };
         
@@ -1011,6 +1026,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 finishes={finishes}
                 materials={materials}
                 crewTypes={crewTypes}
+                crews={crews}
                 userPermissions={userData}
                 db={db}
                 locationSettings={locationSettings}

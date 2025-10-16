@@ -32,10 +32,11 @@ const DeferredInput = React.memo(({ value, onBlur, onChange, ...inputProps }) =>
     );
 });
 
-export default function BidHeader({ bid, handleInputChange, supervisors, finishes, materials, crewTypes, userPermissions = {}, db, locationSettings, onUpdateMaterialPricing }) {
+export default function BidHeader({ bid, handleInputChange, supervisors, finishes, materials, crewTypes, crews = [], userPermissions = {}, db, locationSettings, onUpdateMaterialPricing }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const locationServices = useLocationServices(db, handleInputChange);
     const notesRef = useRef(null);
+    const crewNotesRef = useRef(null);
 
     // Auto-resize textarea function
     const autoResizeTextarea = (textarea) => {
@@ -50,14 +51,30 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
         autoResizeTextarea(notesRef.current);
     }, [bid.notes]);
 
+    // Auto-resize crew notes field when content changes
+    useEffect(() => {
+        autoResizeTextarea(crewNotesRef.current);
+    }, [bid.crewNotes]);
+
     // Auto-resize on mount
     useEffect(() => {
         autoResizeTextarea(notesRef.current);
+        autoResizeTextarea(crewNotesRef.current);
     }, []);
 
     const handleNotesChange = (e) => {
         handleInputChange(e);
         autoResizeTextarea(e.target);
+    };
+
+    const handleCrewNotesChange = (e) => {
+        handleInputChange(e);
+        autoResizeTextarea(e.target);
+    };
+
+    const getCrewName = (crewId) => {
+        const crew = crews.find(c => c.id === crewId);
+        return crew?.name || 'Not assigned';
     };
 
     const calculateFinishedTapeRate = () => {
@@ -384,6 +401,11 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             onBlur={handleInputChange} 
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                         />
+                        {bid.hangCrew && (
+                            <div className="mt-1 text-xs text-green-600 font-medium">
+                                Assigned: {getCrewName(bid.hangCrew)}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <div className="flex items-center justify-between">
@@ -409,6 +431,11 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             disabled={bid.autoTapeRate}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 disabled:bg-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                         />
+                        {bid.tapeCrew && (
+                            <div className="mt-1 text-xs text-green-600 font-medium">
+                                Assigned: {getCrewName(bid.tapeCrew)}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Unfinished Tape Rate</label>
@@ -426,7 +453,7 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                 {/* Notes Field - Moved below labor rates */}
                 <div className="pt-4 mt-4 border-t">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Notes</label>
+                        <label className="block text-sm font-medium text-gray-700">Bid Notes</label>
                         <textarea
                             ref={notesRef}
                             name="notes"
@@ -434,6 +461,19 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             onChange={handleNotesChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
                             placeholder="Enter project notes..."
+                            style={{ minHeight: '60px' }}
+                        />
+                    </div>
+                    
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700">Crew Notes</label>
+                        <textarea
+                            ref={crewNotesRef}
+                            name="crewNotes"
+                            value={bid.crewNotes || ''}
+                            onChange={handleCrewNotesChange}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden"
+                            placeholder="Enter notes for the crew..."
                             style={{ minHeight: '60px' }}
                         />
                     </div>

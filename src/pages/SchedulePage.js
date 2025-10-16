@@ -13,6 +13,17 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     const [sortConfig, setSortConfig] = useState({ key: 'jobNumber', direction: 'asc' });
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [qcModal, setQcModal] = useState({ isOpen: false, projectId: null, projectName: '' });
+    const [editingCrewNotes, setEditingCrewNotes] = useState(new Set());
+    const [tempCrewNotes, setTempCrewNotes] = useState({});
+
+    const getUserName = (userData) => {
+        // Prioritize firstName + lastName combination for accuracy
+        if (userData?.firstName && userData?.lastName) {
+            return `${userData.firstName} ${userData.lastName}`;
+        }
+        // Fall back to other name fields
+        return userData?.name || userData?.displayName || userData?.email || 'Unknown';
+    };
     
     // Check permissions
     const canViewAllSupervisors = userData?.role === 'admin' || userData?.permissions?.schedule?.viewAllSupervisors;
@@ -159,18 +170,70 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     const handleCrewAssignment = async (projectId, crewType, crewId) => {
         if (!db) return;
 
+        const project = projects.find(p => p.id === projectId);
+        const oldCrewId = crewType === 'hang' ? project?.hangCrew : project?.tapeCrew;
+        
+        // Only update if crew assignment has actually changed
+        if (oldCrewId === crewId) return;
+
         const updateData = {};
         const now = new Date().toISOString();
+
+        // Get crew names for change log
+        const oldCrew = crews.find(c => c.id === oldCrewId);
+        const newCrew = crews.find(c => c.id === crewId);
+        
+        const oldCrewName = oldCrew?.name || 'None';
+        const newCrewName = newCrew?.name || 'None';
+        
+        const crewTypeLabel = crewType === 'hang' ? 'Hang Crew' : 'Tape Crew';
+        
+        // Determine status changes
+        const oldStatus = project?.status || 'stocked';
+        let newStatus = oldStatus;
 
         if (crewType === 'hang') {
             updateData.hangCrew = crewId;
             updateData.hangAssignedDate = crewId ? now : null;
-            updateData.status = crewId ? 'hung' : 'stocked';
+            newStatus = crewId ? 'hung' : 'stocked';
+            updateData.status = newStatus;
         } else if (crewType === 'tape') {
             updateData.tapeCrew = crewId;
             updateData.tapeAssignedDate = crewId ? now : null;
-            updateData.status = crewId ? 'taped' : 'hung';
+            newStatus = crewId ? 'taped' : 'hung';
+            updateData.status = newStatus;
         }
+
+        // Create change log entries
+        const changeLogEntries = [];
+        
+        // Crew assignment change log entry
+        changeLogEntries.push({
+            timestamp: now,
+            change: `${crewTypeLabel} assignment: ${oldCrewName} → ${newCrewName}`,
+            user: {
+                name: getUserName(userData),
+                email: userData?.email || 'Unknown'
+            }
+        });
+        
+        // Status change log entry (if status changed)
+        if (oldStatus !== newStatus) {
+            changeLogEntries.push({
+                timestamp: now,
+                change: `Status updated: ${oldStatus} → ${newStatus}`,
+                user: {
+                    name: getUserName(userData),
+                    email: userData?.email || 'Unknown'
+                }
+            });
+        }
+
+        // Add change log entries to update data
+        updateData.changeLog = [
+            ...(project?.changeLog || []),
+            ...changeLogEntries
+        ];
 
         await updateDoc(doc(db, projectsPath, projectId), updateData);
     };
@@ -178,11 +241,89 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     const handleQCToggle = async (projectId, isQCd) => {
         if (!db) return;
 
-        await updateDoc(doc(db, projectsPath, projectId), {
+        const project = projects.find(p => p.id === projectId);
+        const now = new Date().toISOString();
+        
+        // Create change log entry for QC status change
+        const changeLogEntry = {
+            timestamp: now,
+            change: isQCd ? 'Project marked as QC\'d (finished)' : 'QC status removed',
+            user: {
+                name: getUserName(userData),
+                email: userData?.email || 'Unknown'
+            }
+        };
+
+        const updateData = {
             qcd: isQCd,
-            qcdDate: isQCd ? new Date().toISOString() : null,
-            status: isQCd ? 'qcd' : 'taped'
+            qcdDate: isQCd ? now : null,
+            status: isQCd ? 'qcd' : 'taped',
+            changeLog: [
+                ...(project?.changeLog || []),
+                changeLogEntry
+            ]
+        };
+
+        await updateDoc(doc(db, projectsPath, projectId), updateData);
+    };
+
+    const handleCrewNotesUpdate = async (projectId, notes) => {
+        if (!db) return;
+        
+        const project = projects.find(p => p.id === projectId);
+        const oldNotes = project?.crewNotes || '';
+        
+        // Only update if notes have actually changed
+        if (oldNotes === notes) return;
+        
+        // Create change log entry
+        const changeLogEntry = {
+            timestamp: new Date().toISOString(),
+            change: `Crew Notes updated: ${oldNotes ? `"${oldNotes}"` : 'empty'} → "${notes}"`,
+            user: {
+                name: getUserName(userData),
+                email: userData?.email || 'Unknown'
+            }
+        };
+        
+        // Update project with new notes and change log entry
+        const updateData = {
+            crewNotes: notes,
+            changeLog: [
+                ...(project?.changeLog || []),
+                changeLogEntry
+            ]
+        };
+        
+        await updateDoc(doc(db, projectsPath, projectId), updateData);
+    };
+
+    const startEditingCrewNotes = (projectId) => {
+        const project = projects.find(p => p.id === projectId);
+        setTempCrewNotes(prev => ({
+            ...prev,
+            [projectId]: project?.crewNotes || ''
+        }));
+        setEditingCrewNotes(prev => new Set([...prev, projectId]));
+    };
+
+    const cancelEditingCrewNotes = (projectId) => {
+        setTempCrewNotes(prev => {
+            const newTemp = { ...prev };
+            delete newTemp[projectId];
+            return newTemp;
         });
+        setEditingCrewNotes(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(projectId);
+            return newSet;
+        });
+    };
+
+    const saveCrewNotes = async (projectId) => {
+        const notes = tempCrewNotes[projectId] || '';
+        await handleCrewNotesUpdate(projectId, notes);
+        cancelEditingCrewNotes(projectId);
     };
 
     const handleQCButtonClick = (project) => {
@@ -287,7 +428,7 @@ Customer: ${project.contractor}
 Address: ${project.address || 'No address'}
 ${mapsUrl}
 
-${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: ${project.notes}` : ''}`.trim();
+${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Notes: ${project.crewNotes}` : ''}`.trim();
 
         try {
             await navigator.clipboard.writeText(jobInfo);
@@ -490,12 +631,56 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                             <div><span className="font-medium">Corners:</span> {project.corners || 'Not set'}</div>
                                                             <div><span className="font-medium">Windows:</span> {project.windowWrap || 'Not set'}</div>
                                                         </div>
+                                                        
+                                                        {/* Bid Notes (read-only) */}
                                                         {project.notes && (
-                                                            <div className="mt-2">
-                                                                <span className="font-medium text-xs">Notes:</span>
+                                                            <div className="mt-3">
+                                                                <span className="font-medium text-xs">Bid Notes:</span>
                                                                 <p className="text-xs text-gray-600 mt-1">{project.notes}</p>
                                                             </div>
                                                         )}
+                                                        
+                                                        {/* Crew Notes (editable) */}
+                                                        <div className="mt-3">
+                                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                                Crew Notes:
+                                                            </label>
+                                                            {editingCrewNotes.has(project.id) ? (
+                                                                <div>
+                                                                    <textarea
+                                                                        value={tempCrewNotes[project.id] || ''}
+                                                                        onChange={(e) => setTempCrewNotes(prev => ({
+                                                                            ...prev,
+                                                                            [project.id]: e.target.value
+                                                                        }))}
+                                                                        placeholder="Enter notes for the crew..."
+                                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                                        rows="2"
+                                                                    />
+                                                                    <div className="flex gap-2 mt-2">
+                                                                        <button
+                                                                            onClick={() => saveCrewNotes(project.id)}
+                                                                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                                                        >
+                                                                            Save
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => cancelEditingCrewNotes(project.id)}
+                                                                            className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div 
+                                                                    onClick={() => startEditingCrewNotes(project.id)}
+                                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs cursor-pointer hover:bg-gray-50 min-h-[40px] flex items-start"
+                                                                >
+                                                                    {project.crewNotes || 'Click to add crew notes...'}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -602,10 +787,57 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                     {expandedRows.has(project.id) && (
                                         <div className="mt-4 space-y-4">
                                             {/* Mobile Notes - Only in Expanded View */}
-                                            {project.notes && (
-                                                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                                    <div className="text-xs font-medium text-gray-700 mb-1">Notes:</div>
-                                                    <div className="text-sm text-gray-800">{project.notes}</div>
+                                            {(project.notes || project.crewNotes) && (
+                                                <div className="space-y-3">
+                                                    {/* Bid Notes (read-only) */}
+                                                    {project.notes && (
+                                                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                                            <div className="text-xs font-medium text-gray-700 mb-1">Bid Notes:</div>
+                                                            <div className="text-sm text-gray-800">{project.notes}</div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Crew Notes (editable) */}
+                                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                            Crew Notes:
+                                                        </label>
+                                                        {editingCrewNotes.has(project.id) ? (
+                                                            <div>
+                                                                <textarea
+                                                                    value={tempCrewNotes[project.id] || ''}
+                                                                    onChange={(e) => setTempCrewNotes(prev => ({
+                                                                        ...prev,
+                                                                        [project.id]: e.target.value
+                                                                    }))}
+                                                                    placeholder="Enter notes for the crew..."
+                                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                                    rows="3"
+                                                                />
+                                                                <div className="flex gap-2 mt-2">
+                                                                    <button
+                                                                        onClick={() => saveCrewNotes(project.id)}
+                                                                        className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                                                    >
+                                                                        Save
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => cancelEditingCrewNotes(project.id)}
+                                                                        className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div 
+                                                                onClick={() => startEditingCrewNotes(project.id)}
+                                                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm cursor-pointer hover:bg-gray-50 min-h-[60px] flex items-start"
+                                                            >
+                                                                {project.crewNotes || 'Click to add crew notes...'}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
 
