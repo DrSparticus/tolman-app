@@ -195,6 +195,27 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         return '';
     };
 
+    const getStatusIndicators = (project) => {
+        const indicators = [];
+        
+        // H - Not hung
+        if (!project.hangCrew) {
+            indicators.push({ code: 'H', label: 'Needs Hanging', color: 'bg-red-100 text-red-800' });
+        }
+        
+        // T - Not taped  
+        if (!project.tapeCrew) {
+            indicators.push({ code: 'T', label: 'Needs Taping', color: 'bg-orange-100 text-orange-800' });
+        }
+        
+        // QC - Not quality checked
+        if (!project.qcd) {
+            indicators.push({ code: 'QC', label: 'Needs QC', color: 'bg-yellow-100 text-yellow-800' });
+        }
+        
+        return indicators;
+    };
+
     const copyJobInfo = async (project) => {
         // Generate Google Maps URL using GPS coordinates if available
         const mapsUrl = await generateShortMapsUrl(project.coordinates, project.address);
@@ -262,7 +283,8 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
             </div>
 
             <div className="bg-white shadow-lg rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="hidden lg:block overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-600">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-100">
                             <tr>
@@ -290,6 +312,9 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                     Sq Ft
                                 </th>
                                 <th scope="col" className="px-6 py-3 text-center">
+                                    Status
+                                </th>
+                                <th scope="col" className="px-6 py-3 text-center">
                                     Actions
                                 </th>
                             </tr>
@@ -297,7 +322,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                         <tbody>
                             {sortedProjects.length === 0 ? (
                                 <tr>
-                                    <td colSpan={canViewAllSupervisors ? "8" : "7"} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={canViewAllSupervisors ? "9" : "8"} className="px-6 py-12 text-center text-gray-500">
                                         No scheduled jobs found.
                                     </td>
                                 </tr>
@@ -329,6 +354,15 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
+                                                <div className="flex flex-wrap justify-center gap-1">
+                                                    {getStatusIndicators(project).map(indicator => (
+                                                        <span key={indicator.code} className={`px-1.5 py-0.5 text-xs font-medium rounded ${indicator.color}`} title={indicator.label}>
+                                                            {indicator.code}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
                                                 <div className="flex justify-center space-x-2">
                                                     <button
                                                         onClick={() => toggleExpanded(project.id)}
@@ -349,7 +383,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                         </tr>
                                         {expandedRows.has(project.id) && (
                                             <tr className="bg-gray-50">
-                                                <td colSpan={canViewAllSupervisors ? "8" : "7"} className="px-6 py-4">
+                                                <td colSpan={canViewAllSupervisors ? "9" : "8"} className="px-6 py-4">
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                                         {/* Hang Crew */}
                                                         <div>
@@ -451,6 +485,188 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="lg:hidden">
+                    {sortedProjects.length === 0 ? (
+                        <div className="px-6 py-12 text-center text-gray-500">
+                            No scheduled jobs found.
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-gray-200">
+                            {sortedProjects.map(project => (
+                                <div key={project.id} className="p-4">
+                                    {/* Mobile Card Header */}
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="flex-1">
+                                            <div className="flex items-center space-x-2 mb-1">
+                                                <span className="font-mono text-sm text-gray-500">{project.jobNumber}</span>
+                                                <div className="flex space-x-1">
+                                                    {getStatusIndicators(project).map(indicator => (
+                                                        <span key={indicator.code} className={`px-1.5 py-0.5 text-xs font-medium rounded ${indicator.color}`} title={indicator.label}>
+                                                            {indicator.code}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => onEditProject(project.id)} 
+                                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                            >
+                                                {project.projectName}
+                                            </button>
+                                            <div className="text-sm text-gray-600 mt-1">
+                                                {project.contractor}
+                                            </div>
+                                            {canViewAllSupervisors && (
+                                                <div className="text-sm text-gray-500">
+                                                    Supervisor: {project.supervisorName}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex space-x-2 ml-4">
+                                            <button
+                                                onClick={() => toggleExpanded(project.id)}
+                                                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full"
+                                                title={expandedRows.has(project.id) ? 'Collapse' : 'Expand'}
+                                            >
+                                                <ExpandIcon isExpanded={expandedRows.has(project.id)} />
+                                            </button>
+                                            <button
+                                                onClick={() => copyJobInfo(project)}
+                                                className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full"
+                                                title="Copy job info to clipboard"
+                                            >
+                                                <CopyIcon />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Mobile Card Details */}
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <span className="text-gray-500">Address:</span>
+                                            <div className="text-gray-800 truncate">{project.address}</div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-500">Stocked:</span>
+                                            <div className="text-gray-800">
+                                                {project.materialStockDate ? new Date(project.materialStockDate).toLocaleDateString() : 'Not set'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-500">Finished Sq Ft:</span>
+                                            <div className="text-green-600 font-medium">{project.finishedSqFt}</div>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-500">Unfinished Sq Ft:</span>
+                                            <div className="text-orange-600 font-medium">{project.unfinishedSqFt}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Mobile Notes - Always Visible */}
+                                    {project.notes && (
+                                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                            <div className="text-xs font-medium text-gray-700 mb-1">Notes:</div>
+                                            <div className="text-sm text-gray-800">{project.notes}</div>
+                                        </div>
+                                    )}
+
+                                    {/* Mobile Expanded Details */}
+                                    {expandedRows.has(project.id) && (
+                                        <div className="mt-4 space-y-4">
+                                            {/* Crew Assignment Section */}
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                        Hang Crew
+                                                    </label>
+                                                    <select
+                                                        value={project.hangCrew || ''}
+                                                        onChange={(e) => handleCrewAssignment(project.id, 'hang', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                    >
+                                                        <option value="">Select crew...</option>
+                                                        {crews.filter(crew => crew.name.toLowerCase().includes('hang')).map(crew => (
+                                                            <option key={crew.id} value={crew.id}>{crew.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    {project.hangAssignedDate && (
+                                                        <div className="text-xs text-gray-500 mt-1">
+                                                            Assigned: {new Date(project.hangAssignedDate).toLocaleDateString()}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                        Tape Crew
+                                                    </label>
+                                                    <select
+                                                        value={project.tapeCrew || ''}
+                                                        onChange={(e) => handleCrewAssignment(project.id, 'tape', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                    >
+                                                        <option value="">Select crew...</option>
+                                                        {crews.filter(crew => crew.name.toLowerCase().includes('tap')).map(crew => (
+                                                            <option key={crew.id} value={crew.id}>{crew.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    {project.tapeAssignedDate && (
+                                                        <div className="text-xs text-gray-500 mt-1">
+                                                            Assigned: {new Date(project.tapeAssignedDate).toLocaleDateString()}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                        Pre-lien #
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={project.preLienNumber || ''}
+                                                        onChange={(e) => updateDoc(doc(db, projectsPath, project.id), { preLienNumber: e.target.value })}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                        placeholder="Enter pre-lien number"
+                                                    />
+                                                </div>
+
+                                                <div className="flex items-center justify-between">
+                                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={project.qcd || false}
+                                                            onChange={(e) => handleQCToggle(project.id, e.target.checked)}
+                                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                        />
+                                                        <span className="text-sm font-medium text-gray-700">QC'd</span>
+                                                    </label>
+                                                    {project.qcdDate && (
+                                                        <div className="text-xs text-gray-500">
+                                                            {new Date(project.qcdDate).toLocaleDateString()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Finishes Section */}
+                                            <div className="p-3 bg-gray-50 rounded border">
+                                                <div className="text-xs font-medium text-gray-700 mb-2">Finishes</div>
+                                                <div className="grid grid-cols-1 gap-1 text-xs">
+                                                    <div><span className="font-medium">Walls:</span> {project.wallTexture || 'Not set'}</div>
+                                                    <div><span className="font-medium">Ceilings:</span> {project.ceilingTexture || 'Not set'}</div>
+                                                    <div><span className="font-medium">Corners:</span> {project.corners || 'Not set'}</div>
+                                                    <div><span className="font-medium">Windows:</span> {project.windowWrap || 'Not set'}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
