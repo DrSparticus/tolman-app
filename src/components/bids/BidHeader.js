@@ -253,22 +253,26 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             </div>
                         )}
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Supervisor</label>
-                        <select 
-                            name="supervisor" 
-                            value={bid.supervisor || ''} 
-                            onChange={handleInputChange} 
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="">-- Select a Supervisor --</option>
-                            {supervisors.map(sup => (
-                                <option key={sup.id} value={sup.id}>
-                                    {sup.firstName} {sup.lastName}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    
+                    {/* Supervisor field - hide if user is a supervisor */}
+                    {userPermissions?.role !== 'supervisor' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Supervisor</label>
+                            <select 
+                                name="supervisor" 
+                                value={bid.supervisor || ''} 
+                                onChange={handleInputChange} 
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">-- Select a Supervisor --</option>
+                                {supervisors.map(sup => (
+                                    <option key={sup.id} value={sup.id}>
+                                        {sup.firstName} {sup.lastName}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     
                     {/* Material Stock Date - Show based on user permissions */}
                     {(userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.viewStockDate) && (

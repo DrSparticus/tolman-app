@@ -362,6 +362,13 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
         }
     }, [editingProjectId, db]);
 
+    // Auto-assign supervisor for new bids when user is a supervisor
+    useEffect(() => {
+        if (!editingProjectId && userData?.role === 'supervisor' && materials.length > 0 && bid.supervisor === '') {
+            setBid(prev => ({ ...prev, supervisor: userData.id }));
+        }
+    }, [editingProjectId, userData, materials, bid.supervisor]);
+
     // --- State Update Handlers ---
     const handleInputChange = useCallback((e) => {
         const { name, value, type, checked } = e.target;
