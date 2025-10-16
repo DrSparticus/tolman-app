@@ -19,6 +19,7 @@ import AdministrationPage from './pages/AdministrationPage';
 import CustomersPage from './pages/CustomersPage';
 import ProjectsPage from './pages/ProjectsPage';
 import SuppliersPage from './pages/SuppliersPage';
+import CrewsPage from './pages/CrewsPage';
 import PendingApprovalPage from './pages/PendingApprovalPage';
 import AccountDisabledPage from './pages/AccountDisabledPage';
 
@@ -237,6 +238,8 @@ export default function App() {
                 return <HomePage setCurrentPage={setCurrentPage} userData={userData} />;
             case 'materials':
                 return hasAccess('materials') ? <MaterialsPage db={db} /> : <AccessDeniedPage />;
+            case 'crews':
+                return hasAccess('crews') ? <CrewsPage db={db} /> : <AccessDeniedPage />;
             case 'users':
                 return hasAccess('users') ? <UsersPage db={db} currentUser={user} /> : <AccessDeniedPage />;
             case 'profile':
