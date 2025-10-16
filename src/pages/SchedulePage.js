@@ -211,12 +211,11 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     };
 
     const generateShortMapsUrl = async (coordinates, address) => {
-        // For now, use the coordinate-based URL which Google automatically shortens when shared
-        // In the future, we could integrate with Google's URL shortening API
+        // Use the standard Google Maps URL format
         if (coordinates && coordinates.lat && coordinates.lng) {
-            return `https://maps.app.goo.gl/?q=${coordinates.lat},${coordinates.lng}`;
+            return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
         } else if (address) {
-            return `https://maps.app.goo.gl/?q=${encodeURIComponent(address)}`;
+            return `https://www.google.com/maps?q=${encodeURIComponent(address)}`;
         }
         return '';
     };
@@ -599,17 +598,17 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                         </div>
                                     </div>
 
-                                    {/* Mobile Notes - Always Visible */}
-                                    {project.notes && (
-                                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                            <div className="text-xs font-medium text-gray-700 mb-1">Notes:</div>
-                                            <div className="text-sm text-gray-800">{project.notes}</div>
-                                        </div>
-                                    )}
-
                                     {/* Mobile Expanded Details */}
                                     {expandedRows.has(project.id) && (
                                         <div className="mt-4 space-y-4">
+                                            {/* Mobile Notes - Only in Expanded View */}
+                                            {project.notes && (
+                                                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                                    <div className="text-xs font-medium text-gray-700 mb-1">Notes:</div>
+                                                    <div className="text-sm text-gray-800">{project.notes}</div>
+                                                </div>
+                                            )}
+
                                             {/* Crew Assignment Section */}
                                             <div className="grid grid-cols-1 gap-4">
                                                 <div>
