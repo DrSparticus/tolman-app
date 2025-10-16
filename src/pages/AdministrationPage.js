@@ -57,7 +57,9 @@ const AdministrationPage = ({ db }) => {
             { id: 'view', name: 'View Projects' },
             { id: 'edit', name: 'Edit Projects' },
             { id: 'schedule', name: 'Edit Schedule' },
-            { id: 'complete', name: 'Mark Complete' }
+            { id: 'complete', name: 'Mark Complete' },
+            { id: 'viewStockDate', name: 'View Stock Date' },
+            { id: 'changeStatus', name: 'Change Project Status' }
         ],
         changeOrders: [
             { id: 'view', name: 'View Change Orders' },

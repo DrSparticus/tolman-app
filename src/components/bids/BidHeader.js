@@ -169,7 +169,15 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                     </div>
                 </div>
 
-                <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${(userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.viewStockDate) ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
+                <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${
+                    (userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.viewStockDate) && 
+                    (userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.changeStatus) 
+                        ? 'xl:grid-cols-6' 
+                        : (userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.viewStockDate) || 
+                          (userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.changeStatus)
+                            ? 'xl:grid-cols-5' 
+                            : 'xl:grid-cols-4'
+                }`}>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Project Name</label>
                         <DeferredInput
@@ -273,6 +281,26 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                                 onBlur={handleInputChange} 
                                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                             />
+                        </div>
+                    )}
+
+                    {/* Project Status - Show based on user permissions */}
+                    {(userPermissions?.role === 'admin' || userPermissions?.permissions?.projects?.changeStatus) && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Project Status</label>
+                            <select
+                                name="status"
+                                value={bid.status || 'bid'}
+                                onChange={handleInputChange}
+                                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="bid">Bid</option>
+                                <option value="stocked">Stocked</option>
+                                <option value="hung">Hung</option>
+                                <option value="taped">Taped</option>
+                                <option value="qcd">QC'd</option>
+                                <option value="paid">Paid</option>
+                            </select>
                         </div>
                     )}
                 </div>

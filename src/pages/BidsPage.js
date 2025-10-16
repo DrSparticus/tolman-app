@@ -800,11 +800,13 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 bidData.materialPricingDate = new Date().toISOString();
             }
 
-            if (bid.materialStockDate && bid.status === 'bid') {
-                // Convert bid to project with T-series job number when material stock date is set
+            // Convert bid to project when material stock date is set
+            if (bidData.materialStockDate && (bidData.status === 'bid' || !bidData.status)) {
+                console.log('Converting bid to project - materialStockDate:', bidData.materialStockDate, 'current status:', bidData.status);
                 const projectJobNumber = await generateJobNumber(db, 'T');
                 bidData.jobNumber = projectJobNumber;
                 bidData.status = 'stocked';
+                console.log('Assigned new job number:', projectJobNumber, 'new status:', bidData.status);
             }
 
             if (bid.id && originalBid) {
