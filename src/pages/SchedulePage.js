@@ -404,6 +404,19 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                     >
                                                         <CopyIcon />
                                                     </button>
+                                                    {(project.hangCrew && project.tapeCrew) ? (
+                                                        <button
+                                                            onClick={() => handleQCButtonClick(project)}
+                                                            className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                                                project.qcd 
+                                                                    ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                                                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                                            }`}
+                                                            title={project.qcd ? 'Mark as unfinished' : 'Mark as finished'}
+                                                        >
+                                                            {project.qcd ? 'Finished ✓' : 'Finished'}
+                                                        </button>
+                                                    ) : null}
                                                 </div>
                                             </td>
                                         </tr>
@@ -467,31 +480,6 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                                 className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                                 placeholder="Enter pre-lien number"
                                                             />
-                                                        </div>
-
-                                                        {/* QC Button */}
-                                                        <div className="flex items-center">
-                                                            {(project.hangCrew && project.tapeCrew) ? (
-                                                                <button
-                                                                    onClick={() => handleQCButtonClick(project)}
-                                                                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                                                        project.qcd 
-                                                                            ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                                                                            : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                                                                    }`}
-                                                                >
-                                                                    {project.qcd ? 'QC\'d ✓' : 'Mark QC\'d'}
-                                                                </button>
-                                                            ) : (
-                                                                <span className="text-xs text-gray-400">
-                                                                    Assign both crews first
-                                                                </span>
-                                                            )}
-                                                            {project.qcdDate && (
-                                                                <div className="text-xs text-gray-500 ml-2">
-                                                                    {new Date(project.qcdDate).toLocaleDateString()}
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </div>
 
@@ -573,6 +561,19 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                             >
                                                 <CopyIcon />
                                             </button>
+                                            {(project.hangCrew && project.tapeCrew) ? (
+                                                <button
+                                                    onClick={() => handleQCButtonClick(project)}
+                                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                                        project.qcd 
+                                                            ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                                            : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                                    }`}
+                                                    title={project.qcd ? 'Mark as unfinished' : 'Mark as finished'}
+                                                >
+                                                    {project.qcd ? 'Finished ✓' : 'Finished'}
+                                                </button>
+                                            ) : null}
                                         </div>
                                     </div>
 
@@ -665,30 +666,6 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                         placeholder="Enter pre-lien number"
                                                     />
                                                 </div>
-
-                                                <div className="flex items-center justify-between">
-                                                    {(project.hangCrew && project.tapeCrew) ? (
-                                                        <button
-                                                            onClick={() => handleQCButtonClick(project)}
-                                                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                                                                project.qcd 
-                                                                    ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                                                                    : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                                                            }`}
-                                                        >
-                                                            {project.qcd ? 'QC\'d ✓' : 'Mark QC\'d'}
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-sm text-gray-400">
-                                                            Assign both crews first
-                                                        </span>
-                                                    )}
-                                                    {project.qcdDate && (
-                                                        <div className="text-xs text-gray-500">
-                                                            {new Date(project.qcdDate).toLocaleDateString()}
-                                                        </div>
-                                                    )}
-                                                </div>
                                             </div>
 
                                             {/* Finishes Section */}
@@ -749,7 +726,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                     onClick={handleQCConfirm}
                                     className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
                                 >
-                                    Yes, Mark QC'd
+                                    Yes, Mark Finished
                                 </button>
                                 <button
                                     type="button"

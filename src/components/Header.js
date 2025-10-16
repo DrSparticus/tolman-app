@@ -96,11 +96,11 @@ const Header = ({ userData, onSignOut, setCurrentPage, currentPage }) => {
             {/* Mobile header */}
             <header className="md:hidden bg-white border-b border-gray-200 sticky top-0 z-30">
                 <div className="flex items-center justify-between h-16 px-4">
+                    <button ref={trigger} onClick={() => setMobileNavOpen(true)} className="p-2 -ml-2 rounded-md text-gray-500 hover:bg-gray-100">
+                        <MenuIcon />
+                    </button>
                     <button type="button" onClick={() => setCurrentPage('home')} className="flex items-center h-full">
                         <img src={TolmanLogo} alt="Tolman Construction Logo" className="h-10 w-auto" />
-                    </button>
-                    <button ref={trigger} onClick={() => setMobileNavOpen(true)} className="p-2 -mr-2 rounded-md text-gray-500 hover:bg-gray-100">
-                        <MenuIcon />
                     </button>
                 </div>
             </header>
