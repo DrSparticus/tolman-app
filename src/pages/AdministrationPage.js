@@ -109,6 +109,17 @@ const AdministrationPage = ({ db }) => {
                 const dbRole = rolesData.find(r => r.id === predefined.id);
                 if (dbRole) {
                     console.log(`Found existing role: ${predefined.id}`, dbRole);
+                    // For admin role, always ensure all permissions are true
+                    if (predefined.id === 'admin') {
+                        const adminPermissions = getDefaultPermissions('admin');
+                        console.log('Ensuring admin has all permissions:', adminPermissions);
+                        // Update database with complete permissions if needed
+                        setDoc(doc(db, rolesPath, predefined.id), {
+                            name: predefined.name,
+                            permissions: adminPermissions
+                        }, { merge: true });
+                        return { ...predefined, ...dbRole, permissions: adminPermissions };
+                    }
                     return { ...predefined, ...dbRole };
                 } else {
                     // Create default permissions for new predefined roles
@@ -168,7 +179,8 @@ const AdministrationPage = ({ db }) => {
     };
 
     const handlePermissionChange = async (roleId, pageId, permissionId, hasPermission) => {
-        if (predefinedRoles.find(r => r.id === roleId)?.isProtected && roleId === 'admin') return;
+        // Don't allow manual changes to admin permissions - they should always be true
+        if (roleId === 'admin') return;
         
         const roleDocRef = doc(db, rolesPath, roleId);
         await setDoc(roleDocRef, {
@@ -252,7 +264,7 @@ const AdministrationPage = ({ db }) => {
                 
                 <div className="bg-white p-6 rounded-lg shadow-lg">
                     <p className="text-gray-600 mb-4">
-                        Configure permissions for each role. Admin role has all permissions by default and cannot be modified.
+                        Configure permissions for each role. Admin role automatically has all permissions and cannot be modified.
                     </p>
                     
                     <div className="space-y-4">
