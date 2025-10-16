@@ -311,16 +311,17 @@ export default function BidHeader({ bid, handleInputChange, supervisors, finishe
                             <label className="block text-sm font-medium text-gray-700">Project Status</label>
                             <select
                                 name="status"
-                                value={bid.status || 'bid'}
+                                value={bid.status || 'Bid'}
                                 onChange={handleInputChange}
                                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             >
-                                <option value="bid">Bid</option>
-                                <option value="stocked">Stocked</option>
-                                <option value="hung">Hung</option>
-                                <option value="taped">Taped</option>
-                                <option value="qcd">QC'd</option>
-                                <option value="paid">Paid</option>
+                                <option value="Bid">Bid</option>
+                                <option value="Stocked">Stocked</option>
+                                <option value="Production">Production</option>
+                                <option value="QC'd">QC'd</option>
+                                <option value="Paid">Paid</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Inactive">Inactive</option>
                             </select>
                         </div>
                     )}

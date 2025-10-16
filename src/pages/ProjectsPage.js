@@ -52,23 +52,24 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                 if (activeTab === 'trash') return p.deleted;
                 if (p.deleted) return false;
 
-                // Check for inactive projects (bids not updated in 90+ days)
-                const isOldBid = p.status === 'bid' && p.updatedAt && 
+                // Check for inactive projects (bids not updated in 90+ days OR status is Inactive)
+                const isOldBid = p.status === 'Bid' && p.updatedAt && 
                     (new Date() - new Date(p.updatedAt)) > (90 * 24 * 60 * 60 * 1000);
+                const isInactive = p.status === 'Inactive' || isOldBid;
 
                 switch (activeTab) {
                     case 'all':
-                        return !isOldBid; // All active projects except old bids
+                        return !isInactive; // All active projects except inactive ones
                     case 'bids':
-                        return p.status === 'bid' && !isOldBid;
+                        return p.status === 'Bid' && !isOldBid;
                     case 'scheduled':
-                        return ['stocked', 'hung', 'taped'].includes(p.status);
+                        return ['Stocked', 'Production'].includes(p.status);
                     case 'qcd':
-                        return p.status === 'qcd';
+                        return p.status === 'QC\'d';
                     case 'finished':
-                        return p.status === 'paid';
+                        return ['Paid', 'Completed'].includes(p.status);
                     case 'inactive':
-                        return isOldBid;
+                        return isInactive;
                     default:
                         return true;
                 }
@@ -254,16 +255,17 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                         </button>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${
-                                            project.status === 'bid' ? 'bg-yellow-200 text-yellow-800' :
-                                            project.status === 'stocked' ? 'bg-blue-200 text-blue-800' :
-                                            project.status === 'hung' ? 'bg-orange-200 text-orange-800' :
-                                            project.status === 'taped' ? 'bg-purple-200 text-purple-800' :
-                                            project.status === 'qcd' ? 'bg-indigo-200 text-indigo-800' :
-                                            project.status === 'paid' ? 'bg-green-200 text-green-800' :
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                            project.status === 'Bid' ? 'bg-yellow-200 text-yellow-800' :
+                                            project.status === 'Stocked' ? 'bg-blue-200 text-blue-800' :
+                                            project.status === 'Production' ? 'bg-orange-200 text-orange-800' :
+                                            project.status === 'QC\'d' ? 'bg-indigo-200 text-indigo-800' :
+                                            project.status === 'Paid' ? 'bg-green-200 text-green-800' :
+                                            project.status === 'Completed' ? 'bg-emerald-200 text-emerald-800' :
+                                            project.status === 'Inactive' ? 'bg-gray-200 text-gray-800' :
                                             'bg-gray-200 text-gray-800'
                                         }`}>
-                                            {project.status === 'qcd' ? "QC'd" : project.status}
+                                            {project.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">{project.address}</td>

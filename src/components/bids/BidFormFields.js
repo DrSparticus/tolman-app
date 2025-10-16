@@ -343,7 +343,7 @@ export const BidFormFields = React.memo(({
     );
 
     const MaterialStockSection = () => {
-        if (bid.status !== 'bid') return null;
+        if (bid.status !== 'Bid') return null;
         
         return (
             <div className="col-span-4 pt-4 mt-4 border-t">

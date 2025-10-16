@@ -823,11 +823,11 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             }
 
             // Convert bid to project when material stock date is set
-            if (bidData.materialStockDate && (bidData.status === 'bid' || !bidData.status)) {
+            if (bidData.materialStockDate && (bidData.status === 'Bid' || !bidData.status)) {
                 console.log('Converting bid to project - materialStockDate:', bidData.materialStockDate, 'current status:', bidData.status);
                 const projectJobNumber = await generateJobNumber(db, 'T');
                 bidData.jobNumber = projectJobNumber;
-                bidData.status = 'stocked';
+                bidData.status = 'Stocked';
                 console.log('Assigned new job number:', projectJobNumber, 'new status:', bidData.status);
             }
 
@@ -907,7 +907,7 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
                 const jobNumber = await generateJobNumber(db, 'B');
                 bidData.jobNumber = jobNumber;
                 
-                const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'bid' });
+                const docRef = await addDoc(collection(db, projectsPath), { ...bidData, createdAt: new Date().toISOString(), status: 'Bid' });
                 const newBidState = { 
                     ...bid, 
                     id: docRef.id, 

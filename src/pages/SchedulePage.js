@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, onSnapshot, query, where, doc, updateDoc } from 'firebase/firestore';
 import { SortIcon, ExpandIcon, CopyIcon } from '../Icons.js';
 
@@ -15,6 +15,7 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     const [qcModal, setQcModal] = useState({ isOpen: false, projectId: null, projectName: '' });
     const [editingCrewNotes, setEditingCrewNotes] = useState(new Set());
     const [tempCrewNotes, setTempCrewNotes] = useState({});
+    const textareaRefs = useRef({});
 
     const getUserName = (userData) => {
         // Prioritize firstName + lastName combination for accuracy
@@ -28,6 +29,7 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     // Check permissions
     const canViewAllSupervisors = userData?.role === 'admin' || userData?.permissions?.schedule?.viewAllSupervisors;
     const currentUserSupervisorId = userData?.role === 'supervisor' ? userData.id : null;
+    const canAccessPreLien = userData?.role === 'admin' || userData?.permissions?.preLien === true;
 
     useEffect(() => {
         if (!db) return;
@@ -42,7 +44,7 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
 
         const unsubscribeProjects = onSnapshot(projectsQuery, (snapshot) => {
             const projectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                .filter(project => !project.deleted && project.status !== 'qcd'); // Filter out deleted and QC'd projects
+                .filter(project => !project.deleted && project.status !== 'QC\'d'); // Filter out deleted and QC'd projects
             setProjects(projectsData);
         });
 
@@ -189,18 +191,18 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         const crewTypeLabel = crewType === 'hang' ? 'Hang Crew' : 'Tape Crew';
         
         // Determine status changes
-        const oldStatus = project?.status || 'stocked';
+        const oldStatus = project?.status || 'Stocked';
         let newStatus = oldStatus;
 
         if (crewType === 'hang') {
             updateData.hangCrew = crewId;
             updateData.hangAssignedDate = crewId ? now : null;
-            newStatus = crewId ? 'hung' : 'stocked';
+            newStatus = crewId ? 'Production' : 'Stocked';
             updateData.status = newStatus;
         } else if (crewType === 'tape') {
             updateData.tapeCrew = crewId;
             updateData.tapeAssignedDate = crewId ? now : null;
-            newStatus = crewId ? 'taped' : 'hung';
+            newStatus = crewId ? 'Production' : 'Production';
             updateData.status = newStatus;
         }
 
@@ -257,7 +259,7 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         const updateData = {
             qcd: isQCd,
             qcdDate: isQCd ? now : null,
-            status: isQCd ? 'qcd' : 'taped',
+            status: isQCd ? 'QC\'d' : 'Production',
             changeLog: [
                 ...(project?.changeLog || []),
                 changeLogEntry
@@ -305,6 +307,21 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
             [projectId]: project?.crewNotes || ''
         }));
         setEditingCrewNotes(prev => new Set([...prev, projectId]));
+        
+        // Focus the textarea and position cursor at end after state update
+        setTimeout(() => {
+            // Try both desktop and mobile textareas
+            const desktopTextarea = textareaRefs.current[projectId];
+            const mobileTextarea = textareaRefs.current[`mobile-${projectId}`];
+            const textarea = desktopTextarea || mobileTextarea;
+            
+            if (textarea) {
+                textarea.focus();
+                // Position cursor at end
+                const length = textarea.value.length;
+                textarea.setSelectionRange(length, length);
+            }
+        }, 0);
     };
 
     const cancelEditingCrewNotes = (projectId) => {
@@ -609,18 +626,20 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Not
                                                         </div>
 
                                                         {/* Pre-lien */}
-                                                        <div>
-                                                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                                Pre-lien #
-                                                            </label>
-                                                            <input
-                                                                type="text"
-                                                                value={project.preLienNumber || ''}
-                                                                onChange={(e) => updateDoc(doc(db, projectsPath, project.id), { preLienNumber: e.target.value })}
-                                                                className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                                placeholder="Enter pre-lien number"
-                                                            />
-                                                        </div>
+                                                        {canAccessPreLien && (
+                                                            <div>
+                                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                                    Pre-lien #
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={project.preLienNumber || ''}
+                                                                    onChange={(e) => updateDoc(doc(db, projectsPath, project.id), { preLienNumber: e.target.value })}
+                                                                    className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                                    placeholder="Enter pre-lien number"
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* Finishes Display */}
@@ -632,54 +651,58 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Not
                                                             <div><span className="font-medium">Windows:</span> {project.windowWrap || 'Not set'}</div>
                                                         </div>
                                                         
-                                                        {/* Bid Notes (read-only) */}
-                                                        {project.notes && (
-                                                            <div className="mt-3">
-                                                                <span className="font-medium text-xs">Bid Notes:</span>
-                                                                <p className="text-xs text-gray-600 mt-1">{project.notes}</p>
-                                                            </div>
-                                                        )}
-                                                        
-                                                        {/* Crew Notes (editable) */}
-                                                        <div className="mt-3">
-                                                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                                Crew Notes:
-                                                            </label>
-                                                            {editingCrewNotes.has(project.id) ? (
+                                                        {/* Notes Section - Responsive Grid */}
+                                                        <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                                            {/* Bid Notes (read-only) */}
+                                                            {project.notes && (
                                                                 <div>
-                                                                    <textarea
-                                                                        value={tempCrewNotes[project.id] || ''}
-                                                                        onChange={(e) => setTempCrewNotes(prev => ({
-                                                                            ...prev,
-                                                                            [project.id]: e.target.value
-                                                                        }))}
-                                                                        placeholder="Enter notes for the crew..."
-                                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                                        rows="2"
-                                                                    />
-                                                                    <div className="flex gap-2 mt-2">
-                                                                        <button
-                                                                            onClick={() => saveCrewNotes(project.id)}
-                                                                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                                                                        >
-                                                                            Save
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => cancelEditingCrewNotes(project.id)}
-                                                                            className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <div 
-                                                                    onClick={() => startEditingCrewNotes(project.id)}
-                                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs cursor-pointer hover:bg-gray-50 min-h-[40px] flex items-start"
-                                                                >
-                                                                    {project.crewNotes || 'Click to add crew notes...'}
+                                                                    <span className="font-medium text-xs">Bid Notes:</span>
+                                                                    <p className="text-xs text-gray-600 mt-1">{project.notes}</p>
                                                                 </div>
                                                             )}
+                                                            
+                                                            {/* Crew Notes (editable) */}
+                                                            <div className={project.notes ? '' : 'xl:col-span-2'}>
+                                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                                    Crew Notes:
+                                                                </label>
+                                                                {editingCrewNotes.has(project.id) ? (
+                                                                    <div>
+                                                                        <textarea
+                                                                            ref={el => textareaRefs.current[project.id] = el}
+                                                                            value={tempCrewNotes[project.id] || ''}
+                                                                            onChange={(e) => setTempCrewNotes(prev => ({
+                                                                                ...prev,
+                                                                                [project.id]: e.target.value
+                                                                            }))}
+                                                                            placeholder="Enter notes for the crew..."
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                                            rows="2"
+                                                                        />
+                                                                        <div className="flex gap-2 mt-2">
+                                                                            <button
+                                                                                onClick={() => saveCrewNotes(project.id)}
+                                                                                className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                                                            >
+                                                                                Save
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => cancelEditingCrewNotes(project.id)}
+                                                                                className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500"
+                                                                            >
+                                                                                Cancel
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div 
+                                                                        onClick={() => startEditingCrewNotes(project.id)}
+                                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs cursor-pointer hover:bg-gray-50 min-h-[40px] flex items-start"
+                                                                    >
+                                                                        {project.crewNotes || 'Click to add crew notes...'}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -805,6 +828,7 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Not
                                                         {editingCrewNotes.has(project.id) ? (
                                                             <div>
                                                                 <textarea
+                                                                    ref={el => textareaRefs.current[`mobile-${project.id}`] = el}
                                                                     value={tempCrewNotes[project.id] || ''}
                                                                     onChange={(e) => setTempCrewNotes(prev => ({
                                                                         ...prev,
@@ -885,18 +909,20 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Not
                                                     )}
                                                 </div>
 
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                        Pre-lien #
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={project.preLienNumber || ''}
-                                                        onChange={(e) => updateDoc(doc(db, projectsPath, project.id), { preLienNumber: e.target.value })}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                        placeholder="Enter pre-lien number"
-                                                    />
-                                                </div>
+                                                {canAccessPreLien && (
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                            Pre-lien #
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={project.preLienNumber || ''}
+                                                            onChange={(e) => updateDoc(doc(db, projectsPath, project.id), { preLienNumber: e.target.value })}
+                                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                            placeholder="Enter pre-lien number"
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Finishes Section */}
