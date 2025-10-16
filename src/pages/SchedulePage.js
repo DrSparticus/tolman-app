@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, query, where, doc, updateDoc } from 'firebase/firestore';
-import { SortIcon } from '../Icons.js';
+import { SortIcon, ExpandIcon, CopyIcon } from '../Icons.js';
 
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
@@ -67,22 +67,44 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
             const supervisor = supervisors.find(s => s.id === project.supervisor);
             const supervisorName = supervisor ? `${supervisor.firstName} ${supervisor.lastName}` : 'Unassigned';
             
-            // Calculate total square footage
+            // Calculate total square footage using actual dimensions
             let finishedSqFt = 0;
             let unfinishedSqFt = 0;
             
             project.areas?.forEach(area => {
-                area.materials?.forEach(material => {
-                    const totalQuantity = material.variants?.reduce((sum, variant) => 
-                        sum + (parseFloat(variant.quantity) || 0), 0
-                    ) || parseFloat(material.quantity) || 0;
+                let areaSqFt = 0;
+                
+                area.materials?.forEach(areaMat => {
+                    let materialSqFt = 0;
                     
-                    if (area.isFinished) {
-                        finishedSqFt += totalQuantity;
-                    } else {
-                        unfinishedSqFt += totalQuantity;
+                    if (areaMat.variants && areaMat.variants.length > 0) {
+                        materialSqFt = areaMat.variants.reduce((total, variant) => {
+                            const widthFt = parseFloat(variant.widthFt) || 0;
+                            const widthIn = parseFloat(variant.widthIn) || 0;
+                            const lengthFt = parseFloat(variant.lengthFt) || 0;
+                            const lengthIn = parseFloat(variant.lengthIn) || 0;
+                            const quantity = parseFloat(variant.quantity) || 0;
+                            
+                            const widthInches = (widthFt * 12) + widthIn;
+                            const lengthInches = (lengthFt * 12) + lengthIn;
+                            const sqFtPerPiece = (widthInches * lengthInches) / 144;
+                            
+                            return total + (sqFtPerPiece * quantity);
+                        }, 0);
+                    }
+                    
+                    // Only count drywall board for square footage
+                    // For now, assume all materials in area contribute to square footage
+                    if (materialSqFt > 0) {
+                        areaSqFt += materialSqFt;
                     }
                 });
+                
+                if (area.isFinished) {
+                    finishedSqFt += areaSqFt;
+                } else {
+                    unfinishedSqFt += areaSqFt;
+                }
             });
 
             return {
@@ -162,23 +184,48 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         });
     };
 
+    const generateShortMapsUrl = async (coordinates, address) => {
+        // For now, use the coordinate-based URL which Google automatically shortens when shared
+        // In the future, we could integrate with Google's URL shortening API
+        if (coordinates && coordinates.lat && coordinates.lng) {
+            return `https://maps.app.goo.gl/?q=${coordinates.lat},${coordinates.lng}`;
+        } else if (address) {
+            return `https://maps.app.goo.gl/?q=${encodeURIComponent(address)}`;
+        }
+        return '';
+    };
+
     const copyJobInfo = async (project) => {
-        // Generate Google Maps short link
-        const address = project.address || '';
-        const mapsUrl = `https://maps.google.com/maps?q=${encodeURIComponent(address)}`;
+        // Generate Google Maps URL using GPS coordinates if available
+        const mapsUrl = await generateShortMapsUrl(project.coordinates, project.address);
         
-        // Build areas text
+        // Build areas text with proper square footage calculation
         let areasText = 'Areas:\n';
         project.areas?.forEach(area => {
-            const totalSqFt = area.materials?.reduce((sum, material) => {
-                return sum + (material.variants?.reduce((vSum, variant) => 
-                    vSum + (parseFloat(variant.quantity) || 0), 0
-                ) || parseFloat(material.quantity) || 0);
-            }, 0) || 0;
+            let areaSqFt = 0;
+            
+            area.materials?.forEach(areaMat => {
+                if (areaMat.variants && areaMat.variants.length > 0) {
+                    const materialSqFt = areaMat.variants.reduce((total, variant) => {
+                        const widthFt = parseFloat(variant.widthFt) || 0;
+                        const widthIn = parseFloat(variant.widthIn) || 0;
+                        const lengthFt = parseFloat(variant.lengthFt) || 0;
+                        const lengthIn = parseFloat(variant.lengthIn) || 0;
+                        const quantity = parseFloat(variant.quantity) || 0;
+                        
+                        const widthInches = (widthFt * 12) + widthIn;
+                        const lengthInches = (lengthFt * 12) + lengthIn;
+                        const sqFtPerPiece = (widthInches * lengthInches) / 144;
+                        
+                        return total + (sqFtPerPiece * quantity);
+                    }, 0);
+                    areaSqFt += materialSqFt;
+                }
+            });
 
             const finishedText = area.isFinished ? '' : ' (unfinished)';
             const vaultText = area.vaultHeights ? ` (Vaults: ${area.vaultHeights})` : '';
-            areasText += `  ${area.name} ${Math.round(totalSqFt)} sq ft${finishedText}${vaultText}\n`;
+            areasText += `  ${area.name} ${Math.round(areaSqFt)} sq ft${finishedText}${vaultText}\n`;
         });
 
         // Build finishes text
@@ -191,7 +238,7 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
 
         const jobInfo = `Job: ${project.projectName} (${project.jobNumber})
 Customer: ${project.contractor}
-Address: ${address}
+Address: ${project.address || 'No address'}
 ${mapsUrl}
 
 ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: ${project.notes}` : ''}`.trim();
@@ -285,15 +332,17 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.notes ? `Notes: 
                                                 <div className="flex justify-center space-x-2">
                                                     <button
                                                         onClick={() => toggleExpanded(project.id)}
-                                                        className="px-3 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded text-sm font-medium"
+                                                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full"
+                                                        title={expandedRows.has(project.id) ? 'Collapse' : 'Expand'}
                                                     >
-                                                        {expandedRows.has(project.id) ? 'Collapse' : 'Expand'}
+                                                        <ExpandIcon isExpanded={expandedRows.has(project.id)} />
                                                     </button>
                                                     <button
                                                         onClick={() => copyJobInfo(project)}
-                                                        className="px-3 py-1 text-green-600 hover:text-green-800 hover:bg-green-100 rounded text-sm font-medium"
+                                                        className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full"
+                                                        title="Copy job info to clipboard"
                                                     >
-                                                        Copy
+                                                        <CopyIcon />
                                                     </button>
                                                 </div>
                                             </td>
