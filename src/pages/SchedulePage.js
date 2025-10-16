@@ -5,6 +5,7 @@ import { SortIcon, ExpandIcon, CopyIcon } from '../Icons.js';
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
 const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
+const crewsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/crews`;
 
 const SchedulePage = ({ db, userData, onEditProject }) => {
     const [projects, setProjects] = useState([]);
@@ -43,7 +44,7 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         });
 
         // Fetch crews
-        const crewsCollection = collection(db, configPath, 'labor', 'crewTypes');
+        const crewsCollection = collection(db, crewsPath);
         const unsubscribeCrews = onSnapshot(crewsCollection, (snapshot) => {
             const crewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setCrews(crewsData);
