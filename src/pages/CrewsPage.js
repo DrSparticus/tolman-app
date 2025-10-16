@@ -4,34 +4,56 @@ import { PlusIcon, EditIcon, DeleteIcon, SortIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 const crewsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/crews`;
+const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`;
 
-const CrewsPage = ({ db }) => {
+const CrewsPage = ({ db, userData }) => {
     const [crews, setCrews] = useState([]);
+    const [laborCrewTypes, setLaborCrewTypes] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCrew, setEditingCrew] = useState(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [crewToDelete, setCrewToDelete] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+    
+    // Create initial crew types object from labor config
+    const getInitialCrewTypes = () => {
+        const initialTypes = {};
+        laborCrewTypes.forEach(type => {
+            // Convert crew type names to lowercase keys for consistency
+            const key = type.name.toLowerCase().replace(/\s+/g, '');
+            initialTypes[key] = false;
+        });
+        return initialTypes;
+    };
+
     const [formData, setFormData] = useState({
         name: '',
         contractorType: 'employee',
         members: [''],
-        crewTypes: {
-            hanger: false,
-            taper: false,
-            framer: false,
-            patch: false
-        }
+        crewTypes: getInitialCrewTypes()
     });
 
     useEffect(() => {
         if (!db) return;
+        
+        // Load crews
         const crewsCollection = collection(db, crewsPath);
-        const unsubscribe = onSnapshot(crewsCollection, (snapshot) => {
+        const unsubscribeCrews = onSnapshot(crewsCollection, (snapshot) => {
             const crewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setCrews(crewsData);
         });
-        return unsubscribe;
+
+        // Load labor crew types from config
+        const laborCrewTypesCollection = collection(db, configPath, 'labor', 'crewTypes');
+        const unsubscribeLaborTypes = onSnapshot(laborCrewTypesCollection, (snapshot) => {
+            const laborTypesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setLaborCrewTypes(laborTypesData);
+        });
+
+        return () => {
+            unsubscribeCrews();
+            unsubscribeLaborTypes();
+        };
     }, [db]);
 
     const sortedCrews = React.useMemo(() => {
@@ -66,12 +88,7 @@ const CrewsPage = ({ db }) => {
             name: '',
             contractorType: 'employee',
             members: [''],
-            crewTypes: {
-                hanger: false,
-                taper: false,
-                framer: false,
-                patch: false
-            }
+            crewTypes: getInitialCrewTypes()
         });
         setEditingCrew(null);
     };
@@ -79,16 +96,18 @@ const CrewsPage = ({ db }) => {
     const openModal = (crew = null) => {
         if (crew) {
             setEditingCrew(crew);
+            // Build crew types object dynamically from available types
+            const crewTypes = {};
+            laborCrewTypes.forEach(type => {
+                const key = type.name.toLowerCase().replace(/\s+/g, '');
+                crewTypes[key] = crew.crewTypes?.[key] || false;
+            });
+            
             setFormData({
                 name: crew.name || '',
                 contractorType: crew.contractorType || 'employee',
                 members: crew.members && crew.members.length > 0 ? crew.members : [''],
-                crewTypes: {
-                    hanger: crew.crewTypes?.hanger || false,
-                    taper: crew.crewTypes?.taper || false,
-                    framer: crew.crewTypes?.framer || false,
-                    patch: crew.crewTypes?.patch || false
-                }
+                crewTypes: crewTypes
             });
         } else {
             resetForm();
@@ -182,10 +201,12 @@ const CrewsPage = ({ db }) => {
 
     const getCrewTypeBadges = (crewTypes) => {
         const types = [];
-        if (crewTypes?.hanger) types.push('Hanger');
-        if (crewTypes?.taper) types.push('Taper');
-        if (crewTypes?.framer) types.push('Framer');
-        if (crewTypes?.patch) types.push('Patch');
+        laborCrewTypes.forEach(type => {
+            const key = type.name.toLowerCase().replace(/\s+/g, '');
+            if (crewTypes?.[key]) {
+                types.push(type.name);
+            }
+        });
         return types;
     };
 
@@ -382,12 +403,10 @@ const CrewsPage = ({ db }) => {
                                     Crew Types
                                 </label>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {[
-                                        { key: 'hanger', label: 'Hanger' },
-                                        { key: 'taper', label: 'Taper' },
-                                        { key: 'framer', label: 'Framer' },
-                                        { key: 'patch', label: 'Patch' }
-                                    ].map(({ key, label }) => (
+                                    {laborCrewTypes.map((type) => {
+                                        const key = type.name.toLowerCase().replace(/\s+/g, '');
+                                        return { key, label: type.name };
+                                    }).map(({ key, label }) => (
                                         <label key={key} className="flex items-center space-x-2 cursor-pointer">
                                             <input
                                                 type="checkbox"
