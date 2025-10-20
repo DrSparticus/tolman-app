@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, onSnapshot, query, where, doc, updateDoc } from 'firebase/firestore';
-import { SortIcon, ExpandIcon, CopyIcon } from '../Icons.js';
+import { SortIcon, ExpandIcon, ShareIcon } from '../Icons.js';
 
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
@@ -371,9 +371,11 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     const generateShortMapsUrl = async (coordinates, address) => {
         // Use the standard Google Maps URL format
         if (coordinates && coordinates.lat && coordinates.lng) {
-            return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
+            return `Maps: https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
         } else if (address) {
-            return `https://www.google.com/maps?q=${encodeURIComponent(address)}`;
+            // For addresses, use a simpler format that copies better
+            const cleanAddress = address.replace(/\s+/g, '+').replace(/[,]/g, '');
+            return `Maps: https://www.google.com/maps?q=${cleanAddress}`;
         }
         return '';
     };
@@ -399,7 +401,40 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         return indicators;
     };
 
-    const copyJobInfo = async (project) => {
+    const showShareNotification = (message, isError = false) => {
+        // Create a temporary notification element
+        const notification = document.createElement('div');
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background-color: ${isError ? '#fee2e2' : '#d1fae5'};
+            color: ${isError ? '#dc2626' : '#065f46'};
+            border: 1px solid ${isError ? '#fca5a5' : '#a7f3d0'};
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove notification after 3 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    };
+
+    const shareJobInfo = async (project) => {
         // Generate Google Maps URL using GPS coordinates if available
         const mapsUrl = await generateShortMapsUrl(project.coordinates, project.address);
         
@@ -440,19 +475,82 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
             project.windowWrap ? `Windows: ${project.windowWrap}` : ''
         ].filter(Boolean).join('\n');
 
-        const jobInfo = `Job: ${project.projectName} (${project.jobNumber})
-Customer: ${project.contractor}
-Address: ${project.address || 'No address'}
-${mapsUrl}
+        // Create properly formatted text that works in all browsers
+        const jobInfoParts = [
+            `Job: ${project.projectName} (${project.jobNumber})`,
+            `Customer: ${project.contractor}`,
+            `Address: ${project.address || 'No address'}`
+        ];
+        
+        // Add Maps URL if available
+        if (mapsUrl) {
+            jobInfoParts.push(mapsUrl);
+        }
+        
+        // Add empty line before areas
+        jobInfoParts.push('');
+        
+        // Add areas
+        if (areasText.trim()) {
+            jobInfoParts.push(areasText.trim());
+        }
+        
+        // Add finishes
+        if (finishesText) {
+            jobInfoParts.push(finishesText);
+        }
+        
+        // Add notes
+        if (project.crewNotes) {
+            jobInfoParts.push(`Notes: ${project.crewNotes}`);
+        }
+        
+        const jobInfo = jobInfoParts.join('\n').trim();
 
-${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Notes: ${project.crewNotes}` : ''}`.trim();
+        // Check if Web Share API is supported
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `Job Info: ${project.projectName} (${project.jobNumber})`,
+                    text: jobInfo,
+                    // Note: URL sharing is optional and can be omitted if not needed
+                    ...(mapsUrl && { url: mapsUrl.replace('Maps: ', '') })
+                });
+                console.log('Job info shared successfully');
+                return;
+            } catch (err) {
+                // User cancelled sharing or sharing failed
+                if (err.name !== 'AbortError') {
+                    console.error('Native sharing failed:', err);
+                }
+                // Fall through to clipboard copy
+            }
+        }
 
+        // Fallback: Copy to clipboard
         try {
             await navigator.clipboard.writeText(jobInfo);
-            // You might want to show a toast notification here
-            console.log('Job info copied to clipboard');
+            console.log('Job info copied to clipboard (sharing not supported)');
+            // Show a brief notification that it was copied
+            showShareNotification('Job info copied to clipboard');
         } catch (err) {
-            console.error('Failed to copy:', err);
+            console.error('Failed to copy to clipboard:', err);
+            // Fallback for older browsers or permission issues
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = jobInfo;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                console.log('Job info copied using fallback method');
+                showShareNotification('Job info copied to clipboard');
+            } catch (fallbackErr) {
+                console.error('All sharing methods failed:', fallbackErr);
+                showShareNotification('Failed to share job info', true);
+            }
         }
     };
 
@@ -555,11 +653,11 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Not
                                                         <ExpandIcon isExpanded={expandedRows.has(project.id)} />
                                                     </button>
                                                     <button
-                                                        onClick={() => copyJobInfo(project)}
+                                                        onClick={() => shareJobInfo(project)}
                                                         className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full"
-                                                        title="Copy job info to clipboard"
+                                                        title="Share job info"
                                                     >
-                                                        <CopyIcon />
+                                                        <ShareIcon />
                                                     </button>
                                                     {(project.hangCrew && project.tapeCrew) ? (
                                                         <button
@@ -762,11 +860,11 @@ ${areasText}${finishesText ? finishesText + '\n' : ''}${project.crewNotes ? `Not
                                                 <ExpandIcon isExpanded={expandedRows.has(project.id)} />
                                             </button>
                                             <button
-                                                onClick={() => copyJobInfo(project)}
+                                                onClick={() => shareJobInfo(project)}
                                                 className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full"
-                                                title="Copy job info to clipboard"
+                                                title="Share job info"
                                             >
-                                                <CopyIcon />
+                                                <ShareIcon />
                                             </button>
                                             {(project.hangCrew && project.tapeCrew) ? (
                                                 <button

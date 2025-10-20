@@ -16,10 +16,8 @@ import BidsPage from './pages/BidsPage';
 import SchedulePage from './pages/SchedulePage';
 import ChangeOrdersPage from './pages/ChangeOrdersPage';
 import AdministrationPage from './pages/AdministrationPage';
-import CustomersPage from './pages/CustomersPage';
+import ContactsPage from './pages/ContactsPage';
 import ProjectsPage from './pages/ProjectsPage';
-import SuppliersPage from './pages/SuppliersPage';
-import CrewsPage from './pages/CrewsPage';
 import PendingApprovalPage from './pages/PendingApprovalPage';
 import AccountDisabledPage from './pages/AccountDisabledPage';
 
@@ -238,8 +236,12 @@ export default function App() {
                 return <HomePage setCurrentPage={setCurrentPage} userData={userData} />;
             case 'materials':
                 return hasAccess('materials') ? <MaterialsPage db={db} /> : <AccessDeniedPage />;
+            case 'contacts':
             case 'crews':
-                return hasAccess('crews') ? <CrewsPage db={db} /> : <AccessDeniedPage />;
+            case 'customers':
+            case 'suppliers':
+                return (hasAccess('crews') || hasAccess('customers') || hasAccess('suppliers')) ? 
+                    <ContactsPage db={db} userData={userData} /> : <AccessDeniedPage />;
             case 'users':
                 return hasAccess('users') ? <UsersPage db={db} currentUser={user} /> : <AccessDeniedPage />;
             case 'profile':
@@ -250,12 +252,8 @@ export default function App() {
                 return hasAccess('schedule') ? <SchedulePage db={db} userData={userData} onEditProject={handleEditProject} /> : <AccessDeniedPage />;
             case 'change-orders':
                 return hasAccess('change-orders') ? <ChangeOrdersPage /> : <AccessDeniedPage />;
-            case 'customers':
-                return hasAccess('customers') ? <CustomersPage db={db} /> : <AccessDeniedPage />;
             case 'projects':
                 return hasAccess('projects') ? <ProjectsPage db={db} userData={userData} onNewBid={handleNewBid} onEditProject={handleEditProject} /> : <AccessDeniedPage />;
-            case 'suppliers':
-                return hasAccess('suppliers') ? <SuppliersPage db={db} /> : <AccessDeniedPage />;
             case 'administration':
                 return hasAccess('administration') ? <AdministrationPage db={db} /> : <AccessDeniedPage />;
             default:

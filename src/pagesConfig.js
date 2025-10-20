@@ -8,9 +8,7 @@ import {
     UsersIcon,
     CustomersIcon,
     ProjectsIcon,
-    SuppliersIcon,
-    AdminIcon,
-    CrewsIcon
+    AdminIcon
 } from './Icons.js';
 
 export const pages = [
@@ -19,10 +17,8 @@ export const pages = [
     { id: 'projects', icon: <ProjectsIcon />, text: 'Projects' },
     { id: 'schedule', icon: <ScheduleIcon />, text: 'Schedule' },
     { id: 'change-orders', icon: <ChangeOrderIcon />, text: 'Change Orders' },
-    { id: 'customers', icon: <CustomersIcon />, text: 'Customers' },
-    { id: 'suppliers', icon: <SuppliersIcon />, text: 'Suppliers' },
+    { id: 'contacts', icon: <CustomersIcon />, text: 'Contacts' },
     { id: 'materials', icon: <MaterialsIcon />, text: 'Materials' },
-    { id: 'crews', icon: <CrewsIcon />, text: 'Crews' },
     { id: 'users', icon: <UsersIcon />, text: 'Users' },
     { id: 'administration', icon: <AdminIcon />, text: 'Administration' },
     // Profile page is managed but not displayed in nav lists
