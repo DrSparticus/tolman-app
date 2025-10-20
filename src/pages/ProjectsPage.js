@@ -3,6 +3,13 @@ import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc, addDoc
 import { PlusIcon, DeleteIcon, SortIcon, DuplicateIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
+// Search icon component
+const SearchIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+);
+
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
 const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
 
@@ -19,6 +26,8 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
     const [projectToPermanentlyDelete, setProjectToPermanentlyDelete] = useState(null);
     const [editingStatus, setEditingStatus] = useState({});
     const [pendingStatusChanges, setPendingStatusChanges] = useState({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     
     const isAdmin = userData?.role === 'admin';
 
@@ -80,6 +89,20 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                 const supervisor = supervisors.find(s => s.id === p.supervisor);
                 const supervisorName = supervisor ? `${supervisor.firstName} ${supervisor.lastName}` : 'N/A';
                 return { ...p, supervisorName };
+            })
+            .filter(p => {
+                // Apply search filter
+                if (!searchTerm) return true;
+                
+                const searchLower = searchTerm.toLowerCase();
+                return (
+                    (p.projectName || '').toLowerCase().includes(searchLower) ||
+                    (p.contractor || '').toLowerCase().includes(searchLower) ||
+                    (p.address || '').toLowerCase().includes(searchLower) ||
+                    (p.jobNumber || '').toLowerCase().includes(searchLower) ||
+                    (p.supervisorName || '').toLowerCase().includes(searchLower) ||
+                    (p.status || '').toLowerCase().includes(searchLower)
+                );
             });
 
         if (sortConfig !== null) {
@@ -97,7 +120,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             });
         }
         return sortableItems;
-    }, [projects, sortConfig, supervisors, activeTab]);
+    }, [projects, sortConfig, supervisors, activeTab, searchTerm]);
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -271,13 +294,74 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">Projects</h1>
-                <button
-                    onClick={onNewBid}
-                    className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
-                >
-                    <PlusIcon />
-                    <span className="ml-2">New Bid</span>
-                </button>
+                
+                <div className="flex items-center space-x-4">
+                    {/* Search Field */}
+                    <div className="relative">
+                        {/* Mobile: Search Icon that expands */}
+                        <div className="md:hidden">
+                            {!isSearchExpanded ? (
+                                <button
+                                    onClick={() => setIsSearchExpanded(true)}
+                                    className="p-2 text-gray-600 hover:text-gray-800 transition-colors"
+                                >
+                                    <SearchIcon />
+                                </button>
+                            ) : (
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Search projects..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        onBlur={() => {
+                                            if (!searchTerm) setIsSearchExpanded(false);
+                                        }}
+                                        autoFocus
+                                        className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setIsSearchExpanded(false);
+                                        }}
+                                        className="p-2 text-gray-600 hover:text-gray-800"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Desktop: Always visible search field */}
+                        <div className="hidden md:flex items-center relative">
+                            <SearchIcon className="absolute left-3 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search projects..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-3 text-gray-400 hover:text-gray-600"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={onNewBid}
+                        className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                    >
+                        <PlusIcon />
+                        <span className="ml-2">New Bid</span>
+                    </button>
+                </div>
             </div>
             
             {/* Tabs */}
