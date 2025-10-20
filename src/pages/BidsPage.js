@@ -832,6 +832,14 @@ export default function BidsPage({ db, setCurrentPage, editingProjectId, userDat
             }
 
             if (bid.id && originalBid) {
+                // Check if this project needs a job number (for duplicated projects)
+                if (!bid.jobNumber && !bidData.jobNumber) {
+                    console.log('Generating job number for existing project without one (likely duplicated)');
+                    const jobNumber = await generateJobNumber(db, 'B');
+                    bidData.jobNumber = jobNumber;
+                    console.log('Assigned job number to existing project:', jobNumber);
+                }
+                
                 // Generate detailed change log for existing bids using original Firebase data
                 console.log('Calling generateChangeLog with:', {
                     hasOriginalBid: !!originalBid,
