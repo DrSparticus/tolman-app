@@ -189,16 +189,18 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
         setPendingStatusChanges({ ...pendingStatusChanges });
     };
 
-    const duplicateProject = async (originalProject) => {
+    const [duplicateModal, setDuplicateModal] = useState({ isOpen: false, project: null });
+
+    const duplicateProject = async (originalProject, includeNotes = false) => {
         if (!db) return;
         
         // Create a new project with all the data except project-specific info
         const newProject = {
-            // Keep all the project details
+            // Keep all the project details and calculations
             areas: originalProject.areas || [],
             materials: originalProject.materials || [],
             
-            // Keep configuration
+            // Keep ALL configuration settings (finishes)
             wallTexture: originalProject.wallTexture || '',
             ceilingTexture: originalProject.ceilingTexture || '',
             corners: originalProject.corners || '',
@@ -210,31 +212,41 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             unfinishedTapingRate: originalProject.unfinishedTapingRate || '',
             autoTapeRate: originalProject.autoTapeRate || true,
             
-            // Keep contractor but clear crew assignments and scheduling data
+            // Keep contractor but conditionally copy notes
             contractor: originalProject.contractor || '',
-            crewNotes: '',
+            notes: includeNotes ? (originalProject.notes || '') : '',
             
-            // Reset project-specific fields and blank out project name
-            projectName: '',
-            jobNumber: '', // Will need to be filled in
+            // Keep all calculated totals and summaries (will recalculate in bid sheet)
+            totalMaterialCost: originalProject.totalMaterialCost || 0,
+            totalHangingLabor: originalProject.totalHangingLabor || 0,
+            totalTapingLabor: originalProject.totalTapingLabor || 0,
+            totalHangingSqFt: originalProject.totalHangingSqFt || 0,
+            totalTapingSqFt: originalProject.totalTapingSqFt || 0,
+            changeLog: [], // Start fresh change log for new project
+            
+            // CLEAR project-specific information fields
+            projectName: '', // Blank out as requested
+            jobNumber: '', 
             address: '',
             coordinates: null,
             
-            // Reset status and dates
-            status: 'Bid',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            
-            // Clear all scheduling and crew data
+            // CLEAR scheduling and administrative data
             supervisor: '',
             hangCrew: '',
             tapeCrew: '',
+            crewNotes: '', // Always clear crew notes (scheduling data)
+            materialStockDate: '', // Clear stock date (project info)
+            
+            // Reset status and dates to bid state
+            status: 'Bid',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             
             // Reset completion flags
             qcd: false,
             paid: false,
             
-            // Reset any scheduling data
+            // Reset any other scheduling/administrative data
             deleted: false
         };
 
@@ -243,10 +255,15 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             // Navigate directly to the bid sheet for the new project
             const newProjectWithId = { ...newProject, id: docRef.id };
             onEditProject(newProjectWithId);
+            setDuplicateModal({ isOpen: false, project: null });
         } catch (error) {
             console.error('Error duplicating project:', error);
             alert('Error duplicating project. Please try again.');
         }
+    };
+
+    const showDuplicateModal = (project) => {
+        setDuplicateModal({ isOpen: true, project });
     };
 
     const getSortDirection = (name) => sortConfig.key === name ? sortConfig.direction : undefined;
@@ -415,7 +432,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                         ) : (
                                             <div className="flex justify-end space-x-2">
                                                 <button 
-                                                    onClick={() => duplicateProject(project)}
+                                                    onClick={() => showDuplicateModal(project)}
                                                     className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full"
                                                     title="Duplicate Project"
                                                 >
@@ -459,6 +476,51 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                 title="Permanently Delete Project"
                 message={`Are you sure you want to permanently delete the project "${projectToPermanentlyDelete?.projectName}"? This action cannot be undone.`}
             />
+            
+            {/* Duplicate Project Modal */}
+            {duplicateModal.isOpen && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                    <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div className="mt-3">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                Duplicate Project
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                                This will create a copy of "{duplicateModal.project?.projectName}" with all finishes, rates, and configuration preserved. The project name will be cleared for you to enter a new one.
+                            </p>
+                            <div className="mb-4">
+                                <label className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        id="includeNotes"
+                                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="ml-2 text-sm text-gray-700">
+                                        Also copy project notes
+                                    </span>
+                                </label>
+                            </div>
+                            <div className="flex items-center justify-end space-x-2">
+                                <button
+                                    onClick={() => setDuplicateModal({ isOpen: false, project: null })}
+                                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const includeNotes = document.getElementById('includeNotes').checked;
+                                        duplicateProject(duplicateModal.project, includeNotes);
+                                    }}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                >
+                                    Duplicate Project
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
