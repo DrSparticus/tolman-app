@@ -520,9 +520,9 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
             try {
                 await navigator.share({
                     title: `Job Info: ${project.projectName} (${project.jobNumber})`,
-                    text: jobInfo,
-                    // Include the Maps URL as a separate shareable link if available
-                    ...(mapsInfo.url && { url: mapsInfo.url })
+                    text: jobInfo
+                    // Note: Not including URL separately since it's already in the text
+                    // and many share targets will duplicate it
                 });
                 console.log('Job info shared successfully');
                 return;
