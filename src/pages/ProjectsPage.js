@@ -204,16 +204,18 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             corners: originalProject.corners || '',
             windowWrap: originalProject.windowWrap || '',
             
-            // Keep crew assignments
-            hangCrew: originalProject.hangCrew || '',
-            tapeCrew: originalProject.tapeCrew || '',
+            // Copy hang and tape rates
+            finishedHangingRate: originalProject.finishedHangingRate || '',
+            finishedTapeRate: originalProject.finishedTapeRate || '',
+            unfinishedTapingRate: originalProject.unfinishedTapingRate || '',
+            autoTapeRate: originalProject.autoTapeRate || true,
             
-            // Keep contractor and notes structure
+            // Keep contractor but clear crew assignments and scheduling data
             contractor: originalProject.contractor || '',
             crewNotes: '',
             
-            // Reset project-specific fields
-            projectName: `${originalProject.projectName} - Copy`,
+            // Reset project-specific fields and blank out project name
+            projectName: '',
             jobNumber: '', // Will need to be filled in
             address: '',
             coordinates: null,
@@ -223,8 +225,10 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             
-            // Reset supervisor
+            // Clear all scheduling and crew data
             supervisor: '',
+            hangCrew: '',
+            tapeCrew: '',
             
             // Reset completion flags
             qcd: false,
@@ -235,8 +239,10 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
         };
 
         try {
-            await addDoc(collection(db, projectsPath), newProject);
-            alert('Project duplicated successfully! You can now edit the project details.');
+            const docRef = await addDoc(collection(db, projectsPath), newProject);
+            // Navigate directly to the bid sheet for the new project
+            const newProjectWithId = { ...newProject, id: docRef.id };
+            onEditProject(newProjectWithId);
         } catch (error) {
             console.error('Error duplicating project:', error);
             alert('Error duplicating project. Please try again.');
