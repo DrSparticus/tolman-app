@@ -69,7 +69,6 @@ const UsersPage = ({ db, currentUser }) => {
                                             className="border rounded p-1 disabled:opacity-50"
                                             disabled={user.id === currentUser.uid}
                                         >
-                                            <option value="admin">Admin</option>
                                             {roles.map(role => (
                                                 <option key={role.id} value={role.id}>{role.name}</option>
                                             ))}

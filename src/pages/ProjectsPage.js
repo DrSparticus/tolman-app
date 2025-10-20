@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { PlusIcon, DeleteIcon, SortIcon } from '../Icons.js';
+import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
+import { PlusIcon, DeleteIcon, SortIcon, DuplicateIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 const projectsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/projects`;
@@ -17,6 +17,8 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
     const [projectToRestore, setProjectToRestore] = useState(null);
     const [isPermanentDeleteModalOpen, setIsPermanentDeleteModalOpen] = useState(false);
     const [projectToPermanentlyDelete, setProjectToPermanentlyDelete] = useState(null);
+    const [editingStatus, setEditingStatus] = useState({});
+    const [pendingStatusChanges, setPendingStatusChanges] = useState({});
     
     const isAdmin = userData?.role === 'admin';
 
@@ -62,14 +64,14 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                         return !isInactive; // All active projects except inactive ones
                     case 'bids':
                         return p.status === 'Bid' && !isOldBid;
-                    case 'scheduled':
-                        return ['Stocked', 'Production'].includes(p.status);
-                    case 'qcd':
-                        return p.status === 'QC\'d';
+                    case 'production':
+                        return ['Stocked', 'Production', 'QC\'d'].includes(p.status);
                     case 'finished':
                         return ['Paid', 'Completed'].includes(p.status);
                     case 'inactive':
                         return isInactive;
+                    case 'trash':
+                        return p.deleted;
                     default:
                         return true;
                 }
@@ -159,6 +161,88 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
         closePermanentDeleteModal();
     };
 
+    const handleStatusEdit = (projectId, currentStatus) => {
+        setEditingStatus({ ...editingStatus, [projectId]: true });
+        setPendingStatusChanges({ ...pendingStatusChanges, [projectId]: currentStatus });
+    };
+
+    const handleStatusChange = (projectId, newStatus) => {
+        setPendingStatusChanges({ ...pendingStatusChanges, [projectId]: newStatus });
+    };
+
+    const saveStatusChange = async (projectId) => {
+        const newStatus = pendingStatusChanges[projectId];
+        if (newStatus) {
+            await updateDoc(doc(db, projectsPath, projectId), {
+                status: newStatus,
+                updatedAt: new Date().toISOString()
+            });
+        }
+        setEditingStatus({ ...editingStatus, [projectId]: false });
+        delete pendingStatusChanges[projectId];
+        setPendingStatusChanges({ ...pendingStatusChanges });
+    };
+
+    const cancelStatusChange = (projectId) => {
+        setEditingStatus({ ...editingStatus, [projectId]: false });
+        delete pendingStatusChanges[projectId];
+        setPendingStatusChanges({ ...pendingStatusChanges });
+    };
+
+    const duplicateProject = async (originalProject) => {
+        if (!db) return;
+        
+        // Create a new project with all the data except project-specific info
+        const newProject = {
+            // Keep all the project details
+            areas: originalProject.areas || [],
+            materials: originalProject.materials || [],
+            
+            // Keep configuration
+            wallTexture: originalProject.wallTexture || '',
+            ceilingTexture: originalProject.ceilingTexture || '',
+            corners: originalProject.corners || '',
+            windowWrap: originalProject.windowWrap || '',
+            
+            // Keep crew assignments
+            hangCrew: originalProject.hangCrew || '',
+            tapeCrew: originalProject.tapeCrew || '',
+            
+            // Keep contractor and notes structure
+            contractor: originalProject.contractor || '',
+            crewNotes: '',
+            
+            // Reset project-specific fields
+            projectName: `${originalProject.projectName} - Copy`,
+            jobNumber: '', // Will need to be filled in
+            address: '',
+            coordinates: null,
+            
+            // Reset status and dates
+            status: 'Bid',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            
+            // Reset supervisor
+            supervisor: '',
+            
+            // Reset completion flags
+            qcd: false,
+            paid: false,
+            
+            // Reset any scheduling data
+            deleted: false
+        };
+
+        try {
+            await addDoc(collection(db, projectsPath), newProject);
+            alert('Project duplicated successfully! You can now edit the project details.');
+        } catch (error) {
+            console.error('Error duplicating project:', error);
+            alert('Error duplicating project. Please try again.');
+        }
+    };
+
     const getSortDirection = (name) => sortConfig.key === name ? sortConfig.direction : undefined;
 
     return (
@@ -178,12 +262,11 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             <div className="mb-6">
                 <div className="border-b border-gray-200">
                     <nav className="-mb-px flex flex-wrap space-x-8">
-                        {['all', 'bids', 'scheduled', 'qcd', 'finished', 'inactive', 'trash'].map(tab => {
+                        {['all', 'bids', 'production', 'finished', 'inactive', 'trash'].map(tab => {
                             const labels = {
                                 all: 'All',
                                 bids: 'Bids',
-                                scheduled: 'Scheduled',
-                                qcd: "QC'd",
+                                production: 'Production',
                                 finished: 'Finished',
                                 inactive: 'Inactive',
                                 trash: 'Trash'
@@ -237,8 +320,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                     <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                                         {activeTab === 'all' ? 'No projects found.' :
                                          activeTab === 'bids' ? 'No active bids found.' :
-                                         activeTab === 'scheduled' ? 'No scheduled jobs found.' :
-                                         activeTab === 'qcd' ? 'No QC\'d projects found.' :
+                                         activeTab === 'production' ? 'No projects in production found.' :
                                          activeTab === 'finished' ? 'No finished projects found.' :
                                          activeTab === 'inactive' ? 'No inactive bids found.' :
                                          activeTab === 'trash' ? 'No deleted projects found.' :
@@ -255,27 +337,57 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                         </button>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                            project.status === 'Bid' ? 'bg-yellow-200 text-yellow-800' :
-                                            project.status === 'Stocked' ? 'bg-blue-200 text-blue-800' :
-                                            project.status === 'Production' ? 'bg-orange-200 text-orange-800' :
-                                            project.status === 'QC\'d' ? 'bg-indigo-200 text-indigo-800' :
-                                            project.status === 'Paid' ? 'bg-green-200 text-green-800' :
-                                            project.status === 'Completed' ? 'bg-emerald-200 text-emerald-800' :
-                                            project.status === 'Inactive' ? 'bg-gray-200 text-gray-800' :
-                                            'bg-gray-200 text-gray-800'
-                                        }`}>
-                                            {project.status}
-                                        </span>
+                                        {isAdmin && activeTab !== 'trash' && editingStatus[project.id] ? (
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={pendingStatusChanges[project.id] || project.status}
+                                                    onChange={(e) => handleStatusChange(project.id, e.target.value)}
+                                                    className="text-xs border rounded px-2 py-1"
+                                                >
+                                                    <option value="Bid">Bid</option>
+                                                    <option value="Stocked">Stocked</option>
+                                                    <option value="Production">Production</option>
+                                                    <option value="QC'd">QC'd</option>
+                                                    <option value="Paid">Paid</option>
+                                                    <option value="Completed">Completed</option>
+                                                    <option value="Inactive">Inactive</option>
+                                                </select>
+                                                <button
+                                                    onClick={() => saveStatusChange(project.id)}
+                                                    className="text-xs text-green-600 hover:text-green-800 font-medium"
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    onClick={() => cancelStatusChange(project.id)}
+                                                    className="text-xs text-gray-600 hover:text-gray-800 font-medium"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => isAdmin && activeTab !== 'trash' ? handleStatusEdit(project.id, project.status) : null}
+                                                className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                                    project.status === 'Bid' ? 'bg-yellow-200 text-yellow-800' :
+                                                    project.status === 'Stocked' ? 'bg-blue-200 text-blue-800' :
+                                                    project.status === 'Production' ? 'bg-orange-200 text-orange-800' :
+                                                    project.status === 'QC\'d' ? 'bg-indigo-200 text-indigo-800' :
+                                                    project.status === 'Paid' ? 'bg-green-200 text-green-800' :
+                                                    project.status === 'Completed' ? 'bg-emerald-200 text-emerald-800' :
+                                                    project.status === 'Inactive' ? 'bg-gray-200 text-gray-800' :
+                                                    'bg-gray-200 text-gray-800'
+                                                } ${isAdmin && activeTab !== 'trash' ? 'hover:opacity-75 cursor-pointer' : ''}`}
+                                                title={isAdmin && activeTab !== 'trash' ? 'Click to edit status' : ''}
+                                            >
+                                                {project.status}
+                                            </button>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">{project.address}</td>
                                     <td className="px-6 py-4">{project.supervisorName}</td>
                                     <td className="px-6 py-4 text-right">
-                                        {activeTab === 'active' ? (
-                                            <button onClick={() => openDeleteModal(project)} className="p-2 text-red-600 hover:text-red-900 hover:bg-red-100 rounded-full" title="Move to Trash">
-                                                <DeleteIcon />
-                                            </button>
-                                        ) : (
+                                        {activeTab === 'trash' ? (
                                             <div className="flex justify-end space-x-2">
                                                 <button 
                                                     onClick={() => openRestoreModal(project)} 
@@ -293,6 +405,23 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                                         Delete Forever
                                                     </button>
                                                 )}
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-end space-x-2">
+                                                <button 
+                                                    onClick={() => duplicateProject(project)}
+                                                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full"
+                                                    title="Duplicate Project"
+                                                >
+                                                    <DuplicateIcon />
+                                                </button>
+                                                <button 
+                                                    onClick={() => openDeleteModal(project)} 
+                                                    className="p-2 text-red-600 hover:text-red-900 hover:bg-red-100 rounded-full" 
+                                                    title="Move to Trash"
+                                                >
+                                                    <DeleteIcon />
+                                                </button>
                                             </div>
                                         )}
                                     </td>
