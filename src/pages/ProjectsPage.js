@@ -253,8 +253,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
         try {
             const docRef = await addDoc(collection(db, projectsPath), newProject);
             // Navigate directly to the bid sheet for the new project
-            const newProjectWithId = { ...newProject, id: docRef.id };
-            onEditProject(newProjectWithId);
+            onEditProject(docRef.id);
             setDuplicateModal({ isOpen: false, project: null });
         } catch (error) {
             console.error('Error duplicating project:', error);
