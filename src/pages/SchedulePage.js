@@ -368,16 +368,24 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         setQcModal({ isOpen: false, projectId: null, projectName: '' });
     };
 
-    const generateShortMapsUrl = async (coordinates, address) => {
-        // Use the standard Google Maps URL format
+    const generateMapsInfo = async (coordinates, address) => {
+        // Generate both the display text and raw URL
         if (coordinates && coordinates.lat && coordinates.lng) {
-            return `Maps: https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
+            const url = `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`;
+            return {
+                displayText: `Maps: ${url}`,
+                url: url
+            };
         } else if (address) {
             // For addresses, use a simpler format that copies better
             const cleanAddress = address.replace(/\s+/g, '+').replace(/[,]/g, '');
-            return `Maps: https://www.google.com/maps?q=${cleanAddress}`;
+            const url = `https://www.google.com/maps?q=${cleanAddress}`;
+            return {
+                displayText: `Maps: ${url}`,
+                url: url
+            };
         }
-        return '';
+        return { displayText: '', url: '' };
     };
 
     const getStatusIndicators = (project) => {
@@ -435,8 +443,8 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
     };
 
     const shareJobInfo = async (project) => {
-        // Generate Google Maps URL using GPS coordinates if available
-        const mapsUrl = await generateShortMapsUrl(project.coordinates, project.address);
+        // Generate Google Maps info using GPS coordinates if available
+        const mapsInfo = await generateMapsInfo(project.coordinates, project.address);
         
         // Build areas text with proper square footage calculation
         let areasText = 'Areas:\n';
@@ -483,8 +491,8 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
         ];
         
         // Add Maps URL if available
-        if (mapsUrl) {
-            jobInfoParts.push(mapsUrl);
+        if (mapsInfo.displayText) {
+            jobInfoParts.push(mapsInfo.displayText);
         }
         
         // Add empty line before areas
@@ -513,8 +521,8 @@ const SchedulePage = ({ db, userData, onEditProject }) => {
                 await navigator.share({
                     title: `Job Info: ${project.projectName} (${project.jobNumber})`,
                     text: jobInfo,
-                    // Note: URL sharing is optional and can be omitted if not needed
-                    ...(mapsUrl && { url: mapsUrl.replace('Maps: ', '') })
+                    // Include the Maps URL as a separate shareable link if available
+                    ...(mapsInfo.url && { url: mapsInfo.url })
                 });
                 console.log('Job info shared successfully');
                 return;
