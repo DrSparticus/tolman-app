@@ -226,7 +226,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
             
             // CLEAR project-specific information fields
             projectName: '', // Blank out as requested
-            jobNumber: '', 
+            // jobNumber: '', // Remove this line - let it be undefined so new job number gets generated
             address: '',
             coordinates: null,
             
