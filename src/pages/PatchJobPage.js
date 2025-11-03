@@ -319,13 +319,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         Address *
                     </label>
                     <LocationControls
-                        address={patchJob.address}
-                        onAddressChange={(address) => handleInputChange('address', address)}
-                        coordinates={patchJob.coordinates}
-                        onCoordinatesChange={(coordinates) => handleInputChange('coordinates', coordinates)}
-                        locationServices={locationServices}
+                        bid={patchJob}
                         locationSettings={{ enableLocationServices: true }}
+                        locationServices={locationServices}
                     />
+                    <input
+                        type="text"
+                        value={patchJob.address || ''}
+                        onChange={(e) => handleInputChange('address', e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter address or use current location"
+                    />
+                    {patchJob.coordinates && (
+                        <div className="mt-2 text-xs text-gray-600">
+                            <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Status */}
