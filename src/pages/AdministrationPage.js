@@ -4,6 +4,7 @@ import { pages as pageConfig } from '../pagesConfig';
 import FinishesConfig from '../components/FinishesConfig';
 import LaborConfig from '../components/LaborConfig';
 import MarkupConfig from '../components/MarkupConfig';
+import PatchJobConfig from '../components/PatchJobConfig';
  
 
 const AdministrationPage = ({ db, userData }) => {
@@ -271,6 +272,7 @@ const AdministrationPage = ({ db, userData }) => {
             <FinishesConfig db={db} />
             <LaborConfig db={db} />
             <MarkupConfig db={db} />
+            <PatchJobConfig db={db} />
 
             <div className="mt-8">
                 <h2 className="text-2xl font-bold text-gray-700 mb-4">Role & Permission Management</h2>

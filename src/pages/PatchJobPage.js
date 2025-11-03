@@ -30,8 +30,14 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [isNewPatchJob] = useState(!patchJobId);
 
-    const locationServices = useLocationServices(db, (field, value) => {
-        setPatchJob(prev => ({ ...prev, [field]: value }));
+    const locationServices = useLocationServices(db, (event, value) => {
+        // Handle both direct calls and event-like calls from LocationServices
+        if (event && event.target) {
+            setPatchJob(prev => ({ ...prev, [event.target.name]: event.target.value }));
+        } else {
+            // Direct field/value call
+            setPatchJob(prev => ({ ...prev, [event]: value }));
+        }
     });
 
     // Load existing patch job if editing
@@ -145,7 +151,37 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         }, 0);
     };
 
+    // Save function - minimal validation, allows saving drafts
     const savePatchJob = async () => {
+        setIsSaving(true);
+
+        try {
+            const patchJobData = {
+                ...patchJob,
+                totalAmount: calculateTotal(),
+                updatedAt: new Date().toISOString(),
+                updatedBy: userData?.email || 'Unknown',
+                status: patchJob.status || 'Draft'
+            };
+
+            if (patchJobId) {
+                await updateDoc(doc(db, patchJobsPath, patchJobId), patchJobData);
+            } else {
+                await addDoc(collection(db, patchJobsPath), patchJobData);
+            }
+
+            alert('Patch job saved successfully!');
+            setCurrentPage('patch-jobs');
+        } catch (error) {
+            console.error('Error saving patch job:', error);
+            alert('Error saving patch job. Please try again.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Submit function - full validation required
+    const submitPatchJob = async () => {
         if (!patchJob.jobName.trim()) {
             alert('Please enter a job name');
             return;
@@ -185,7 +221,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 ...patchJob,
                 totalAmount: calculateTotal(),
                 updatedAt: new Date().toISOString(),
-                updatedBy: userData?.email || 'Unknown'
+                updatedBy: userData?.email || 'Unknown',
+                status: 'Submitted'
             };
 
             if (patchJobId) {
@@ -194,11 +231,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 await addDoc(collection(db, patchJobsPath), patchJobData);
             }
 
-            alert('Patch job saved successfully!');
+            alert('Patch job submitted successfully!');
             setCurrentPage('patch-jobs');
         } catch (error) {
-            console.error('Error saving patch job:', error);
-            alert('Error saving patch job. Please try again.');
+            console.error('Error submitting patch job:', error);
+            alert('Error submitting patch job. Please try again.');
         } finally {
             setIsSaving(false);
         }
@@ -228,17 +265,24 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     <button
                         onClick={savePatchJob}
                         disabled={isSaving}
+                        className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
+                    >
+                        {isSaving ? 'Saving...' : 'Save Draft'}
+                    </button>
+                    <button
+                        onClick={submitPatchJob}
+                        disabled={isSaving}
                         className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                     >
-                        {isSaving ? 'Saving...' : 'Save Patch Job'}
+                        {isSaving ? 'Submitting...' : 'Submit Patch Job'}
                     </button>
                 </div>
             </div>
 
             {/* Main Form */}
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Job Name, Address, and Job Number */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Job Name *
@@ -250,6 +294,31 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Enter job name"
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Address *
+                        </label>
+                        <div className="relative">
+                            <LocationControls
+                                bid={patchJob}
+                                locationSettings={{ enableLocationServices: true }}
+                                locationServices={locationServices}
+                            />
+                            <input
+                                type="text"
+                                value={patchJob.address || ''}
+                                onChange={(e) => handleInputChange('address', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter address or use current location"
+                            />
+                            {patchJob.coordinates && (
+                                <div className="mt-1 text-xs text-gray-600">
+                                    <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div>
@@ -313,28 +382,18 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     </div>
                 </div>
 
-                {/* Address with Maps Integration */}
+                {/* Notes Section - Moved up */}
                 <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Address *
+                        Notes
                     </label>
-                    <LocationControls
-                        bid={patchJob}
-                        locationSettings={{ enableLocationServices: true }}
-                        locationServices={locationServices}
+                    <textarea
+                        value={patchJob.notes}
+                        onChange={(e) => handleInputChange('notes', e.target.value)}
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Any additional notes or special instructions..."
                     />
-                    <input
-                        type="text"
-                        value={patchJob.address || ''}
-                        onChange={(e) => handleInputChange('address', e.target.value)}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter address or use current location"
-                    />
-                    {patchJob.coordinates && (
-                        <div className="mt-2 text-xs text-gray-600">
-                            <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
-                        </div>
-                    )}
                 </div>
 
                 {/* Status */}
@@ -394,17 +453,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 </div>
             </div>
 
-            {/* Notes Section */}
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Notes</h2>
-                <textarea
-                    value={patchJob.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Any additional notes or special instructions..."
-                />
-            </div>
+
 
             {/* Project Link Modal */}
             <ProjectLinkModal
