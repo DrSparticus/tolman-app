@@ -20,6 +20,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         patches: [],
         status: 'Scheduled',
         notes: '',
+        signature: '',
         totalAmount: 0,
         createdAt: new Date().toISOString(),
         createdBy: userData?.email || 'Unknown'
@@ -29,6 +30,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isNewPatchJob] = useState(!patchJobId);
+    const [patchJobConfig, setPatchJobConfig] = useState({
+        hourlyRate: 50.00,
+        minimumTotalCharge: 150.00,
+        signatureThreshold: 500.00
+    });
 
     const locationServices = useLocationServices(db, (event, value) => {
         // Handle both direct calls and event-like calls from LocationServices
@@ -72,6 +78,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
         loadPatchJob();
     }, [db, patchJobId]);
+
+    // Load patch job configuration
+    useEffect(() => {
+        if (!db) return;
+        
+        const loadConfig = async () => {
+            try {
+                const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config/patchJobSettings`;
+                const configRef = doc(db, configPath);
+                const configSnap = await getDoc(configRef);
+                
+                if (configSnap.exists()) {
+                    setPatchJobConfig(prev => ({ ...prev, ...configSnap.data() }));
+                }
+            } catch (error) {
+                console.error('Error loading patch job config:', error);
+            }
+        };
+
+        loadConfig();
+    }, [db]);
 
     // Initialize with one blank patch for new jobs
     useEffect(() => {
@@ -146,6 +173,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return patchJob.patches.reduce((total, patch) => {
             if (patch.amountType === 'charge' && patch.amount) {
                 return total + parseFloat(patch.amount || 0);
+            } else if (patch.amountType === 'hours' && patch.amount) {
+                return total + (parseFloat(patch.amount || 0) * patchJobConfig.hourlyRate);
             }
             return total;
         }, 0);
@@ -212,6 +241,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 alert('Please enter an amount for all patches');
                 return;
             }
+        }
+
+        // Validate signature if required
+        const total = calculateTotal();
+        if (total >= patchJobConfig.signatureThreshold && !patchJob.signature?.trim()) {
+            alert(`Customer signature is required for amounts over $${patchJobConfig.signatureThreshold.toFixed(2)}`);
+            return;
         }
 
         setIsSaving(true);
@@ -305,6 +341,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                 bid={patchJob}
                                 locationSettings={{ enableLocationServices: true }}
                                 locationServices={locationServices}
+                                hideLabel={true}
                             />
                             <input
                                 type="text"
@@ -439,16 +476,43 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     ))}
                 </div>
 
-                {/* Total Summary */}
+                {/* Signature and Total Summary */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold">Total Charge Amount:</span>
-                        <span className="text-xl font-bold text-green-600">
-                            ${calculateTotal().toFixed(2)}
-                        </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                        {/* Signature Field */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Customer Signature
+                                {calculateTotal() >= patchJobConfig.signatureThreshold && 
+                                    <span className="text-red-600"> *</span>
+                                }
+                            </label>
+                            <input
+                                type="text"
+                                value={patchJob.signature || ''}
+                                onChange={(e) => handleInputChange('signature', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Customer signature or initials"
+                            />
+                            {calculateTotal() >= patchJobConfig.signatureThreshold && (
+                                <p className="text-xs text-red-600 mt-1">
+                                    * Signature required for amounts over ${patchJobConfig.signatureThreshold.toFixed(2)}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Total */}
+                        <div className="flex flex-col justify-center">
+                            <div className="flex justify-between items-center">
+                                <span className="text-lg font-semibold">Total Charge Amount:</span>
+                                <span className="text-xl font-bold text-green-600">
+                                    ${calculateTotal().toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                        * Only includes charge amounts, not hour-based patches
+                    <p className="text-sm text-gray-600">
+                        * Includes charge amounts + hours × ${patchJobConfig.hourlyRate.toFixed(2)}/hour
                     </p>
                 </div>
             </div>

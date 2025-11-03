@@ -356,7 +356,7 @@ export const useLocationServices = (db, handleInputChange) => {
 };
 
 // Location Controls Component for address field
-export const LocationControls = ({ bid, locationSettings, locationServices }) => {
+export const LocationControls = ({ bid, locationSettings, locationServices, hideLabel = false }) => {
     const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
     
     if (!locationSettings?.enableLocationServices) return null;
@@ -383,8 +383,8 @@ export const LocationControls = ({ bid, locationSettings, locationServices }) =>
     return (
         <>
             <div className="flex items-center justify-between mb-1">
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
-                <div className="flex space-x-1">
+                {!hideLabel && <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>}
+                <div className={`flex space-x-1 ${hideLabel ? 'ml-auto' : ''}`}>
                     <button
                         type="button"
                         onClick={handleOpenMapSelector}
