@@ -18,8 +18,10 @@ import ChangeOrdersPage from './pages/ChangeOrdersPage';
 import AdministrationPage from './pages/AdministrationPage';
 import ContactsPage from './pages/ContactsPage';
 import ProjectsPage from './pages/ProjectsPage';
+import PatchJobsPage from './pages/PatchJobsPage';
 import PendingApprovalPage from './pages/PendingApprovalPage';
 import AccountDisabledPage from './pages/AccountDisabledPage';
+import PatchJobModal from './components/PatchJobModal';
 
 // --- Helper Functions & Configuration ---
 
@@ -49,6 +51,8 @@ export default function App() {
     const [error, setError] = useState(null);
     const [editingProjectId, setEditingProjectId] = useState(null);
     const [currentPage, setCurrentPage] = useState('home');
+    const [showPatchJobModal, setShowPatchJobModal] = useState(false);
+    const [editingPatchJobId, setEditingPatchJobId] = useState(null);
 
     // Initialize Firebase
     useEffect(() => {
@@ -189,6 +193,21 @@ export default function App() {
         navigateToPage('bids', null);
     };
 
+    const handleNewPatchJob = () => {
+        setEditingPatchJobId(null);
+        setShowPatchJobModal(true);
+    };
+
+    const handleEditPatchJob = (patchJobId) => {
+        setEditingPatchJobId(patchJobId);
+        setShowPatchJobModal(true);
+    };
+
+    const handleClosePatchJobModal = () => {
+        setShowPatchJobModal(false);
+        setEditingPatchJobId(null);
+    };
+
     const handleGoogleSignIn = async () => {
         if (!auth) return;
         const provider = new GoogleAuthProvider();
@@ -254,8 +273,10 @@ export default function App() {
                 return hasAccess('change-orders') ? <ChangeOrdersPage /> : <AccessDeniedPage />;
             case 'projects':
                 return hasAccess('projects') ? <ProjectsPage db={db} userData={userData} onNewBid={handleNewBid} onEditProject={handleEditProject} /> : <AccessDeniedPage />;
+            case 'patch-jobs':
+                return hasAccess('patch-jobs') ? <PatchJobsPage db={db} userData={userData} onNewPatchJob={handleNewPatchJob} onEditPatchJob={handleEditPatchJob} /> : <AccessDeniedPage />;
             case 'administration':
-                return hasAccess('administration') ? <AdministrationPage db={db} /> : <AccessDeniedPage />;
+                return hasAccess('administration') ? <AdministrationPage db={db} userData={userData} /> : <AccessDeniedPage />;
             default:
                 return <HomePage setCurrentPage={setCurrentPage} userData={userData} />;
         }
@@ -294,6 +315,15 @@ export default function App() {
                     {renderPage()}
                 </main>
             </div>
+            
+            {/* Patch Job Modal */}
+            <PatchJobModal
+                isOpen={showPatchJobModal}
+                onClose={handleClosePatchJobModal}
+                db={db}
+                userData={userData}
+                patchJobId={editingPatchJobId}
+            />
         </div>
     );
 }

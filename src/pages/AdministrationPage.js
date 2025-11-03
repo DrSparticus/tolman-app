@@ -3,11 +3,13 @@ import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { pages as pageConfig } from '../pagesConfig';
 import FinishesConfig from '../components/FinishesConfig';
 import LaborConfig from '../components/LaborConfig';
-import MarkupConfig from '../components/MarkupConfig'; 
+import MarkupConfig from '../components/MarkupConfig';
+import PatchJobAdminConfig from '../components/PatchJobAdminConfig'; 
 
-const AdministrationPage = ({ db }) => {
+const AdministrationPage = ({ db, userData }) => {
     const [roles, setRoles] = useState([]);
     const [expandedRole, setExpandedRole] = useState(null);
+    const [showPatchJobConfig, setShowPatchJobConfig] = useState(false);
     const rolesPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/roles`;
 
     // Predefined roles that should always exist
@@ -68,6 +70,17 @@ const AdministrationPage = ({ db }) => {
             { id: 'viewStockDate', name: 'View Stock Date' },
             { id: 'changeStatus', name: 'Change Project Status' }
         ],
+        'patch-jobs': [
+            { id: 'view', name: 'View Patch Jobs' },
+            { id: 'create', name: 'Create Patch Jobs' },
+            { id: 'edit', name: 'Edit Patch Jobs' },
+            { id: 'delete', name: 'Delete Patch Jobs' },
+            { id: 'changeStatus', name: 'Change Status' },
+            { id: 'viewTrash', name: 'View Trash' },
+            { id: 'restore', name: 'Restore from Trash' },
+            { id: 'permanentDelete', name: 'Permanent Delete' },
+            { id: 'configure', name: 'Configure Settings' }
+        ],
         changeOrders: [
             { id: 'view', name: 'View Change Orders' },
             { id: 'create', name: 'Create Change Orders' },
@@ -90,6 +103,7 @@ const AdministrationPage = ({ db }) => {
             { id: 'finishes', name: 'Manage Finishes' },
             { id: 'labor', name: 'Manage Labor Config' },
             { id: 'markup', name: 'Manage Markup Config' },
+            { id: 'patchJobs', name: 'Manage Patch Job Config' },
             { id: 'roles', name: 'Manage Roles & Permissions' }
         ]
     };
@@ -259,6 +273,20 @@ const AdministrationPage = ({ db }) => {
             <LaborConfig db={db} />
             <MarkupConfig db={db} />
 
+            {/* Patch Job Configuration */}
+            <div className="mt-8 bg-white p-6 rounded-lg shadow-lg">
+                <h2 className="text-xl font-bold text-gray-700 mb-4">Patch Job Configuration</h2>
+                <p className="text-gray-600 mb-4">
+                    Configure default values, pricing rules, and workflow settings for patch jobs.
+                </p>
+                <button
+                    onClick={() => setShowPatchJobConfig(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                >
+                    Configure Patch Jobs
+                </button>
+            </div>
+
             <div className="mt-8">
                 <h2 className="text-2xl font-bold text-gray-700 mb-4">Role & Permission Management</h2>
                 
@@ -274,6 +302,14 @@ const AdministrationPage = ({ db }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Patch Job Admin Configuration Modal */}
+            <PatchJobAdminConfig
+                db={db}
+                userData={userData}
+                isOpen={showPatchJobConfig}
+                onClose={() => setShowPatchJobConfig(false)}
+            />
         </div>
     );
 };
