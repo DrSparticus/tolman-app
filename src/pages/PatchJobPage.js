@@ -3,7 +3,7 @@ import { collection, doc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
-import SignatureField from '../components/SignatureField';
+import SignatureModal from '../components/SignatureModal';
 import { PlusIcon } from '../Icons';
 
 const patchJobsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/patchJobs`;
@@ -28,6 +28,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     });
 
     const [showProjectLinkModal, setShowProjectLinkModal] = useState(false);
+    const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isNewPatchJob] = useState(!patchJobId);
@@ -190,6 +191,10 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             // Legacy signature format
             return patchJob.signature.trim().length > 0;
         }
+    };
+
+    const isPatchesLocked = () => {
+        return isSignaturePresent() && !isAdmin();
     };
 
     const isAdmin = () => {
@@ -522,18 +527,29 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
                 {/* Signature and Total Summary */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-end">
-                        {/* Signature Field - spans 2 columns */}
-                        <div className="lg:col-span-2">
-                            <SignatureField
-                                signature={patchJob.signature || ''}
-                                onSignatureChange={(signature) => handleInputChange('signature', signature)}
-                                required={calculateTotal() >= patchJobConfig.signatureThreshold}
-                                disabled={false}
-                                showClearButton={true}
-                                isAdmin={isAdmin()}
-                                onClear={handleClearSignature}
-                            />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                        {/* Signature Button */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Signature {calculateTotal() >= patchJobConfig.signatureThreshold && '*'}
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setShowSignatureModal(true)}
+                                className={`w-full px-4 py-2 rounded-md border text-sm font-medium ${
+                                    isSignaturePresent()
+                                        ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                                        : calculateTotal() >= patchJobConfig.signatureThreshold
+                                        ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
+                                        : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                {isSignaturePresent() ? (
+                                    <span>✅ Signed {isSignaturePresent() && isPatchesLocked() && '🔒'}</span>
+                                ) : (
+                                    <span>📝 Click to Sign</span>
+                                )}
+                            </button>
                             {calculateTotal() >= patchJobConfig.signatureThreshold && !isSignaturePresent() && (
                                 <p className="text-xs text-red-600 mt-1">
                                     * Signature required for amounts over ${patchJobConfig.signatureThreshold.toFixed(2)}
@@ -542,9 +558,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         </div>
 
                         {/* Total */}
-                        <div className="flex flex-col justify-end">
-                            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
-                                <div className="text-sm text-gray-600 mb-1">Total Charge</div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Total Charge
+                            </label>
+                            <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
                                 <div className="text-2xl font-bold text-green-600">
                                     ${calculateTotal().toFixed(2)}
                                 </div>
@@ -567,6 +585,18 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             {/* Location Services */}
             {locationServices.mapModal}
+
+            {/* Signature Modal */}
+            <SignatureModal
+                isOpen={showSignatureModal}
+                onClose={() => setShowSignatureModal(false)}
+                signature={patchJob.signature || ''}
+                onSignatureChange={(signature) => handleInputChange('signature', signature)}
+                required={calculateTotal() >= patchJobConfig.signatureThreshold}
+                isAdmin={isAdmin()}
+                onClear={handleClearSignature}
+                patchesLocked={isPatchesLocked()}
+            />
         </div>
     );
 };

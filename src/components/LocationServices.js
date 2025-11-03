@@ -401,10 +401,10 @@ export const LocationControls = ({ bid, locationSettings, locationServices, hide
                 <button
                     type="button"
                     onClick={handleOpenMapSelector}
-                    className="px-3 py-2 text-xs text-white rounded hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
-                    style={{backgroundColor: '#303a7e'}}
+                    className="px-2 py-1 text-xs text-white rounded hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                    style={{backgroundColor: '#303a7e', height: '28px'}}
                 >
-                    🎯 Map
+                    📍
                 </button>
             )}
             

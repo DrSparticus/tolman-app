@@ -115,8 +115,18 @@ const SignatureField = ({
     };
 
     const handleNameChange = (e) => {
-        setCustomerName(e.target.value);
-        setTimeout(updateSignature, 100);
+        const newName = e.target.value;
+        setCustomerName(newName);
+        
+        // Update signature immediately with the new name
+        const canvas = canvasRef.current;
+        const signatureData = {
+            name: newName,
+            drawing: hasDrawnSignature ? canvas?.toDataURL() : null,
+            timestamp: new Date().toISOString()
+        };
+        
+        onSignatureChange(JSON.stringify(signatureData));
     };
 
     const isSigned = () => {
