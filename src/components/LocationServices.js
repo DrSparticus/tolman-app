@@ -382,19 +382,31 @@ export const LocationControls = ({ bid, locationSettings, locationServices, hide
 
     return (
         <>
-            <div className="flex items-center justify-between mb-1">
-                {!hideLabel && <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>}
-                <div className={`flex space-x-1 ${hideLabel ? 'ml-auto' : ''}`}>
-                    <button
-                        type="button"
-                        onClick={handleOpenMapSelector}
-                        className="px-2 py-0 text-xs text-white rounded hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{backgroundColor: '#303a7e', height: '1.25rem'}}
-                    >
-                        🎯 Map
-                    </button>
+            {!hideLabel && (
+                <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
+                    <div className="flex space-x-1">
+                        <button
+                            type="button"
+                            onClick={handleOpenMapSelector}
+                            className="px-2 py-0 text-xs text-white rounded hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            style={{backgroundColor: '#303a7e', height: '1.25rem'}}
+                        >
+                            🎯 Map
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
+            {hideLabel && (
+                <button
+                    type="button"
+                    onClick={handleOpenMapSelector}
+                    className="px-3 py-2 text-xs text-white rounded hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                    style={{backgroundColor: '#303a7e'}}
+                >
+                    🎯 Map
+                </button>
+            )}
             
             {/* Google Map Selector Modal */}
             <GoogleMapSelector

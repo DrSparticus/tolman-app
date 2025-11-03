@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { CameraIcon } from '../../Icons';
 
-const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
+const Patch = ({ patch, onUpdate, onRemove, canRemove = true, disabled = false, isAdmin = false }) => {
     const [photos, setPhotos] = useState(patch.photos || []);
     const fileInputRef = useRef(null);
 
@@ -40,14 +40,20 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
                 <h4 className="text-lg font-semibold text-gray-800">
                     Patch {patch.number || ''}
                 </h4>
-                {canRemove && (
+                {canRemove && (!disabled || isAdmin) && (
                     <button
                         onClick={() => onRemove(patch.id)}
                         className="text-red-600 hover:text-red-800 text-sm"
-                        title="Remove Patch"
+                        title={disabled && !isAdmin ? "Cannot remove - job is signed" : "Remove Patch"}
+                        disabled={disabled && !isAdmin}
                     >
                         ✕ Remove
                     </button>
+                )}
+                {disabled && !isAdmin && (
+                    <span className="text-sm text-gray-500 italic">
+                        🔒 Locked (Signed)
+                    </span>
                 )}
             </div>
 
@@ -60,7 +66,8 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
                     value={patch.description || ''}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={disabled && !isAdmin}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${disabled && !isAdmin ? 'bg-gray-100 text-gray-600' : ''}`}
                     placeholder="Describe the patch work..."
                 />
             </div>
@@ -78,6 +85,7 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
                             value="hours"
                             checked={patch.amountType === 'hours'}
                             onChange={(e) => handleInputChange('amountType', e.target.value)}
+                            disabled={disabled && !isAdmin}
                             className="mr-2"
                         />
                         <span className="text-sm">Hours</span>
@@ -89,9 +97,10 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
                             value="charge"
                             checked={patch.amountType === 'charge'}
                             onChange={(e) => handleInputChange('amountType', e.target.value)}
+                            disabled={disabled && !isAdmin}
                             className="mr-2"
                         />
-                        <span className="text-sm">Charge Amount</span>
+                        <span className="text-sm">$ Charge</span>
                     </label>
                 </div>
                 <div className="flex items-center">
@@ -104,7 +113,8 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
                         onChange={(e) => handleInputChange('amount', e.target.value)}
                         min="0"
                         step={patch.amountType === 'hours' ? '0.25' : '0.01'}
-                        className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={disabled && !isAdmin}
+                        className={`w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${disabled && !isAdmin ? 'bg-gray-100 text-gray-600' : ''}`}
                         placeholder={patch.amountType === 'hours' ? '0.0' : '0.00'}
                     />
                     {patch.amountType === 'hours' && (
@@ -130,7 +140,13 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                    disabled={disabled && !isAdmin}
+                    className={`flex items-center px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 ${
+                        disabled && !isAdmin 
+                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                    title={disabled && !isAdmin ? "Cannot add photos - job is signed" : "Take Photos"}
                 >
                     <CameraIcon />
                     <span className="ml-2">Take Photos</span>
@@ -145,13 +161,16 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true }) => {
                                     alt="Patch work"
                                     className="w-full h-24 object-cover rounded-md border border-gray-300"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => removePhoto(photo.id)}
-                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                                >
-                                    ×
-                                </button>
+                                {(!disabled || isAdmin) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removePhoto(photo.id)}
+                                        className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700"
+                                        title={disabled && !isAdmin ? "Cannot remove photos - job is signed" : "Remove photo"}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>

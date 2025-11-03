@@ -3,6 +3,7 @@ import { collection, doc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
+import SignatureField from '../components/SignatureField';
 import { PlusIcon } from '../Icons';
 
 const patchJobsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/patchJobs`;
@@ -180,6 +181,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         }, 0);
     };
 
+    const isSignaturePresent = () => {
+        if (!patchJob.signature) return false;
+        try {
+            const sigData = JSON.parse(patchJob.signature);
+            return sigData.name && sigData.name.trim().length > 0;
+        } catch (error) {
+            // Legacy signature format
+            return patchJob.signature.trim().length > 0;
+        }
+    };
+
+    const isAdmin = () => {
+        return userData?.role === 'admin';
+    };
+
+    const handleClearSignature = () => {
+        if (isAdmin()) {
+            handleInputChange('signature', '');
+        }
+    };
+
     // Save function - minimal validation, allows saving drafts
     const savePatchJob = async () => {
         setIsSaving(true);
@@ -226,6 +248,16 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             return;
         }
 
+        if (!patchJob.customerPhone?.trim()) {
+            alert('Please enter a phone number');
+            return;
+        }
+
+        if (!patchJob.customerEmail?.trim()) {
+            alert('Please enter an email address');
+            return;
+        }
+
         if (patchJob.patches.length === 0) {
             alert('Please add at least one patch');
             return;
@@ -245,7 +277,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
         // Validate signature if required
         const total = calculateTotal();
-        if (total >= patchJobConfig.signatureThreshold && !patchJob.signature?.trim()) {
+        if (total >= patchJobConfig.signatureThreshold && !isSignaturePresent()) {
             alert(`Customer signature is required for amounts over $${patchJobConfig.signatureThreshold.toFixed(2)}`);
             return;
         }
@@ -336,20 +368,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Address *
                         </label>
-                        <div className="relative">
-                            <LocationControls
-                                bid={patchJob}
-                                locationSettings={{ enableLocationServices: true }}
-                                locationServices={locationServices}
-                                hideLabel={true}
-                            />
-                            <input
-                                type="text"
-                                value={patchJob.address || ''}
-                                onChange={(e) => handleInputChange('address', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Enter address or use current location"
-                            />
+                        <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="text"
+                                    value={patchJob.address || ''}
+                                    onChange={(e) => handleInputChange('address', e.target.value)}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Enter address or use current location"
+                                />
+                                <LocationControls
+                                    bid={patchJob}
+                                    locationSettings={{ enableLocationServices: true }}
+                                    locationServices={locationServices}
+                                    hideLabel={true}
+                                />
+                            </div>
                             {patchJob.coordinates && (
                                 <div className="mt-1 text-xs text-gray-600">
                                     <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
@@ -394,7 +428,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Phone
+                            Phone *
                         </label>
                         <input
                             type="tel"
@@ -407,7 +441,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Email
+                            Email *
                         </label>
                         <input
                             type="email"
@@ -454,14 +488,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             {/* Patches Section */}
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800">Patches</h2>
-                    <button
-                        onClick={addPatch}
-                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    >
-                        <PlusIcon />
-                        <span className="ml-2">Add Patch</span>
-                    </button>
+                    <h2 className="text-xl font-bold text-gray-800">
+                        Patches
+                        {isSignaturePresent() && !isAdmin() && (
+                            <span className="text-sm text-gray-500 ml-2">🔒 Locked (Signed)</span>
+                        )}
+                    </h2>
+                    {(!isSignaturePresent() || isAdmin()) && (
+                        <button
+                            onClick={addPatch}
+                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                            title={isSignaturePresent() && isAdmin() ? "Admin: Add patch to signed job" : "Add Patch"}
+                        >
+                            <PlusIcon />
+                            <span className="ml-2">Add Patch</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="space-y-6">
@@ -472,6 +514,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             onUpdate={updatePatch}
                             onRemove={removePatch}
                             canRemove={patchJob.patches.length > 1}
+                            disabled={isSignaturePresent()}
+                            isAdmin={isAdmin()}
                         />
                     ))}
                 </div>
@@ -481,20 +525,16 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                         {/* Signature Field */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Customer Signature
-                                {calculateTotal() >= patchJobConfig.signatureThreshold && 
-                                    <span className="text-red-600"> *</span>
-                                }
-                            </label>
-                            <input
-                                type="text"
-                                value={patchJob.signature || ''}
-                                onChange={(e) => handleInputChange('signature', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Customer signature or initials"
+                            <SignatureField
+                                signature={patchJob.signature || ''}
+                                onSignatureChange={(signature) => handleInputChange('signature', signature)}
+                                required={calculateTotal() >= patchJobConfig.signatureThreshold}
+                                disabled={false}
+                                showClearButton={true}
+                                isAdmin={isAdmin()}
+                                onClear={handleClearSignature}
                             />
-                            {calculateTotal() >= patchJobConfig.signatureThreshold && (
+                            {calculateTotal() >= patchJobConfig.signatureThreshold && !isSignaturePresent() && (
                                 <p className="text-xs text-red-600 mt-1">
                                     * Signature required for amounts over ${patchJobConfig.signatureThreshold.toFixed(2)}
                                 </p>
@@ -504,16 +544,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         {/* Total */}
                         <div className="flex flex-col justify-center">
                             <div className="flex justify-between items-center">
-                                <span className="text-lg font-semibold">Total Charge Amount:</span>
+                                <span className="text-lg font-semibold">Total Charge:</span>
                                 <span className="text-xl font-bold text-green-600">
                                     ${calculateTotal().toFixed(2)}
                                 </span>
                             </div>
                         </div>
                     </div>
-                    <p className="text-sm text-gray-600">
-                        * Includes charge amounts + hours × ${patchJobConfig.hourlyRate.toFixed(2)}/hour
-                    </p>
                 </div>
             </div>
 
