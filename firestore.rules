@@ -50,6 +50,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Patch Jobs data
+    match /artifacts/{projectId}/patchJobs/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
     // Explicit rules for production (tolman-app) as fallback
     match /artifacts/tolman-app/public/data/{document=**} {
       allow read: if request.auth != null;
@@ -82,6 +87,10 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    match /artifacts/tolman-app/patchJobs/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
     // Explicit rules for staging (tolmantest) as fallback
     match /artifacts/tolmantest/public/data/{document=**} {
       allow read: if request.auth != null;
@@ -111,6 +120,10 @@ service cloud.firestore {
     }
 
     match /artifacts/tolmantest/crews/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /artifacts/tolmantest/patchJobs/{document=**} {
       allow read, write: if request.auth != null;
     }
   }

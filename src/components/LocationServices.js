@@ -359,7 +359,7 @@ export const useLocationServices = (db, handleInputChange) => {
 export const LocationControls = ({ bid, locationSettings, locationServices }) => {
     const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
     
-    if (!locationSettings.enableLocationServices) return null;
+    if (!locationSettings?.enableLocationServices) return null;
 
     const handleOpenMapSelector = async () => {
         let initialCoordinates = bid.coordinates;

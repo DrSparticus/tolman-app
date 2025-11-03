@@ -324,7 +324,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         coordinates={patchJob.coordinates}
                         onCoordinatesChange={(coordinates) => handleInputChange('coordinates', coordinates)}
                         locationServices={locationServices}
-                        enableLocationServices={true}
+                        locationSettings={{ enableLocationServices: true }}
                     />
                 </div>
 
