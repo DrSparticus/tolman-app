@@ -62,7 +62,9 @@ const SignatureModal = ({
     };
 
     const startDrawing = (e) => {
-        e.preventDefault();
+        if (e.cancelable) {
+            e.preventDefault();
+        }
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         
@@ -75,7 +77,9 @@ const SignatureModal = ({
     };
 
     const draw = (e) => {
-        e.preventDefault();
+        if (e.cancelable) {
+            e.preventDefault();
+        }
         if (!isDrawing) return;
         
         const canvas = canvasRef.current;
@@ -93,7 +97,9 @@ const SignatureModal = ({
     };
 
     const stopDrawing = (e) => {
-        e.preventDefault();
+        if (e.cancelable) {
+            e.preventDefault();
+        }
         setIsDrawing(false);
         updateTempSignature();
     };
