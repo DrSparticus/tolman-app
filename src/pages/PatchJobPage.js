@@ -365,25 +365,25 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Address *
-                        </label>
-                        <div className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="text"
-                                    value={patchJob.address || ''}
-                                    onChange={(e) => handleInputChange('address', e.target.value)}
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Enter address or use current location"
-                                />
-                                <LocationControls
-                                    bid={patchJob}
-                                    locationSettings={{ enableLocationServices: true }}
-                                    locationServices={locationServices}
-                                    hideLabel={true}
-                                />
-                            </div>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Address *
+                            </label>
+                            <LocationControls
+                                bid={patchJob}
+                                locationSettings={{ enableLocationServices: true }}
+                                locationServices={locationServices}
+                                hideLabel={true}
+                            />
+                        </div>
+                        <div>
+                            <input
+                                type="text"
+                                value={patchJob.address || ''}
+                                onChange={(e) => handleInputChange('address', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter address or use current location"
+                            />
                             {patchJob.coordinates && (
                                 <div className="mt-1 text-xs text-gray-600">
                                     <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
@@ -522,9 +522,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
                 {/* Signature and Total Summary */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                        {/* Signature Field */}
-                        <div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-end">
+                        {/* Signature Field - spans 2 columns */}
+                        <div className="lg:col-span-2">
                             <SignatureField
                                 signature={patchJob.signature || ''}
                                 onSignatureChange={(signature) => handleInputChange('signature', signature)}
@@ -542,12 +542,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         </div>
 
                         {/* Total */}
-                        <div className="flex flex-col justify-center">
-                            <div className="flex justify-between items-center">
-                                <span className="text-lg font-semibold">Total Charge:</span>
-                                <span className="text-xl font-bold text-green-600">
+                        <div className="flex flex-col justify-end">
+                            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
+                                <div className="text-sm text-gray-600 mb-1">Total Charge</div>
+                                <div className="text-2xl font-bold text-green-600">
                                     ${calculateTotal().toFixed(2)}
-                                </span>
+                                </div>
                             </div>
                         </div>
                     </div>
