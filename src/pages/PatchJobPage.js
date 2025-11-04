@@ -316,8 +316,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         const fieldsToCheck = {
             jobName: 'Job Name',
             customer: 'Customer',
-            customerPhone: 'Customer Phone',
-            customerEmail: 'Customer Email',
+            customerPhone: 'Requested by',
+            customerEmail: 'Requester\'s contact',
             address: 'Address',
             projectName: 'Project Name',
             status: 'Status',
@@ -563,14 +563,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         }
 
         if (!patchJob.customerPhone?.trim()) {
-            alert('Please enter a phone number');
+            alert('Please enter who requested this patch job');
             return;
         }
 
-        if (!patchJob.customerEmail?.trim()) {
-            alert('Please enter an email address');
-            return;
-        }
+        // Note: customerEmail (Requester's contact) is now optional
 
         if (patchJob.patches.length === 0) {
             alert('Please add at least one patch');
@@ -585,6 +582,10 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             }
             if (!patch.amount || patch.amount <= 0) {
                 alert('Please enter an amount for all patches');
+                return;
+            }
+            if (!patch.photos || patch.photos.length === 0) {
+                alert(`Patch ${patch.number} requires at least one photo`);
                 return;
             }
         }
@@ -798,65 +799,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     </div>
                 </div>
 
-                {/* Customer Information */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Customer Name *
-                        </label>
-                        <input
-                            type="text"
-                            value={patchJob.customer}
-                            onChange={(e) => handleInputChange('customer', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Customer name"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Phone *
-                        </label>
-                        <input
-                            type="tel"
-                            value={patchJob.customerPhone}
-                            onChange={(e) => handleInputChange('customerPhone', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Phone number"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Email *
-                        </label>
-                        <input
-                            type="email"
-                            value={patchJob.customerEmail}
-                            onChange={(e) => handleInputChange('customerEmail', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Email address"
-                        />
-                    </div>
-                </div>
-
-                {/* Notes Section - Moved up */}
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Notes
-                    </label>
-                    <textarea
-                        value={patchJob.notes}
-                        onChange={(e) => handleInputChange('notes', e.target.value)}
-                        rows={4}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Any additional notes or special instructions..."
-                    />
-                </div>
-
-                {/* Advanced View: Status, Assignment, and Job Number - Only show for users with advanced view permission */}
+                {/* Advanced View: Job Number, Status, and Assignment - Only show for users with advanced view permission */}
                 {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
-                    <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Job Number
@@ -914,6 +859,62 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         </div>
                     </div>
                 )}
+
+                {/* Customer Information */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Customer Name *
+                        </label>
+                        <input
+                            type="text"
+                            value={patchJob.customer}
+                            onChange={(e) => handleInputChange('customer', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Customer name"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Requested by: *
+                        </label>
+                        <input
+                            type="text"
+                            value={patchJob.customerPhone}
+                            onChange={(e) => handleInputChange('customerPhone', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Who requested this patch job"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Requester's contact
+                        </label>
+                        <input
+                            type="text"
+                            value={patchJob.customerEmail}
+                            onChange={(e) => handleInputChange('customerEmail', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Phone number or email address"
+                        />
+                    </div>
+                </div>
+
+                {/* Notes Section - Moved up */}
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Notes
+                    </label>
+                    <textarea
+                        value={patchJob.notes}
+                        onChange={(e) => handleInputChange('notes', e.target.value)}
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Any additional notes or special instructions..."
+                    />
+                </div>
             </div>
 
             {/* Patches Section */}
