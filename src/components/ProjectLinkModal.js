@@ -35,6 +35,7 @@ const ProjectLinkModal = ({ isOpen, onClose, onSelectProject, onCreateNew, db })
 
         const filtered = projects.filter(project => 
             project.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            project.contractor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             project.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             project.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             project.jobNumber?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -111,7 +112,7 @@ const ProjectLinkModal = ({ isOpen, onClose, onSelectProject, onCreateNew, db })
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Search by project name, customer, address, or job number..."
+                            placeholder="Search by project name, contractor, address, or job number..."
                             autoFocus
                         />
                     </div>
@@ -136,7 +137,7 @@ const ProjectLinkModal = ({ isOpen, onClose, onSelectProject, onCreateNew, db })
                                                     {project.projectName || 'Untitled Project'}
                                                 </div>
                                                 <div className="text-sm text-gray-600">
-                                                    {project.customer || 'No customer'}
+                                                    {project.contractor || project.customer || 'No customer'}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
                                                     {project.address || 'No address'}
