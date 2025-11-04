@@ -480,8 +480,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             {/* Main Form */}
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                {/* Job Name, Address, and Job Number */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                {/* Job Name and Address */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Job Name *
@@ -530,24 +530,6 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                 </div>
                             )}
                         </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Job Number
-                        </label>
-                        <input
-                            type="text"
-                            value={patchJob.jobNumber}
-                            onChange={(e) => handleInputChange('jobNumber', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Optional - for linking to existing project"
-                        />
-                        {patchJob.projectId && (
-                            <p className="mt-1 text-sm text-green-600">
-                                Linked to: {patchJob.projectName}
-                            </p>
-                        )}
                     </div>
                 </div>
 
@@ -607,9 +589,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     />
                 </div>
 
-                {/* Status and Assignment Row - Only show for users with advanced view permission */}
+                {/* Advanced View: Status, Assignment, and Job Number - Only show for users with advanced view permission */}
                 {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
-                    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Job Number
+                            </label>
+                            <input
+                                type="text"
+                                value={patchJob.jobNumber}
+                                onChange={(e) => handleInputChange('jobNumber', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Optional - for linking to existing project"
+                            />
+                            {patchJob.projectId && (
+                                <p className="mt-1 text-sm text-green-600">
+                                    Linked to: {patchJob.projectName}
+                                </p>
+                            )}
+                        </div>
+                        
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Status

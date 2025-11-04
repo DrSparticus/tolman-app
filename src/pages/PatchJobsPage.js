@@ -217,6 +217,13 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
         }
     };
 
+    const openGoogleMapsDirections = (address) => {
+        if (!address || address === 'N/A') return;
+        const encodedAddress = encodeURIComponent(address);
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
+        window.open(url, '_blank');
+    };
+
     const tabs = [
         { key: 'all', label: 'All', count: patchJobs.filter(j => !j.deleted).length },
         { key: 'scheduled', label: 'Scheduled', count: patchJobs.filter(j => j.status === 'Scheduled' && !j.deleted).length },
@@ -330,12 +337,15 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => requestSort('jobNumber')}
-                                >
-                                    Job # <SortIcon direction={sortConfig.key === 'jobNumber' ? sortConfig.direction : null} />
-                                </th>
+                                {/* Only show Job # for users with advanced view permission */}
+                                {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
+                                    <th 
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                        onClick={() => requestSort('jobNumber')}
+                                    >
+                                        Job # <SortIcon direction={sortConfig.key === 'jobNumber' ? sortConfig.direction : null} />
+                                    </th>
+                                )}
                                 <th 
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                     onClick={() => requestSort('jobName')}
@@ -383,9 +393,12 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {sortedPatchJobs.map((job) => (
                                 <tr key={job.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {job.jobNumber || 'N/A'}
-                                    </td>
+                                    {/* Only show Job # for users with advanced view permission */}
+                                    {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {job.jobNumber || 'N/A'}
+                                        </td>
+                                    )}
                                     <td 
                                         className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
                                         onClick={() => onEditPatchJob(job.id)}
@@ -395,8 +408,18 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {job.customer || 'N/A'}
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                                        {job.address || 'N/A'}
+                                    <td className="px-6 py-4 text-sm max-w-xs truncate">
+                                        {job.address && job.address !== 'N/A' ? (
+                                            <button
+                                                onClick={() => openGoogleMapsDirections(job.address)}
+                                                className="text-blue-600 hover:text-blue-800 hover:underline text-left w-full truncate"
+                                                title="Get directions in Google Maps"
+                                            >
+                                                {job.address}
+                                            </button>
+                                        ) : (
+                                            <span className="text-gray-900">N/A</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {formatCurrency(job.totalAmount)}
@@ -503,7 +526,10 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                 >
                                     {job.jobName || 'Untitled Job'}
                                 </h3>
-                                <p className="text-sm text-gray-600">Job #: {job.jobNumber || 'N/A'}</p>
+                                {/* Only show Job # for users with advanced view permission */}
+                                {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
+                                    <p className="text-sm text-gray-600">Job #: {job.jobNumber || 'N/A'}</p>
+                                )}
                             </div>
                             <div className="flex flex-col items-end">
                                 <span className="text-lg font-bold text-green-600 mb-1">
@@ -554,7 +580,19 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                 <span className="font-medium text-gray-700">Customer:</span> {job.customer || 'N/A'}
                             </div>
                             <div>
-                                <span className="font-medium text-gray-700">Address:</span> {job.address || 'N/A'}
+                                <span className="font-medium text-gray-700">Address:</span> {
+                                    job.address && job.address !== 'N/A' ? (
+                                        <button
+                                            onClick={() => openGoogleMapsDirections(job.address)}
+                                            className="text-blue-600 hover:text-blue-800 hover:underline ml-1"
+                                            title="Get directions in Google Maps"
+                                        >
+                                            {job.address}
+                                        </button>
+                                    ) : (
+                                        <span className="ml-1">N/A</span>
+                                    )
+                                }
                             </div>
                             <div>
                                 <span className="font-medium text-gray-700">Created:</span> {formatDate(job.createdAt)}
