@@ -614,7 +614,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                 bid={patchJob}
                                 locationSettings={{ enableLocationServices: true }}
                                 locationServices={locationServices}
-                                hideLabel={true}
+                                hideLabel={false}
                             />
                         </div>
                         <div>
