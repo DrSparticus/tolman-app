@@ -297,8 +297,8 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                         </div>
                     </div>
 
-                    {/* Only show New Patch Job button to non-patch-guy users */}
-                    {userData?.role !== 'patch-guy' && (
+                    {/* Show New Patch Job button to users with create permission */}
+                    {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.create) && (
                         <button
                             onClick={onNewPatchJob}
                             className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
@@ -642,7 +642,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                     <p className="mt-2 text-sm text-gray-500">
                         {searchTerm ? `No patch jobs found matching "${searchTerm}"` : 'No patch jobs found'}
                     </p>
-                    {!searchTerm && userData?.role !== 'patch-guy' && (
+                    {!searchTerm && (userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.create) && (
                         <button
                             onClick={onNewPatchJob}
                             className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
