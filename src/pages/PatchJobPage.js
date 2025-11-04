@@ -213,9 +213,10 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             projectId: project.id,
             projectName: project.projectName,
             jobNumber: project.jobNumber || '',
-            customer: project.customer || '',
-            customerPhone: project.customerPhone || '',
-            customerEmail: project.customerEmail || '',
+            // Map contractor fields to customer fields for unified data structure
+            customer: project.contractor || project.customer || '',
+            customerPhone: project.contractorPhone || project.customerPhone || '',
+            customerEmail: project.contractorEmail || project.customerEmail || '',
             address: project.address || '',
             jobName: `${project.projectName} - Patch Work`,
             patches: [createNewPatch(1)]
