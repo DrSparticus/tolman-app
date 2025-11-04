@@ -6,6 +6,7 @@ import ProjectLinkModal from '../components/ProjectLinkModal';
 import SignatureModal from '../components/SignatureModal';
 import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
+import jsPDF from 'jspdf';
 
 const patchJobsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/patchJobs`;
 
@@ -43,6 +44,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         minimumTotalCharge: 150.00,
         signatureThreshold: 500.00
     });
+    const [generatedPDFs, setGeneratedPDFs] = useState([]); // Track generated change order PDFs
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
     const locationServices = useLocationServices(db, (event, value) => {
         // Handle both direct calls and event-like calls from LocationServices
@@ -104,6 +107,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         ...patchJobData
                     }));
                     setLastSavedPatchJob(patchJobData); // Set baseline for change tracking
+                    setGeneratedPDFs(data.generatedPDFs || []); // Load existing PDF records
                 } else {
                     // Patch job doesn't exist, might be a bad URL
                     console.error('Patch job not found:', patchJobId);
@@ -402,7 +406,243 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return changes;
     };
 
+    // Generate PDF change order
+    const generateChangeOrderPDF = async () => {
+        setIsGeneratingPDF(true);
+        
+        try {
+            const pdf = new jsPDF();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            let yPosition = 30;
+            
+            // Add Tolman Construction logo/header
+            pdf.setFontSize(20);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition, { align: 'center' });
+            
+            yPosition += 15;
+            pdf.setFontSize(16);
+            pdf.text('CHANGE ORDER', pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += 20;
+            
+            // Basic project information
+            pdf.setFontSize(11);
+            pdf.setFont(undefined, 'normal');
+            
+            const leftCol = 20;
+            const rightCol = pageWidth / 2 + 10;
+            const lineHeight = 7;
+            
+            pdf.text(`Project: ${patchJob.projectName || patchJob.jobName}`, leftCol, yPosition);
+            yPosition += lineHeight;
+            
+            pdf.text(`General Contractor: ${patchJob.customer}`, leftCol, yPosition);
+            yPosition += lineHeight;
+            
+            if (patchJob.jobNumber) {
+                pdf.text(`Associated RFI: ${patchJob.jobNumber}`, leftCol, yPosition);
+                yPosition += lineHeight;
+            }
+            
+            pdf.text(`Address: ${patchJob.address}`, leftCol, yPosition);
+            yPosition += lineHeight;
+            
+            pdf.text(`Total Price: $${calculateTotal().toFixed(2)}`, leftCol, yPosition);
+            yPosition += lineHeight * 1.5;
+            
+            // Changes Made / Damage Caused section
+            pdf.setFont(undefined, 'bold');
+            pdf.text('CHANGES MADE:', leftCol, yPosition);
+            yPosition += lineHeight;
+            
+            pdf.setFont(undefined, 'normal');
+            if (patchJob.notes) {
+                const noteLines = pdf.splitTextToSize(patchJob.notes, pageWidth - 40);
+                pdf.text(noteLines, leftCol, yPosition);
+                yPosition += noteLines.length * lineHeight + 5;
+            }
+            
+            // Work Performed section - List each patch
+            pdf.setFont(undefined, 'bold');
+            pdf.text('WORK PERFORMED:', leftCol, yPosition);
+            yPosition += lineHeight;
+            
+            pdf.setFont(undefined, 'normal');
+            for (const [index, patch] of patchJob.patches.entries()) {
+                // Check if we need a new page
+                if (yPosition > pageHeight - 60) {
+                    pdf.addPage();
+                    yPosition = 30;
+                }
+                
+                const patchTitle = `Patch ${patch.number}: ${patch.description}`;
+                const patchLines = pdf.splitTextToSize(patchTitle, pageWidth - 40);
+                pdf.text(patchLines, leftCol, yPosition);
+                yPosition += patchLines.length * lineHeight;
+                
+                // Add amount information
+                let amountText = '';
+                if (patch.amountType === 'hours') {
+                    const hourCost = parseFloat(patch.amount || 0) * patchJobConfig.hourlyRate;
+                    amountText = `${patch.amount} hours × $${patchJobConfig.hourlyRate}/hr = $${hourCost.toFixed(2)}`;
+                } else {
+                    amountText = `Fixed charge: $${parseFloat(patch.amount || 0).toFixed(2)}`;
+                }
+                pdf.text(amountText, leftCol + 10, yPosition);
+                yPosition += lineHeight;
+                
+                // Add photos if available
+                if (patch.photos && patch.photos.length > 0) {
+                    const maxPhotosPerRow = 2;
+                    const photoWidth = (pageWidth - 60) / maxPhotosPerRow;
+                    const photoHeight = photoWidth * 0.75; // 4:3 aspect ratio
+                    
+                    for (let i = 0; i < patch.photos.length; i++) {
+                        if (yPosition + photoHeight > pageHeight - 30) {
+                            pdf.addPage();
+                            yPosition = 30;
+                        }
+                        
+                        const photo = patch.photos[i];
+                        const xPos = leftCol + (i % maxPhotosPerRow) * (photoWidth + 10);
+                        
+                        try {
+                            pdf.addImage(photo.data, 'JPEG', xPos, yPosition, photoWidth - 5, photoHeight - 5);
+                        } catch (error) {
+                            console.warn('Failed to add image to PDF:', error);
+                            // Add placeholder text instead
+                            pdf.text(`[Photo: ${photo.name}]`, xPos, yPosition + 10);
+                        }
+                        
+                        if ((i + 1) % maxPhotosPerRow === 0) {
+                            yPosition += photoHeight + 5;
+                        }
+                    }
+                    
+                    // If last row wasn't complete, move y position
+                    if (patch.photos.length % maxPhotosPerRow !== 0) {
+                        yPosition += photoHeight + 5;
+                    }
+                }
+                
+                yPosition += 10; // Space between patches
+            }
+            
+            // Signature section
+            if (yPosition > pageHeight - 100) {
+                pdf.addPage();
+                yPosition = 30;
+            }
+            
+            yPosition = Math.max(yPosition, pageHeight - 80);
+            
+            // Signature lines
+            const sigWidth = 80;
+            pdf.line(leftCol, yPosition, leftCol + sigWidth, yPosition);
+            pdf.line(rightCol, yPosition, rightCol + sigWidth, yPosition);
+            
+            yPosition += 7;
+            pdf.setFontSize(10);
+            pdf.text('Job Manager', leftCol + sigWidth/2, yPosition, { align: 'center' });
+            pdf.text('Tolman Construction - Project Manager', rightCol + sigWidth/2, yPosition, { align: 'center' });
+            
+            yPosition += 15;
+            pdf.line(leftCol, yPosition, leftCol + sigWidth, yPosition);
+            pdf.line(rightCol, yPosition, rightCol + sigWidth, yPosition);
+            
+            yPosition += 7;
+            pdf.text('DATE', leftCol + sigWidth/2, yPosition, { align: 'center' });
+            pdf.text('DATE', rightCol + sigWidth/2, yPosition, { align: 'center' });
+            
+            // Footer
+            yPosition = pageHeight - 20;
+            pdf.setFontSize(9);
+            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401', pageWidth / 2, yPosition, { align: 'center' });
+            pdf.text('Office: (801) 444-9600   projects@tolmandrywall.com', pageWidth / 2, yPosition + 5, { align: 'center' });
+            
+            // Generate filename and save
+            const timestamp = new Date().toISOString();
+            const filename = `Change_Order_${patchJob.jobName?.replace(/[^a-zA-Z0-9]/g, '_') || 'PatchJob'}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
+            
+            // Create PDF record
+            const pdfRecord = {
+                id: Date.now().toString(),
+                filename,
+                generatedAt: timestamp,
+                generatedBy: getUserDisplayName(),
+                dataSnapshot: JSON.parse(JSON.stringify(patchJob)), // Deep copy of current state
+                isOutdated: false
+            };
+            
+            // Save PDF record to database and state
+            const updatedPDFs = [...generatedPDFs.map(pdf => ({ ...pdf, isOutdated: true })), pdfRecord];
+            setGeneratedPDFs(updatedPDFs);
+            
+            // Update database
+            if (patchJobId && !patchJobId.startsWith('new-')) {
+                await updateDoc(doc(db, patchJobsPath, patchJobId), {
+                    generatedPDFs: updatedPDFs,
+                    updatedAt: timestamp,
+                    updatedBy: userData?.email || 'Unknown'
+                });
+            }
+            
+            // Download PDF
+            pdf.save(filename);
+            
+            // Add change log entry
+            const changeEntry = {
+                timestamp,
+                user: {
+                    name: getUserDisplayName(),
+                    email: userData?.email || 'Unknown'
+                },
+                change: `Change Order PDF generated: ${filename}`
+            };
+            
+            const updatedChangeLog = [...(patchJob.changeLog || []), changeEntry];
+            setPatchJob(prev => ({ ...prev, changeLog: updatedChangeLog }));
+            
+            if (patchJobId && !patchJobId.startsWith('new-')) {
+                await updateDoc(doc(db, patchJobsPath, patchJobId), {
+                    changeLog: updatedChangeLog
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Error generating PDF. Please try again.');
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    };
 
+    // Check if current data differs from last PDF snapshot
+    const isPDFOutdated = () => {
+        if (generatedPDFs.length === 0) return false;
+        const latestPDF = generatedPDFs.find(pdf => !pdf.isOutdated);
+        if (!latestPDF) return false;
+        
+        // Compare current data with PDF snapshot (simplified comparison)
+        const current = JSON.stringify({
+            patches: patchJob.patches,
+            totalAmount: calculateTotal(),
+            notes: patchJob.notes,
+            customer: patchJob.customer,
+            address: patchJob.address
+        });
+        
+        const snapshot = JSON.stringify({
+            patches: latestPDF.dataSnapshot.patches || [],
+            totalAmount: latestPDF.dataSnapshot.totalAmount || 0,
+            notes: latestPDF.dataSnapshot.notes || '',
+            customer: latestPDF.dataSnapshot.customer || '',
+            address: latestPDF.dataSnapshot.address || ''
+        });
+        
+        return current !== snapshot;
+    };
 
     const handleClearSignature = () => {
         if (isAdmin()) {
@@ -464,6 +704,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 // If there are no changes and this isn't the first save, don't log anything
                 
                 patchJobData.changeLog = [...(patchJob.changeLog || []), ...newChangeEntries];
+                
+                // Mark existing PDFs as outdated if there are changes
+                if (changesList.length > 0 && generatedPDFs.length > 0) {
+                    const updatedPDFs = generatedPDFs.map(pdf => ({ ...pdf, isOutdated: true }));
+                    patchJobData.generatedPDFs = updatedPDFs;
+                    setGeneratedPDFs(updatedPDFs);
+                }
                 
                 await updateDoc(doc(db, patchJobsPath, patchJobId), patchJobData);
                 
@@ -532,7 +779,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const getStatusButtonText = (currentStatus) => {
         switch (currentStatus) {
             case 'Scheduled':
-                return 'Mark as Complete';
+                return 'Finish Job';
             case 'Done':
                 return 'Mark as Billed';
             case 'Billed':
@@ -658,6 +905,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 
                 patchJobData.changeLog = [...(patchJob.changeLog || []), ...newChangeEntries];
                 
+                // Mark existing PDFs as outdated when submitting changes
+                if (generatedPDFs.length > 0) {
+                    const updatedPDFs = generatedPDFs.map(pdf => ({ ...pdf, isOutdated: true }));
+                    patchJobData.generatedPDFs = updatedPDFs;
+                    setGeneratedPDFs(updatedPDFs);
+                }
+                
                 await updateDoc(doc(db, patchJobsPath, patchJobId), patchJobData);
             } else {
                 // Creating new patch job (either no ID or temporary ID)
@@ -726,7 +980,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         disabled={isSaving}
                         className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
                     >
-                        {isSaving ? 'Saving...' : 'Save Draft'}
+                        {isSaving ? 'Saving...' : 'Save'}
                     </button>
                     {shouldShowStatusButton(patchJob.status) && (
                         <button
@@ -984,7 +1238,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             )}
                         </div>
 
-                        {/* Total */}
+                        {/* Total and PDF Generation */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Total Charge
@@ -993,6 +1247,70 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                 <div className="text-2xl font-bold text-green-600">
                                     ${calculateTotal().toFixed(2)}
                                 </div>
+                                
+                                {/* PDF Generation - Only show for Done status */}
+                                {patchJob.status === 'Done' && (
+                                    <div className="mt-4 space-y-2">
+                                        {generatedPDFs.length > 0 && (
+                                            <div className="text-xs text-gray-600 mb-2">
+                                                {generatedPDFs.filter(pdf => !pdf.isOutdated).length > 0 ? (
+                                                    <div className="flex items-center justify-center">
+                                                        <span className="text-green-600">✓ Current PDF available</span>
+                                                        {isPDFOutdated() && (
+                                                            <span className="ml-2 text-orange-600">(Data changed)</span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-orange-600">⚠ PDF outdated</span>
+                                                )}
+                                                <div className="mt-1">
+                                                    Last generated: {new Date(generatedPDFs[generatedPDFs.length - 1]?.generatedAt).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        <button
+                                            type="button"
+                                            onClick={generateChangeOrderPDF}
+                                            disabled={isGeneratingPDF}
+                                            className={`w-full px-3 py-2 text-sm rounded-md transition-colors ${
+                                                isGeneratingPDF
+                                                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                                    : isPDFOutdated() || generatedPDFs.length === 0
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                            }`}
+                                        >
+                                            {isGeneratingPDF
+                                                ? 'Generating...'
+                                                : generatedPDFs.length === 0
+                                                ? 'Generate Change Order PDF'
+                                                : isPDFOutdated()
+                                                ? 'Generate Updated PDF'
+                                                : 'Download Current PDF'
+                                            }
+                                        </button>
+                                        
+                                        {generatedPDFs.length > 1 && (
+                                            <details className="mt-2">
+                                                <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800">
+                                                    View PDF History ({generatedPDFs.length} generated)
+                                                </summary>
+                                                <div className="mt-1 space-y-1 text-xs">
+                                                    {generatedPDFs.slice().reverse().map((pdf, index) => (
+                                                        <div key={pdf.id} className="flex justify-between items-center p-1 bg-gray-50 rounded">
+                                                            <span className={pdf.isOutdated ? 'text-gray-500' : 'text-gray-800'}>
+                                                                {new Date(pdf.generatedAt).toLocaleString()}
+                                                                {pdf.isOutdated && ' (outdated)'}
+                                                            </span>
+                                                            <span className="text-gray-600 text-xs">{pdf.generatedBy}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </details>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
