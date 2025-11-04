@@ -449,43 +449,44 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const leftCol = 20;
             const rightCol = pageWidth / 2 + 10;
             const lineHeight = 8;
+            const labelWidth = 40; // Fixed width for right-justified labels
             
             // Left column
             pdf.setFont(undefined, 'bold');
-            pdf.text('Project:', leftCol, yPosition);
+            pdf.text('Project:', leftCol + labelWidth, yPosition, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + 25, yPosition);
+            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + labelWidth + 5, yPosition);
             
             yPosition += lineHeight;
             pdf.setFont(undefined, 'bold');
-            pdf.text('General Contractor:', leftCol, yPosition);
+            pdf.text('Contractor:', leftCol + labelWidth, yPosition, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.customer || '', leftCol + 50, yPosition);
+            pdf.text(patchJob.customer || '', leftCol + labelWidth + 5, yPosition);
             
             yPosition += lineHeight;
             pdf.setFont(undefined, 'bold');
-            pdf.text('Address:', leftCol, yPosition);
+            pdf.text('Total Price:', leftCol + labelWidth, yPosition, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            const addressLines = pdf.splitTextToSize(patchJob.address || '', pageWidth - leftCol - 30);
-            pdf.text(addressLines, leftCol + 25, yPosition);
+            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + labelWidth + 5, yPosition);
             
             // Right column
             const rightYStart = yPosition - (lineHeight * 2);
             pdf.setFont(undefined, 'bold');
-            pdf.text('Total Price:', rightCol, rightYStart);
+            pdf.text('Address:', rightCol + labelWidth, rightYStart, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.text(`$${calculateTotal().toFixed(2)}`, rightCol + 30, rightYStart);
+            const addressLines = pdf.splitTextToSize(patchJob.address || '', pageWidth - rightCol - labelWidth - 30);
+            pdf.text(addressLines, rightCol + labelWidth + 5, rightYStart);
             
             pdf.setFont(undefined, 'bold');
-            pdf.text('Requested by:', rightCol, rightYStart + lineHeight);
+            pdf.text('Requested by:', rightCol + labelWidth, rightYStart + lineHeight, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.customerPhone || '', rightCol + 35, rightYStart + lineHeight);
+            pdf.text(patchJob.customerPhone || '', rightCol + labelWidth + 5, rightYStart + lineHeight);
             
             if (patchJob.customerEmail) {
                 pdf.setFont(undefined, 'bold');
-                pdf.text('Contact:', rightCol, rightYStart + (lineHeight * 2));
+                pdf.text('Contact:', rightCol + labelWidth, rightYStart + (lineHeight * 2), { align: 'right' });
                 pdf.setFont(undefined, 'normal');
-                pdf.text(patchJob.customerEmail, rightCol + 25, rightYStart + (lineHeight * 2));
+                pdf.text(patchJob.customerEmail, rightCol + labelWidth + 5, rightYStart + (lineHeight * 2));
             }
             
             yPosition += Math.max(addressLines.length * lineHeight, lineHeight * 2) + 15;
@@ -557,10 +558,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             const currentPhotoY = photoY;
                             
                             try {
-                                // For immediate placement without waiting for load
-                                const defaultPhotoHeight = 35;
-                                pdf.addImage(photo.data, 'JPEG', photoStartX, currentPhotoY, maxPhotoWidth, defaultPhotoHeight);
-                                photoY += defaultPhotoHeight + 5;
+                                // Create image to get actual dimensions for proper aspect ratio
+                                const img = new Image();
+                                img.src = photo.data;
+                                
+                                // Calculate proper dimensions maintaining aspect ratio
+                                let photoWidth = maxPhotoWidth;
+                                let photoHeight = maxPhotoWidth * 0.75; // Default 4:3 ratio
+                                
+                                if (img.width && img.height) {
+                                    const aspectRatio = img.width / img.height;
+                                    photoHeight = maxPhotoWidth / aspectRatio;
+                                    
+                                    // Limit height to reasonable size
+                                    if (photoHeight > 40) {
+                                        photoHeight = 40;
+                                        photoWidth = photoHeight * aspectRatio;
+                                    }
+                                }
+                                
+                                pdf.addImage(photo.data, 'JPEG', photoStartX, currentPhotoY, photoWidth, photoHeight);
+                                photoY += photoHeight + 5;
                                 
                             } catch (error) {
                                 console.warn('Failed to add image to PDF:', error);
@@ -574,30 +592,55 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         const maxPhotosPerRow = 3;
                         const photoWidth = Math.min(50, (pageWidth - 60) / maxPhotosPerRow);
                         
+                        let rowHeight = 0;
                         for (let i = 0; i < patch.photos.length; i++) {
-                            if (yPosition > pageHeight - 50) {
+                            if (yPosition > pageHeight - 60) {
                                 pdf.addPage();
                                 yPosition = 30;
+                                rowHeight = 0;
                             }
                             
                             const photo = patch.photos[i];
                             const xPos = leftCol + (i % maxPhotosPerRow) * (photoWidth + 5);
-                            const defaultPhotoHeight = 35;
                             
                             try {
-                                pdf.addImage(photo.data, 'JPEG', xPos, yPosition, photoWidth, defaultPhotoHeight);
+                                // Create image to get actual dimensions for proper aspect ratio
+                                const img = new Image();
+                                img.src = photo.data;
+                                
+                                // Calculate proper dimensions maintaining aspect ratio
+                                let actualPhotoWidth = photoWidth;
+                                let actualPhotoHeight = photoWidth * 0.75; // Default 4:3 ratio
+                                
+                                if (img.width && img.height) {
+                                    const aspectRatio = img.width / img.height;
+                                    actualPhotoHeight = photoWidth / aspectRatio;
+                                    
+                                    // Limit height to reasonable size
+                                    if (actualPhotoHeight > 45) {
+                                        actualPhotoHeight = 45;
+                                        actualPhotoWidth = actualPhotoHeight * aspectRatio;
+                                    }
+                                }
+                                
+                                pdf.addImage(photo.data, 'JPEG', xPos, yPosition, actualPhotoWidth, actualPhotoHeight);
+                                rowHeight = Math.max(rowHeight, actualPhotoHeight);
+                                
                             } catch (error) {
                                 console.warn('Failed to add image to PDF:', error);
                                 pdf.text(`[Photo: ${photo.name}]`, xPos, yPosition + 10);
+                                rowHeight = Math.max(rowHeight, 20);
                             }
                             
                             if ((i + 1) % maxPhotosPerRow === 0) {
-                                yPosition += defaultPhotoHeight + 5;
+                                yPosition += rowHeight + 5;
+                                rowHeight = 0;
                             }
                         }
                         
+                        // Add space for incomplete row
                         if (patch.photos.length % maxPhotosPerRow !== 0) {
-                            yPosition += 40; // Default photo height + spacing
+                            yPosition += rowHeight + 5;
                         }
                     }
                 }
