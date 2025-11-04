@@ -139,6 +139,7 @@ export default function App() {
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page');
         const projectId = urlParams.get('project');
+        const patchJobId = urlParams.get('patchJobId');
         
         if (page) {
             setCurrentPage(page);
@@ -146,12 +147,16 @@ export default function App() {
         if (projectId) {
             setEditingProjectId(projectId);
         }
+        if (patchJobId) {
+            setEditingPatchJobId(patchJobId);
+        }
 
         // Handle browser back/forward
         const handlePopState = (event) => {
             if (event.state) {
                 setCurrentPage(event.state.page || 'home');
                 setEditingProjectId(event.state.projectId || null);
+                setEditingPatchJobId(event.state.patchJobId || null);
             }
         };
 
@@ -168,20 +173,27 @@ export default function App() {
         if (editingProjectId) {
             params.set('project', editingProjectId);
         }
+        if (editingPatchJobId) {
+            params.set('patchJobId', editingPatchJobId);
+        }
 
         const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
-        const state = { page: currentPage, projectId: editingProjectId };
+        const state = { page: currentPage, projectId: editingProjectId, patchJobId: editingPatchJobId };
         
         // Only push state if it's different from current
         if (window.location.search !== ('?' + params.toString())) {
             window.history.pushState(state, '', newUrl);
         }
-    }, [currentPage, editingProjectId]);
+    }, [currentPage, editingProjectId, editingPatchJobId]);
 
     // Navigation functions
     const navigateToPage = (page, projectId = null) => {
         setCurrentPage(page);
         setEditingProjectId(projectId);
+        // Clear patch job ID when navigating to non-patch-job pages
+        if (page !== 'patch-job-edit') {
+            setEditingPatchJobId(null);
+        }
     };
 
     const handleEditProject = (projectId) => {
@@ -193,7 +205,9 @@ export default function App() {
     };
 
     const handleNewPatchJob = () => {
-        setEditingPatchJobId(null);
+        // Generate a temporary ID for new patch jobs to preserve state on refresh
+        const tempId = 'new-' + Date.now();
+        setEditingPatchJobId(tempId);
         setCurrentPage('patch-job-edit');
     };
 

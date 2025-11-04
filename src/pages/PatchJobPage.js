@@ -54,13 +54,38 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     // Load existing patch job if editing
     useEffect(() => {
         if (!db || !patchJobId) {
-            // For new patch jobs, show the project link modal
+            // For completely new patch jobs (no ID at all), show the project link modal
             if (!patchJobId) {
                 setShowProjectLinkModal(true);
             }
             return;
         }
 
+        // Check if this is a temporary ID (new patch job)
+        if (patchJobId.startsWith('new-')) {
+            // Try to restore from sessionStorage for unsaved patch jobs
+            const savedData = sessionStorage.getItem(`patchJob_${patchJobId}`);
+            if (savedData) {
+                try {
+                    const parsedData = JSON.parse(savedData);
+                    setPatchJob(prev => ({
+                        ...prev,
+                        ...parsedData,
+                        patches: parsedData.patches || [createNewPatch(1)]
+                    }));
+                } catch (error) {
+                    console.error('Error parsing saved patch job data:', error);
+                    // If parsing fails, show project link modal
+                    setShowProjectLinkModal(true);
+                }
+            } else {
+                // No saved data, show project link modal for new patch job
+                setShowProjectLinkModal(true);
+            }
+            return;
+        }
+
+        // Load existing saved patch job from database
         const loadPatchJob = async () => {
             setIsLoading(true);
             try {
@@ -72,6 +97,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         ...data,
                         patches: data.patches || [createNewPatch(1)]
                     }));
+                } else {
+                    // Patch job doesn't exist, might be a bad URL
+                    console.error('Patch job not found:', patchJobId);
+                    alert('Patch job not found. Redirecting to patch jobs list.');
+                    setCurrentPage('patch-jobs');
                 }
             } catch (error) {
                 console.error('Error loading patch job:', error);
@@ -82,7 +112,14 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         };
 
         loadPatchJob();
-    }, [db, patchJobId]);
+    }, [db, patchJobId, setCurrentPage]);
+
+    // Save patch job data to sessionStorage for temporary IDs (unsaved patch jobs)
+    useEffect(() => {
+        if (patchJobId && patchJobId.startsWith('new-')) {
+            sessionStorage.setItem(`patchJob_${patchJobId}`, JSON.stringify(patchJob));
+        }
+    }, [patchJob, patchJobId]);
 
     // Load patch job configuration
     useEffect(() => {
@@ -256,10 +293,24 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 status: patchJob.status || 'Draft'
             };
 
-            if (patchJobId) {
+            if (patchJobId && !patchJobId.startsWith('new-')) {
+                // Updating existing patch job
                 await updateDoc(doc(db, patchJobsPath, patchJobId), patchJobData);
             } else {
-                await addDoc(collection(db, patchJobsPath), patchJobData);
+                // Creating new patch job (either no ID or temporary ID)
+                const docRef = await addDoc(collection(db, patchJobsPath), patchJobData);
+                
+                // If this was a temporary ID, clean up sessionStorage and update URL
+                if (patchJobId && patchJobId.startsWith('new-')) {
+                    sessionStorage.removeItem(`patchJob_${patchJobId}`);
+                    // Update the URL with the real ID using the parent's navigation function
+                    // This will be handled by updating the parent state
+                    window.history.replaceState(
+                        { page: 'patch-job-edit', patchJobId: docRef.id }, 
+                        '', 
+                        `?page=patch-job-edit&patchJobId=${docRef.id}`
+                    );
+                }
             }
 
             alert('Patch job saved successfully!');
@@ -334,10 +385,17 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 status: 'Submitted'
             };
 
-            if (patchJobId) {
+            if (patchJobId && !patchJobId.startsWith('new-')) {
+                // Updating existing patch job
                 await updateDoc(doc(db, patchJobsPath, patchJobId), patchJobData);
             } else {
+                // Creating new patch job (either no ID or temporary ID)
                 await addDoc(collection(db, patchJobsPath), patchJobData);
+                
+                // If this was a temporary ID, clean up sessionStorage
+                if (patchJobId && patchJobId.startsWith('new-')) {
+                    sessionStorage.removeItem(`patchJob_${patchJobId}`);
+                }
             }
 
             alert('Patch job submitted successfully!');
