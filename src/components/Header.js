@@ -32,7 +32,13 @@ const Header = ({ userData, onSignOut, setCurrentPage, currentPage }) => {
     const hasAccess = (pageId) => {
         if (userData?.role === 'admin') return true;
         if (pageId === 'profile') return true; // All users can see their profile
-        return !!userData?.permissions?.[pageId];
+        
+        // Check if user has any permissions for this page
+        const pagePermissions = userData?.permissions?.[pageId];
+        if (!pagePermissions) return false;
+        
+        // Check if user has at least one permission enabled for this page
+        return Object.values(pagePermissions).some(permission => permission === true);
     };
 
     const navItems = pages.filter(p => !p.hidden && hasAccess(p.id));

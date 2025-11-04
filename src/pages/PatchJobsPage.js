@@ -304,7 +304,6 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                             className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
                         >
                             <PlusIcon />
-                            <span className="ml-2">New Patch Job</span>
                         </button>
                     )}
                 </div>
@@ -642,14 +641,6 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                     <p className="mt-2 text-sm text-gray-500">
                         {searchTerm ? `No patch jobs found matching "${searchTerm}"` : 'No patch jobs found'}
                     </p>
-                    {!searchTerm && (userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.create) && (
-                        <button
-                            onClick={onNewPatchJob}
-                            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
-                        >
-                            Create your first patch job
-                        </button>
-                    )}
                 </div>
             )}
 
