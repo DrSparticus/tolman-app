@@ -77,6 +77,7 @@ const AdministrationPage = ({ db, userData }) => {
             { id: 'create', name: 'Create Patch Jobs' },
             { id: 'edit', name: 'Edit Patch Jobs' },
             { id: 'delete', name: 'Delete Patch Jobs' },
+            { id: 'advancedView', name: 'Advanced View (Status & Assignment)' },
             { id: 'changeStatus', name: 'Change Status' },
             { id: 'viewTrash', name: 'View Trash' },
             { id: 'restore', name: 'Restore from Trash' },
@@ -184,6 +185,16 @@ const AdministrationPage = ({ db, userData }) => {
                         break;
                     case 'crew':
                         defaults[pageId][perm.id] = pageId === 'schedule' && perm.id === 'view';
+                        break;
+                    case 'patch-guy':
+                        // Patch guys can view and edit patch jobs but not advanced features
+                        if (pageId === 'patch-jobs') {
+                            defaults[pageId][perm.id] = ['view', 'edit'].includes(perm.id);
+                        } else if (pageId === 'home') {
+                            defaults[pageId][perm.id] = perm.id === 'view';
+                        } else {
+                            defaults[pageId][perm.id] = false;
+                        }
                         break;
                     default:
                         defaults[pageId][perm.id] = false;

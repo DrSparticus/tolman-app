@@ -295,13 +295,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         setIsSaving(true);
 
         try {
-            const patchJobData = {
+            let patchJobData = {
                 ...patchJob,
                 totalAmount: calculateTotal(),
                 updatedAt: new Date().toISOString(),
                 updatedBy: userData?.email || 'Unknown',
                 status: patchJob.status || 'Draft'
             };
+
+            // Auto-assign patch-guy users to their own jobs if no assignment is set
+            if (userData?.role === 'patch-guy' && (!patchJob.assignedTo || patchJob.assignedTo === '')) {
+                patchJobData = {
+                    ...patchJobData,
+                    assignedTo: userData.uid || userData.id,
+                    assignedToName: userData.name || userData.email
+                };
+            }
 
             if (patchJobId && !patchJobId.startsWith('new-')) {
                 // Updating existing patch job
@@ -391,13 +400,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         setIsSaving(true);
 
         try {
-            const patchJobData = {
+            let patchJobData = {
                 ...patchJob,
                 totalAmount: calculateTotal(),
                 updatedAt: new Date().toISOString(),
                 updatedBy: userData?.email || 'Unknown',
                 status: 'Submitted'
             };
+
+            // Auto-assign patch-guy users to their own jobs if no assignment is set
+            if (userData?.role === 'patch-guy' && (!patchJob.assignedTo || patchJob.assignedTo === '')) {
+                patchJobData = {
+                    ...patchJobData,
+                    assignedTo: userData.uid || userData.id,
+                    assignedToName: userData.name || userData.email
+                };
+            }
 
             if (patchJobId && !patchJobId.startsWith('new-')) {
                 // Updating existing patch job
@@ -589,46 +607,48 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     />
                 </div>
 
-                {/* Status and Assignment Row */}
-                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Status
-                        </label>
-                        <select
-                            value={patchJob.status}
-                            onChange={(e) => handleInputChange('status', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="Scheduled">Scheduled</option>
-                            <option value="Done">Done</option>
-                            <option value="Billed">Billed</option>
-                            <option value="Archived">Archived</option>
-                        </select>
-                    </div>
+                {/* Status and Assignment Row - Only show for users with advanced view permission */}
+                {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Status
+                            </label>
+                            <select
+                                value={patchJob.status}
+                                onChange={(e) => handleInputChange('status', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="Scheduled">Scheduled</option>
+                                <option value="Done">Done</option>
+                                <option value="Billed">Billed</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Assign To
-                        </label>
-                        <select
-                            value={patchJob.assignedTo}
-                            onChange={(e) => {
-                                const selectedPatchGuy = patchGuys.find(pg => pg.id === e.target.value);
-                                handleInputChange('assignedTo', e.target.value);
-                                handleInputChange('assignedToName', selectedPatchGuy ? (selectedPatchGuy.name || selectedPatchGuy.email) : '');
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">Unassigned</option>
-                            {patchGuys.map(patchGuy => (
-                                <option key={patchGuy.id} value={patchGuy.id}>
-                                    {patchGuy.name || patchGuy.email}
-                                </option>
-                            ))}
-                        </select>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Assign To
+                            </label>
+                            <select
+                                value={patchJob.assignedTo}
+                                onChange={(e) => {
+                                    const selectedPatchGuy = patchGuys.find(pg => pg.id === e.target.value);
+                                    handleInputChange('assignedTo', e.target.value);
+                                    handleInputChange('assignedToName', selectedPatchGuy ? (selectedPatchGuy.name || selectedPatchGuy.email) : '');
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">Unassigned</option>
+                                {patchGuys.map(patchGuy => (
+                                    <option key={patchGuy.id} value={patchGuy.id}>
+                                        {patchGuy.name || patchGuy.email}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Patches Section */}
