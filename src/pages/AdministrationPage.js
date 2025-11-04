@@ -20,7 +20,8 @@ const AdministrationPage = ({ db, userData }) => {
         { id: 'salesman', name: 'Salesman', isProtected: true },
         { id: 'supplier', name: 'Supplier', isProtected: true },
         { id: 'supervisor', name: 'Supervisor', isProtected: true },
-        { id: 'crew', name: 'Crew', isProtected: true }
+        { id: 'crew', name: 'Crew', isProtected: true },
+        { id: 'patch-guy', name: 'Patch Guy', isProtected: true }
     ];
 
     // Define specific permissions for each page

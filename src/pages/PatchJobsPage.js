@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { PlusIcon, DeleteIcon, SortIcon, PatchIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
@@ -32,7 +32,15 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
     useEffect(() => {
         if (!db) return;
         const patchJobsCollection = collection(db, patchJobsPath);
-        const q = query(patchJobsCollection);
+        let q;
+
+        // Patch Guy users only see jobs assigned to them
+        if (userData?.role === 'patch-guy') {
+            q = query(patchJobsCollection, where('assignedTo', '==', userData.uid || userData.id));
+        } else {
+            // All other users see all jobs
+            q = query(patchJobsCollection);
+        }
 
         const unsubscribePatchJobs = onSnapshot(q, (snapshot) => {
             const patchJobsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -42,7 +50,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
         return () => {
             unsubscribePatchJobs();
         };
-    }, [db]);
+    }, [db, userData]);
 
     const sortedPatchJobs = useMemo(() => {
         let sortableItems = patchJobs
@@ -282,13 +290,16 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={onNewPatchJob}
-                        className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
-                    >
-                        <PlusIcon />
-                        <span className="ml-2">New Patch Job</span>
-                    </button>
+                    {/* Only show New Patch Job button to non-patch-guy users */}
+                    {userData?.role !== 'patch-guy' && (
+                        <button
+                            onClick={onNewPatchJob}
+                            className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                        >
+                            <PlusIcon />
+                            <span className="ml-2">New Patch Job</span>
+                        </button>
+                    )}
                 </div>
             </div>
             
@@ -355,6 +366,12 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                 >
                                     Created <SortIcon direction={sortConfig.key === 'createdAt' ? sortConfig.direction : null} />
                                 </th>
+                                <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    onClick={() => requestSort('assignedToName')}
+                                >
+                                    Assigned To <SortIcon direction={sortConfig.key === 'assignedToName' ? sortConfig.direction : null} />
+                                </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
                                 </th>
@@ -379,7 +396,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                         {job.address || 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {formatCurrency(job.totalCharge)}
+                                        {formatCurrency(job.totalAmount)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {activeTab === 'trash' ? (
@@ -422,6 +439,9 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {formatDate(job.createdAt)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {job.assignedToName || 'Unassigned'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end space-x-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, doc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, addDoc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
@@ -22,6 +22,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         status: 'Scheduled',
         notes: '',
         signature: '',
+        assignedTo: '',
+        assignedToName: '',
         totalAmount: 0,
         createdAt: new Date().toISOString(),
         createdBy: userData?.email || 'Unknown'
@@ -32,6 +34,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isNewPatchJob] = useState(!patchJobId);
+    const [patchGuys, setPatchGuys] = useState([]);
     const [patchJobConfig, setPatchJobConfig] = useState({
         hourlyRate: 50.00,
         minimumTotalCharge: 150.00,
@@ -102,6 +105,26 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         loadConfig();
     }, [db]);
 
+    // Load patch guys (users with patch-guy role)
+    useEffect(() => {
+        if (!db) return;
+
+        const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
+        const q = query(collection(db, usersPath), where('role', '==', 'patch-guy'));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const patchGuysList = snapshot.docs.map(doc => ({
+                id: doc.id,
+                email: doc.data().email,
+                name: doc.data().name || doc.data().email,
+                ...doc.data()
+            }));
+            setPatchGuys(patchGuysList);
+        });
+
+        return unsubscribe;
+    }, [db]);
+
     // Initialize with one blank patch for new jobs
     useEffect(() => {
         if (isNewPatchJob && patchJob.patches.length === 0) {
@@ -130,6 +153,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             ...prev,
             projectId: project.id,
             projectName: project.projectName,
+            jobNumber: project.jobNumber || '',
             customer: project.customer || '',
             customerPhone: project.customerPhone || '',
             customerEmail: project.customerEmail || '',
@@ -486,6 +510,29 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         <option value="Done">Done</option>
                         <option value="Billed">Billed</option>
                         <option value="Archived">Archived</option>
+                    </select>
+                </div>
+
+                {/* Assignment */}
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Assign To
+                    </label>
+                    <select
+                        value={patchJob.assignedTo}
+                        onChange={(e) => {
+                            const selectedPatchGuy = patchGuys.find(pg => pg.id === e.target.value);
+                            handleInputChange('assignedTo', e.target.value);
+                            handleInputChange('assignedToName', selectedPatchGuy ? selectedPatchGuy.name : '');
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">Unassigned</option>
+                        {patchGuys.map(patchGuy => (
+                            <option key={patchGuy.id} value={patchGuy.id}>
+                                {patchGuy.name}
+                            </option>
+                        ))}
                     </select>
                 </div>
             </div>
