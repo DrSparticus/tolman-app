@@ -148,6 +148,18 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         setPatchJob(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleSignatureChange = async (signature) => {
+        handleInputChange('signature', signature);
+        // Auto-save when signature is added to immediately lock patches
+        if (signature && signature.trim().length > 0 && patchJobId) {
+            try {
+                await savePatchJob();
+            } catch (error) {
+                console.error('Error auto-saving signature:', error);
+            }
+        }
+    };
+
     const handleProjectSelection = (project) => {
         setPatchJob(prev => ({
             ...prev,
@@ -416,6 +428,15 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             {patchJob.coordinates && (
                                 <div className="mt-1 text-xs text-gray-600">
                                     <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
+                                    <div className="flex space-x-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => locationServices.openInMaps(patchJob.coordinates)}
+                                            className="text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                            Map
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -496,44 +517,45 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     />
                 </div>
 
-                {/* Status */}
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Status
-                    </label>
-                    <select
-                        value={patchJob.status}
-                        onChange={(e) => handleInputChange('status', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="Scheduled">Scheduled</option>
-                        <option value="Done">Done</option>
-                        <option value="Billed">Billed</option>
-                        <option value="Archived">Archived</option>
-                    </select>
-                </div>
+                {/* Status and Assignment Row */}
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Status
+                        </label>
+                        <select
+                            value={patchJob.status}
+                            onChange={(e) => handleInputChange('status', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="Done">Done</option>
+                            <option value="Billed">Billed</option>
+                            <option value="Archived">Archived</option>
+                        </select>
+                    </div>
 
-                {/* Assignment */}
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Assign To
-                    </label>
-                    <select
-                        value={patchJob.assignedTo}
-                        onChange={(e) => {
-                            const selectedPatchGuy = patchGuys.find(pg => pg.id === e.target.value);
-                            handleInputChange('assignedTo', e.target.value);
-                            handleInputChange('assignedToName', selectedPatchGuy ? selectedPatchGuy.name : '');
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Unassigned</option>
-                        {patchGuys.map(patchGuy => (
-                            <option key={patchGuy.id} value={patchGuy.id}>
-                                {patchGuy.name}
-                            </option>
-                        ))}
-                    </select>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Assign To
+                        </label>
+                        <select
+                            value={patchJob.assignedTo}
+                            onChange={(e) => {
+                                const selectedPatchGuy = patchGuys.find(pg => pg.id === e.target.value);
+                                handleInputChange('assignedTo', e.target.value);
+                                handleInputChange('assignedToName', selectedPatchGuy ? (selectedPatchGuy.name || selectedPatchGuy.email) : '');
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Unassigned</option>
+                            {patchGuys.map(patchGuy => (
+                                <option key={patchGuy.id} value={patchGuy.id}>
+                                    {patchGuy.name || patchGuy.email}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -638,7 +660,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 isOpen={showSignatureModal}
                 onClose={() => setShowSignatureModal(false)}
                 signature={patchJob.signature || ''}
-                onSignatureChange={(signature) => handleInputChange('signature', signature)}
+                onSignatureChange={handleSignatureChange}
                 required={calculateTotal() >= patchJobConfig.signatureThreshold}
                 isAdmin={isAdmin()}
                 onClear={handleClearSignature}
