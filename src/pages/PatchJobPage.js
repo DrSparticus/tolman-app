@@ -554,32 +554,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         
                         for (let i = 0; i < patch.photos.length; i++) {
                             const photo = patch.photos[i];
+                            const currentPhotoY = photoY;
                             
                             try {
-                                // Create an image to get dimensions
-                                const img = new Image();
-                                img.onload = function() {
-                                    const aspectRatio = this.width / this.height;
-                                    let photoWidth = maxPhotoWidth;
-                                    let photoHeight = photoWidth / aspectRatio;
-                                    
-                                    // If photo is too tall, adjust
-                                    if (photoHeight > 40) {
-                                        photoHeight = 40;
-                                        photoWidth = photoHeight * aspectRatio;
-                                    }
-                                    
-                                    try {
-                                        pdf.addImage(photo.data, 'JPEG', photoStartX, photoY, photoWidth, photoHeight);
-                                    } catch (error) {
-                                        console.warn('Failed to add image to PDF:', error);
-                                    }
-                                };
-                                img.src = photo.data;
-                                
                                 // For immediate placement without waiting for load
                                 const defaultPhotoHeight = 35;
-                                pdf.addImage(photo.data, 'JPEG', photoStartX, photoY, maxPhotoWidth, defaultPhotoHeight);
+                                pdf.addImage(photo.data, 'JPEG', photoStartX, currentPhotoY, maxPhotoWidth, defaultPhotoHeight);
                                 photoY += defaultPhotoHeight + 5;
                                 
                             } catch (error) {
@@ -664,21 +644,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 pdf.text(signatureName, leftCol + sigWidth/2, sigYPosition + 15, { align: 'center' });
                 pdf.text(signatureDate, leftCol + sigWidth/2, sigYPosition + 35, { align: 'center' });
             } else {
-                // Create interactive signature fields
-                const jobManagerSigField = {
-                    type: 'signature',
-                    name: 'jobManagerSignature',
-                    rect: [leftCol, sigYPosition, sigWidth, sigHeight]
-                };
-                
-                const jobManagerDateField = {
-                    type: 'text',
-                    name: 'jobManagerDate',
-                    rect: [leftCol, sigYPosition + 20, sigWidth, 10],
-                    value: new Date().toLocaleDateString()
-                };
-                
-                // Add form fields (note: jsPDF has limited form support, this creates basic fields)
+                // Create interactive signature fields (basic rectangles for manual signing)
                 pdf.rect(leftCol, sigYPosition, sigWidth, sigHeight);
                 pdf.rect(leftCol, sigYPosition + 20, sigWidth, 10);
             }
