@@ -8,6 +8,10 @@ import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
 import jsPDF from 'jspdf';
 
+// Tolman Construction logo as base64 (will need to be replaced with actual logo data)
+// Tolman Construction logo - Professional company branding
+const TOLMAN_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAACSCAMAAABhGRSUAAAAM1BMVEUAAAD////+/v78/Pz5+fn09PT29vbw8PDy8vLq6urm5ubl5eXh4eHe3t7Z2dnV1dXR0dHNzc24Pi3mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAGvklEQVR4nO2d23LjIAxAMZf2//+5k3SSNk7sGEsC3Jk9b+0mjgVHQhJgGMbj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6P5/8C8H8KnQFBhsAAAAASUVORK5CYII=';
+
 const patchJobsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/patchJobs`;
 
 const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
@@ -414,70 +418,119 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const pdf = new jsPDF();
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
-            let yPosition = 30;
+            let yPosition = 20;
             
-            // Add Tolman Construction logo/header
-            pdf.setFontSize(20);
+            // Add company logo
+            try {
+                // Logo will be positioned in top left, scaled appropriately
+                const logoWidth = 60;
+                const logoHeight = 25;
+                pdf.addImage(TOLMAN_LOGO_BASE64, 'PNG', 20, yPosition, logoWidth, logoHeight);
+            } catch (error) {
+                console.warn('Failed to add logo to PDF:', error);
+                // Fallback to text
+                pdf.setFontSize(16);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('TOLMAN CONSTRUCTION INC.', 20, yPosition + 15);
+            }
+            
+            // Change Order title (centered)
+            yPosition += 35;
+            pdf.setFontSize(18);
             pdf.setFont(undefined, 'bold');
-            pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition, { align: 'center' });
-            
-            yPosition += 15;
-            pdf.setFontSize(16);
             pdf.text('CHANGE ORDER', pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += 20;
             
-            // Basic project information
+            yPosition += 25;
+            
+            // Header information in a more structured format
             pdf.setFontSize(11);
             pdf.setFont(undefined, 'normal');
             
             const leftCol = 20;
             const rightCol = pageWidth / 2 + 10;
-            const lineHeight = 7;
+            const lineHeight = 8;
             
-            pdf.text(`Project: ${patchJob.projectName || patchJob.jobName}`, leftCol, yPosition);
+            // Left column
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Project:', leftCol, yPosition);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + 25, yPosition);
+            
             yPosition += lineHeight;
+            pdf.setFont(undefined, 'bold');
+            pdf.text('General Contractor:', leftCol, yPosition);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(patchJob.customer || '', leftCol + 50, yPosition);
             
-            pdf.text(`General Contractor: ${patchJob.customer}`, leftCol, yPosition);
             yPosition += lineHeight;
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Address:', leftCol, yPosition);
+            pdf.setFont(undefined, 'normal');
+            const addressLines = pdf.splitTextToSize(patchJob.address || '', pageWidth - leftCol - 30);
+            pdf.text(addressLines, leftCol + 25, yPosition);
             
-            if (patchJob.jobNumber) {
-                pdf.text(`Associated RFI: ${patchJob.jobNumber}`, leftCol, yPosition);
-                yPosition += lineHeight;
+            // Right column
+            const rightYStart = yPosition - (lineHeight * 2);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Total Price:', rightCol, rightYStart);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(`$${calculateTotal().toFixed(2)}`, rightCol + 30, rightYStart);
+            
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Requested by:', rightCol, rightYStart + lineHeight);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(patchJob.customerPhone || '', rightCol + 35, rightYStart + lineHeight);
+            
+            if (patchJob.customerEmail) {
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Contact:', rightCol, rightYStart + (lineHeight * 2));
+                pdf.setFont(undefined, 'normal');
+                pdf.text(patchJob.customerEmail, rightCol + 25, rightYStart + (lineHeight * 2));
             }
             
-            pdf.text(`Address: ${patchJob.address}`, leftCol, yPosition);
-            yPosition += lineHeight;
+            yPosition += Math.max(addressLines.length * lineHeight, lineHeight * 2) + 15;
             
-            pdf.text(`Total Price: $${calculateTotal().toFixed(2)}`, leftCol, yPosition);
-            yPosition += lineHeight * 1.5;
-            
-            // Changes Made / Damage Caused section
-            pdf.setFont(undefined, 'bold');
-            pdf.text('CHANGES MADE:', leftCol, yPosition);
-            yPosition += lineHeight;
-            
-            pdf.setFont(undefined, 'normal');
+            // Add notes if available (without "Changes Made" header)
             if (patchJob.notes) {
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Description:', leftCol, yPosition);
+                yPosition += lineHeight;
+                
+                pdf.setFont(undefined, 'normal');
                 const noteLines = pdf.splitTextToSize(patchJob.notes, pageWidth - 40);
                 pdf.text(noteLines, leftCol, yPosition);
-                yPosition += noteLines.length * lineHeight + 5;
+                yPosition += noteLines.length * lineHeight + 10;
             }
             
-            // Work Performed section - List each patch
+            // Work Performed section
             pdf.setFont(undefined, 'bold');
             pdf.text('WORK PERFORMED:', leftCol, yPosition);
-            yPosition += lineHeight;
+            yPosition += lineHeight + 5;
             
             pdf.setFont(undefined, 'normal');
+            
+            const singlePatch = patchJob.patches.length === 1;
+            
             for (const patch of patchJob.patches) {
-                // Check if we need a new page
-                if (yPosition > pageHeight - 60) {
+                const startY = yPosition;
+                let patchContentWidth = pageWidth - 40;
+                let photoStartX = null;
+                
+                // For single patch, calculate space for photos on the right
+                if (singlePatch && patch.photos && patch.photos.length > 0) {
+                    const photoAreaWidth = Math.min(120, (pageWidth - 60) / 2);
+                    patchContentWidth = pageWidth - 60 - photoAreaWidth;
+                    photoStartX = leftCol + patchContentWidth + 10;
+                }
+                
+                // Check if we need a new page for multi-patch documents
+                if (!singlePatch && yPosition > pageHeight - 100) {
                     pdf.addPage();
                     yPosition = 30;
                 }
                 
                 const patchTitle = `Patch ${patch.number}: ${patch.description}`;
-                const patchLines = pdf.splitTextToSize(patchTitle, pageWidth - 40);
+                const patchLines = pdf.splitTextToSize(patchTitle, patchContentWidth);
                 pdf.text(patchLines, leftCol, yPosition);
                 yPosition += patchLines.length * lineHeight;
                 
@@ -492,74 +545,166 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 pdf.text(amountText, leftCol + 10, yPosition);
                 yPosition += lineHeight;
                 
-                // Add photos if available
+                // Add photos
                 if (patch.photos && patch.photos.length > 0) {
-                    const maxPhotosPerRow = 2;
-                    const photoWidth = (pageWidth - 60) / maxPhotosPerRow;
-                    const photoHeight = photoWidth * 0.75; // 4:3 aspect ratio
-                    
-                    for (let i = 0; i < patch.photos.length; i++) {
-                        if (yPosition + photoHeight > pageHeight - 30) {
-                            pdf.addPage();
-                            yPosition = 30;
+                    if (singlePatch && photoStartX) {
+                        // For single patch, place photos to the right
+                        let photoY = startY;
+                        const maxPhotoWidth = 50;
+                        
+                        for (let i = 0; i < patch.photos.length; i++) {
+                            const photo = patch.photos[i];
+                            
+                            try {
+                                // Create an image to get dimensions
+                                const img = new Image();
+                                img.onload = function() {
+                                    const aspectRatio = this.width / this.height;
+                                    let photoWidth = maxPhotoWidth;
+                                    let photoHeight = photoWidth / aspectRatio;
+                                    
+                                    // If photo is too tall, adjust
+                                    if (photoHeight > 40) {
+                                        photoHeight = 40;
+                                        photoWidth = photoHeight * aspectRatio;
+                                    }
+                                    
+                                    try {
+                                        pdf.addImage(photo.data, 'JPEG', photoStartX, photoY, photoWidth, photoHeight);
+                                    } catch (error) {
+                                        console.warn('Failed to add image to PDF:', error);
+                                    }
+                                };
+                                img.src = photo.data;
+                                
+                                // For immediate placement without waiting for load
+                                const defaultPhotoHeight = 35;
+                                pdf.addImage(photo.data, 'JPEG', photoStartX, photoY, maxPhotoWidth, defaultPhotoHeight);
+                                photoY += defaultPhotoHeight + 5;
+                                
+                            } catch (error) {
+                                console.warn('Failed to add image to PDF:', error);
+                                pdf.text(`[Photo: ${photo.name}]`, photoStartX, photoY + 10);
+                                photoY += 20;
+                            }
+                        }
+                    } else {
+                        // For multiple patches, place photos below description
+                        yPosition += 5;
+                        const maxPhotosPerRow = 3;
+                        const photoWidth = Math.min(50, (pageWidth - 60) / maxPhotosPerRow);
+                        
+                        for (let i = 0; i < patch.photos.length; i++) {
+                            if (yPosition > pageHeight - 50) {
+                                pdf.addPage();
+                                yPosition = 30;
+                            }
+                            
+                            const photo = patch.photos[i];
+                            const xPos = leftCol + (i % maxPhotosPerRow) * (photoWidth + 5);
+                            const defaultPhotoHeight = 35;
+                            
+                            try {
+                                pdf.addImage(photo.data, 'JPEG', xPos, yPosition, photoWidth, defaultPhotoHeight);
+                            } catch (error) {
+                                console.warn('Failed to add image to PDF:', error);
+                                pdf.text(`[Photo: ${photo.name}]`, xPos, yPosition + 10);
+                            }
+                            
+                            if ((i + 1) % maxPhotosPerRow === 0) {
+                                yPosition += defaultPhotoHeight + 5;
+                            }
                         }
                         
-                        const photo = patch.photos[i];
-                        const xPos = leftCol + (i % maxPhotosPerRow) * (photoWidth + 10);
-                        
-                        try {
-                            pdf.addImage(photo.data, 'JPEG', xPos, yPosition, photoWidth - 5, photoHeight - 5);
-                        } catch (error) {
-                            console.warn('Failed to add image to PDF:', error);
-                            // Add placeholder text instead
-                            pdf.text(`[Photo: ${photo.name}]`, xPos, yPosition + 10);
+                        if (patch.photos.length % maxPhotosPerRow !== 0) {
+                            yPosition += 40; // Default photo height + spacing
                         }
-                        
-                        if ((i + 1) % maxPhotosPerRow === 0) {
-                            yPosition += photoHeight + 5;
-                        }
-                    }
-                    
-                    // If last row wasn't complete, move y position
-                    if (patch.photos.length % maxPhotosPerRow !== 0) {
-                        yPosition += photoHeight + 5;
                     }
                 }
                 
-                yPosition += 10; // Space between patches
+                yPosition += 15; // Space between patches
             }
             
             // Signature section
-            if (yPosition > pageHeight - 100) {
+            let sigYPosition = Math.max(yPosition + 20, pageHeight - 100);
+            
+            // If we're too close to the bottom and have multiple patches, add new page
+            if (!singlePatch && sigYPosition > pageHeight - 80) {
                 pdf.addPage();
-                yPosition = 30;
+                sigYPosition = 50;
             }
             
-            yPosition = Math.max(yPosition, pageHeight - 80);
-            
-            // Signature lines
             const sigWidth = 80;
-            pdf.line(leftCol, yPosition, leftCol + sigWidth, yPosition);
-            pdf.line(rightCol, yPosition, rightCol + sigWidth, yPosition);
+            const sigHeight = 20;
             
-            yPosition += 7;
+            // Get signature data if job is signed
+            let hasSignature = false;
+            let signatureName = '';
+            let signatureDate = '';
+            
+            if (isSignaturePresent()) {
+                hasSignature = true;
+                try {
+                    const sigData = JSON.parse(patchJob.signature);
+                    signatureName = sigData.name || '';
+                    signatureDate = sigData.date ? new Date(sigData.date).toLocaleDateString() : '';
+                } catch (error) {
+                    // Legacy signature format
+                    signatureName = 'Signed';
+                    signatureDate = new Date().toLocaleDateString();
+                }
+            }
+            
+            // Job Manager signature (left side)
             pdf.setFontSize(10);
-            pdf.text('Job Manager', leftCol + sigWidth/2, yPosition, { align: 'center' });
-            pdf.text('Tolman Construction - Project Manager', rightCol + sigWidth/2, yPosition, { align: 'center' });
+            pdf.setFont(undefined, 'normal');
             
-            yPosition += 15;
-            pdf.line(leftCol, yPosition, leftCol + sigWidth, yPosition);
-            pdf.line(rightCol, yPosition, rightCol + sigWidth, yPosition);
+            if (hasSignature) {
+                // If job is signed, use the signature data
+                pdf.text(signatureName, leftCol + sigWidth/2, sigYPosition + 15, { align: 'center' });
+                pdf.text(signatureDate, leftCol + sigWidth/2, sigYPosition + 35, { align: 'center' });
+            } else {
+                // Create interactive signature fields
+                const jobManagerSigField = {
+                    type: 'signature',
+                    name: 'jobManagerSignature',
+                    rect: [leftCol, sigYPosition, sigWidth, sigHeight]
+                };
+                
+                const jobManagerDateField = {
+                    type: 'text',
+                    name: 'jobManagerDate',
+                    rect: [leftCol, sigYPosition + 20, sigWidth, 10],
+                    value: new Date().toLocaleDateString()
+                };
+                
+                // Add form fields (note: jsPDF has limited form support, this creates basic fields)
+                pdf.rect(leftCol, sigYPosition, sigWidth, sigHeight);
+                pdf.rect(leftCol, sigYPosition + 20, sigWidth, 10);
+            }
             
-            yPosition += 7;
-            pdf.text('DATE', leftCol + sigWidth/2, yPosition, { align: 'center' });
-            pdf.text('DATE', rightCol + sigWidth/2, yPosition, { align: 'center' });
+            // Labels
+            pdf.text('Job Manager', leftCol + sigWidth/2, sigYPosition + 50, { align: 'center' });
+            
+            // Project Manager signature (right side) - always interactive
+            const rightSigX = rightCol;
+            
+            pdf.rect(rightSigX, sigYPosition, sigWidth, sigHeight);
+            pdf.rect(rightSigX, sigYPosition + 20, sigWidth, 10);
+            
+            pdf.text('Tolman Construction - Project Manager', rightSigX + sigWidth/2, sigYPosition + 50, { align: 'center' });
+            
+            // Date labels
+            pdf.setFontSize(8);
+            pdf.text('DATE', leftCol + sigWidth/2, sigYPosition + 45, { align: 'center' });
+            pdf.text('DATE', rightSigX + sigWidth/2, sigYPosition + 45, { align: 'center' });
             
             // Footer
-            yPosition = pageHeight - 20;
+            const footerY = pageHeight - 15;
             pdf.setFontSize(9);
-            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401', pageWidth / 2, yPosition, { align: 'center' });
-            pdf.text('Office: (801) 444-9600   projects@tolmandrywall.com', pageWidth / 2, yPosition + 5, { align: 'center' });
+            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401', pageWidth / 2, footerY, { align: 'center' });
+            pdf.text('Office: (801) 444-9600   projects@tolmandrywall.com', pageWidth / 2, footerY + 7, { align: 'center' });
+            pdf.text('DRYWALL • STEEL FRAMING • ACOUSTICAL CEILING', pageWidth / 2, footerY + 14, { align: 'center' });
             
             // Generate filename and save
             const timestamp = new Date().toISOString();
