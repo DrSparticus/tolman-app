@@ -296,6 +296,16 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return userData?.role === 'admin';
     };
 
+    // Helper function to get proper display name for current user
+    const getUserDisplayName = () => {
+        return userData?.name || 
+               (userData?.firstName && userData?.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
+               userData?.firstName ||
+               userData?.displayName ||
+               userData?.email ||
+               'Unknown User';
+    };
+
     // Generate change log entries by comparing current state with last saved state
     const generateChangeLogEntries = () => {
         if (!lastSavedPatchJob) return [];
@@ -335,26 +345,48 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         const oldPatches = lastSavedPatchJob.patches || [];
         const newPatches = patchJob.patches || [];
         
+        // Helper function to format amount based on type
+        const formatAmount = (amount, amountType) => {
+            if (!amount || amount === '') return '$0';
+            if (amountType === 'hours') {
+                return `${amount} hours`;
+            } else {
+                return `$${amount}`;
+            }
+        };
+
         // Find added patches
         newPatches.forEach(newPatch => {
             const oldPatch = oldPatches.find(p => p.id === newPatch.id);
             if (!oldPatch) {
-                changes.push(`Added Patch ${newPatch.patchNumber}: ${newPatch.description}`);
+                changes.push(`Added Patch ${newPatch.number}: ${newPatch.description}`);
             } else {
                 // Check for patch updates
                 const patchChanges = [];
                 if (oldPatch.description !== newPatch.description) {
                     patchChanges.push(`description: "${oldPatch.description}" → "${newPatch.description}"`);
                 }
-                if (oldPatch.amount !== newPatch.amount) {
-                    patchChanges.push(`amount: $${oldPatch.amount || 0} → $${newPatch.amount || 0}`);
+                if (oldPatch.amount !== newPatch.amount || oldPatch.amountType !== newPatch.amountType) {
+                    const oldAmountFormatted = formatAmount(oldPatch.amount, oldPatch.amountType);
+                    const newAmountFormatted = formatAmount(newPatch.amount, newPatch.amountType);
+                    patchChanges.push(`amount: ${oldAmountFormatted} → ${newAmountFormatted}`);
                 }
-                if (oldPatch.amountType !== newPatch.amountType) {
-                    patchChanges.push(`type: ${oldPatch.amountType} → ${newPatch.amountType}`);
+                
+                // Check for photo attachments
+                const oldPhotosCount = (oldPatch.photos || []).length;
+                const newPhotosCount = (newPatch.photos || []).length;
+                if (oldPhotosCount !== newPhotosCount) {
+                    if (newPhotosCount > oldPhotosCount) {
+                        const addedCount = newPhotosCount - oldPhotosCount;
+                        patchChanges.push(`${addedCount} photo${addedCount > 1 ? 's' : ''} attached`);
+                    } else {
+                        const removedCount = oldPhotosCount - newPhotosCount;
+                        patchChanges.push(`${removedCount} photo${removedCount > 1 ? 's' : ''} removed`);
+                    }
                 }
                 
                 if (patchChanges.length > 0) {
-                    changes.push(`Updated Patch ${newPatch.patchNumber}:\n${patchChanges.map(c => `- ${c}`).join('\n')}`);
+                    changes.push(`Updated Patch ${newPatch.number}:\n${patchChanges.map(c => `- ${c}`).join('\n')}`);
                 }
             }
         });
@@ -363,7 +395,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         oldPatches.forEach(oldPatch => {
             const stillExists = newPatches.find(p => p.id === oldPatch.id);
             if (!stillExists) {
-                changes.push(`Removed Patch ${oldPatch.patchNumber}: ${oldPatch.description}`);
+                changes.push(`Removed Patch ${oldPatch.number}: ${oldPatch.description}`);
             }
         });
         
@@ -413,7 +445,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     newChangeEntries.push({
                         timestamp: new Date().toISOString(),
                         user: {
-                            name: userData?.name || userData?.email || 'Unknown User',
+                            name: getUserDisplayName(),
                             email: userData?.email || 'Unknown'
                         },
                         change: changeDescription
@@ -425,7 +457,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     newChangeEntries.push({
                         timestamp: new Date().toISOString(),
                         user: {
-                            name: userData?.name || userData?.email || 'Unknown User',
+                            name: getUserDisplayName(),
                             email: userData?.email || 'Unknown'
                         },
                         change: 'Patch job saved as draft'
@@ -443,7 +475,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 const initialChangeLog = {
                     timestamp: new Date().toISOString(),
                     user: {
-                        name: userData?.name || userData?.email || 'Unknown User',
+                        name: getUserDisplayName(),
                         email: userData?.email || 'Unknown'
                     },
                     change: 'Patch job created'
@@ -567,7 +599,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     newChangeEntries.push({
                         timestamp: new Date().toISOString(),
                         user: {
-                            name: userData?.name || userData?.email || 'Unknown User',
+                            name: getUserDisplayName(),
                             email: userData?.email || 'Unknown'
                         },
                         change: changeDescription
@@ -578,7 +610,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 newChangeEntries.push({
                     timestamp: new Date().toISOString(),
                     user: {
-                        name: userData?.name || userData?.email || 'Unknown User',
+                        name: getUserDisplayName(),
                         email: userData?.email || 'Unknown'
                     },
                     change: `Patch job submitted (Total: $${calculateTotal().toFixed(2)})`
@@ -593,7 +625,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     {
                         timestamp: new Date().toISOString(),
                         user: {
-                            name: userData?.name || userData?.email || 'Unknown User',
+                            name: getUserDisplayName(),
                             email: userData?.email || 'Unknown'
                         },
                         change: 'Patch job created'
@@ -601,7 +633,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     {
                         timestamp: new Date().toISOString(),
                         user: {
-                            name: userData?.name || userData?.email || 'Unknown User',
+                            name: getUserDisplayName(),
                             email: userData?.email || 'Unknown'
                         },
                         change: `Patch job submitted (Total: $${calculateTotal().toFixed(2)})`
