@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { PlusIcon, DeleteIcon, SortIcon, PatchIcon } from '../Icons.js';
+import { PlusIcon, DeleteIcon, SortIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 // Search icon component
@@ -637,7 +637,6 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                 
             {sortedPatchJobs.length === 0 && (
                 <div className="text-center py-12">
-                    <PatchIcon />
                     <p className="mt-2 text-sm text-gray-500">
                         {searchTerm ? `No patch jobs found matching "${searchTerm}"` : 'No patch jobs found'}
                     </p>

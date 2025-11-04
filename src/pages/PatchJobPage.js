@@ -217,15 +217,17 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             customerPhone: project.customerPhone || '',
             customerEmail: project.customerEmail || '',
             address: project.address || '',
-            jobName: `${project.projectName} - Patch Work`
+            jobName: `${project.projectName} - Patch Work`,
+            patches: [createNewPatch(1)]
         }));
     };
 
     const handleCreateNew = () => {
-        // Just proceed with a blank patch job
+        // Just proceed with a blank patch job with one patch
         setPatchJob(prev => ({
             ...prev,
-            jobName: 'New Patch Job'
+            jobName: 'New Patch Job',
+            patches: [createNewPatch(1)]
         }));
     };
 
