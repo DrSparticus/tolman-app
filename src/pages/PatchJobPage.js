@@ -420,120 +420,149 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const pageHeight = pdf.internal.pageSize.getHeight();
             let yPosition = 20;
             
-            // Add company logo
+            // Add company logo and header section matching the form
             try {
-                // Logo will be positioned in top left, scaled appropriately
+                // Company logo in header area
                 const logoWidth = 60;
-                const logoHeight = 25;
+                const logoHeight = 30;
                 pdf.addImage(TOLMAN_LOGO_BASE64, 'PNG', 20, yPosition, logoWidth, logoHeight);
             } catch (error) {
                 console.warn('Failed to add logo to PDF:', error);
-                // Fallback to text
-                pdf.setFontSize(16);
+                // Fallback header
+                pdf.setFontSize(20);
                 pdf.setFont(undefined, 'bold');
-                pdf.text('TOLMAN CONSTRUCTION INC.', 20, yPosition + 15);
+                pdf.text('TOLMAN', 20, yPosition + 15);
+                pdf.setFontSize(12);
+                pdf.text('CONSTRUCTION INC.', 20, yPosition + 25);
             }
             
-            // Change Order title (centered)
-            yPosition += 35;
+            // Header line under logo
+            yPosition += 40;
+            pdf.setLineWidth(2);
+            pdf.line(20, yPosition, pageWidth - 20, yPosition);
+            pdf.setFontSize(10);
+            pdf.text('DRYWALL • STEEL FRAMING • ACOUSTICAL CEILING', pageWidth / 2, yPosition + 8, { align: 'center' });
+            
+            // Title
+            yPosition += 25;
             pdf.setFontSize(18);
             pdf.setFont(undefined, 'bold');
-            pdf.text('CHANGE ORDER', pageWidth / 2, yPosition, { align: 'center' });
+            pdf.text('Patch Work Order', pageWidth / 2, yPosition, { align: 'center' });
             
             yPosition += 25;
             
-            // Header information in a more structured format
+            // Form fields matching the template layout
             pdf.setFontSize(11);
-            pdf.setFont(undefined, 'normal');
+            pdf.setFont(undefined, 'bold');
             
             const leftCol = 20;
             const rightCol = pageWidth / 2 + 10;
-            const lineHeight = 8;
-            const labelWidth = 40; // Fixed width for right-justified labels
+            const lineHeight = 12;
+            const fieldLineWidth = 80;
             
-            // Left column
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Project:', leftCol + labelWidth, yPosition, { align: 'right' });
+            // Left column fields
+            // Project Name
+            pdf.text('Project Name:', leftCol, yPosition);
             pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + labelWidth + 5, yPosition);
+            pdf.line(leftCol + 50, yPosition + 2, leftCol + fieldLineWidth + 50, yPosition + 2);
+            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + 52, yPosition);
             
-            yPosition += lineHeight;
+            yPosition += lineHeight + 5;
             pdf.setFont(undefined, 'bold');
-            pdf.text('Contractor:', leftCol + labelWidth, yPosition, { align: 'right' });
+            pdf.text('Contractor:', leftCol, yPosition);
             pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.customer || '', leftCol + labelWidth + 5, yPosition);
+            pdf.line(leftCol + 35, yPosition + 2, leftCol + fieldLineWidth + 35, yPosition + 2);
+            pdf.text(patchJob.customer || '', leftCol + 37, yPosition);
             
-            yPosition += lineHeight;
+            yPosition += lineHeight + 5;
             pdf.setFont(undefined, 'bold');
-            pdf.text('Total Price:', leftCol + labelWidth, yPosition, { align: 'right' });
+            pdf.text('Price:', leftCol, yPosition);
             pdf.setFont(undefined, 'normal');
-            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + labelWidth + 5, yPosition);
+            pdf.line(leftCol + 25, yPosition + 2, leftCol + fieldLineWidth + 25, yPosition + 2);
+            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + 27, yPosition);
             
-            // Right column
-            const rightYStart = yPosition - (lineHeight * 2);
+            // Right column fields
+            const rightYStart = yPosition - (lineHeight + 5) * 2;
             pdf.setFont(undefined, 'bold');
-            pdf.text('Address:', rightCol + labelWidth, rightYStart, { align: 'right' });
+            pdf.text('Address:', rightCol, rightYStart);
             pdf.setFont(undefined, 'normal');
-            const addressLines = pdf.splitTextToSize(patchJob.address || '', pageWidth - rightCol - labelWidth - 30);
-            pdf.text(addressLines, rightCol + labelWidth + 5, rightYStart);
-            
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Requested by:', rightCol + labelWidth, rightYStart + lineHeight, { align: 'right' });
-            pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.customerPhone || '', rightCol + labelWidth + 5, rightYStart + lineHeight);
-            
-            if (patchJob.customerEmail) {
-                pdf.setFont(undefined, 'bold');
-                pdf.text('Contact:', rightCol + labelWidth, rightYStart + (lineHeight * 2), { align: 'right' });
-                pdf.setFont(undefined, 'normal');
-                pdf.text(patchJob.customerEmail, rightCol + labelWidth + 5, rightYStart + (lineHeight * 2));
+            pdf.line(rightCol + 30, rightYStart + 2, pageWidth - 20, rightYStart + 2);
+            const addressText = patchJob.address || '';
+            if (addressText.length > 40) {
+                const addressLines = pdf.splitTextToSize(addressText, pageWidth - rightCol - 35);
+                pdf.text(addressLines[0], rightCol + 32, rightYStart);
+                if (addressLines[1]) {
+                    pdf.line(rightCol, rightYStart + lineHeight + 7, pageWidth - 20, rightYStart + lineHeight + 7);
+                    pdf.text(addressLines[1], rightCol + 2, rightYStart + lineHeight + 5);
+                }
+            } else {
+                pdf.text(addressText, rightCol + 32, rightYStart);
             }
             
-            yPosition += Math.max(addressLines.length * lineHeight, lineHeight * 2) + 15;
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Requested by:', rightCol, rightYStart + lineHeight + 5);
+            pdf.setFont(undefined, 'normal');
+            pdf.line(rightCol + 45, rightYStart + lineHeight + 7, pageWidth - 20, rightYStart + lineHeight + 7);
+            pdf.text(patchJob.customerPhone || '', rightCol + 47, rightYStart + lineHeight + 5);
             
-            // Add notes if available (without "Changes Made" header)
+            yPosition += 25;
+            
+            // Large content box for patch work details (like the template)
+            const boxStartY = yPosition;
+            const boxHeight = 120; // Large box height
+            const boxWidth = pageWidth - 40;
+            
+            // Draw the main content box
+            pdf.setLineWidth(1);
+            pdf.rect(leftCol, boxStartY, boxWidth, boxHeight);
+            
+            // Content inside the box
+            let contentY = boxStartY + 10;
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'normal');
+            
+            // Add description if available
             if (patchJob.notes) {
                 pdf.setFont(undefined, 'bold');
-                pdf.text('Description:', leftCol, yPosition);
-                yPosition += lineHeight;
+                pdf.text('Description:', leftCol + 5, contentY);
+                contentY += 8;
                 
                 pdf.setFont(undefined, 'normal');
-                const noteLines = pdf.splitTextToSize(patchJob.notes, pageWidth - 40);
-                pdf.text(noteLines, leftCol, yPosition);
-                yPosition += noteLines.length * lineHeight + 10;
+                const noteLines = pdf.splitTextToSize(patchJob.notes, boxWidth - 20);
+                pdf.text(noteLines, leftCol + 5, contentY);
+                contentY += noteLines.length * 6 + 8;
             }
             
-            // Work Performed section
+            // Work Performed section inside the box
             pdf.setFont(undefined, 'bold');
-            pdf.text('WORK PERFORMED:', leftCol, yPosition);
-            yPosition += lineHeight + 5;
+            pdf.text('WORK PERFORMED:', leftCol + 5, contentY);
+            contentY += 8;
             
             pdf.setFont(undefined, 'normal');
             
             const singlePatch = patchJob.patches.length === 1;
             
             for (const patch of patchJob.patches) {
-                const startY = yPosition;
-                let patchContentWidth = pageWidth - 40;
+                let patchContentWidth = boxWidth - 20;
                 let photoStartX = null;
                 
-                // For single patch, calculate space for photos on the right
+                // For single patch, calculate space for photos on the right side of box
                 if (singlePatch && patch.photos && patch.photos.length > 0) {
-                    const photoAreaWidth = Math.min(120, (pageWidth - 60) / 2);
-                    patchContentWidth = pageWidth - 60 - photoAreaWidth;
-                    photoStartX = leftCol + patchContentWidth + 10;
+                    const photoAreaWidth = Math.min(80, boxWidth / 3);
+                    patchContentWidth = boxWidth - photoAreaWidth - 30;
+                    photoStartX = leftCol + patchContentWidth + 15;
                 }
                 
-                // Check if we need a new page for multi-patch documents
-                if (!singlePatch && yPosition > pageHeight - 100) {
-                    pdf.addPage();
-                    yPosition = 30;
+                // Check if content fits in remaining box space
+                if (contentY > boxStartY + boxHeight - 30) {
+                    // Content doesn't fit, need to add more pages or expand box
+                    break;
                 }
                 
                 const patchTitle = `Patch ${patch.number}: ${patch.description}`;
                 const patchLines = pdf.splitTextToSize(patchTitle, patchContentWidth);
-                pdf.text(patchLines, leftCol, yPosition);
-                yPosition += patchLines.length * lineHeight;
+                pdf.text(patchLines, leftCol + 5, contentY);
+                contentY += patchLines.length * 6;
                 
                 // Add amount information
                 let amountText = '';
@@ -543,120 +572,94 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 } else {
                     amountText = `Fixed charge: $${parseFloat(patch.amount || 0).toFixed(2)}`;
                 }
-                pdf.text(amountText, leftCol + 10, yPosition);
-                yPosition += lineHeight;
+                pdf.text(amountText, leftCol + 15, contentY);
+                contentY += 6;
                 
-                // Add photos
+                // Add photos within the box
                 if (patch.photos && patch.photos.length > 0) {
                     if (singlePatch && photoStartX) {
-                        // For single patch, place photos to the right
-                        let photoY = startY;
-                        const maxPhotoWidth = 50;
+                        // For single patch, place photos to the right within the box
+                        let photoY = boxStartY + 15;
+                        const maxPhotoWidth = 35;
                         
-                        for (let i = 0; i < patch.photos.length; i++) {
+                        for (let i = 0; i < patch.photos.length && i < 3; i++) { // Limit to 3 photos in box
                             const photo = patch.photos[i];
-                            const currentPhotoY = photoY;
                             
                             try {
-                                // Create image to get actual dimensions for proper aspect ratio
-                                const img = new Image();
-                                img.src = photo.data;
-                                
                                 // Calculate proper dimensions maintaining aspect ratio
                                 let photoWidth = maxPhotoWidth;
                                 let photoHeight = maxPhotoWidth * 0.75; // Default 4:3 ratio
                                 
-                                if (img.width && img.height) {
-                                    const aspectRatio = img.width / img.height;
-                                    photoHeight = maxPhotoWidth / aspectRatio;
-                                    
-                                    // Limit height to reasonable size
-                                    if (photoHeight > 40) {
-                                        photoHeight = 40;
-                                        photoWidth = photoHeight * aspectRatio;
-                                    }
+                                // Ensure photo fits within box bounds
+                                if (photoY + photoHeight > boxStartY + boxHeight - 10) {
+                                    break; // Photo won't fit
                                 }
                                 
-                                pdf.addImage(photo.data, 'JPEG', photoStartX, currentPhotoY, photoWidth, photoHeight);
-                                photoY += photoHeight + 5;
+                                pdf.addImage(photo.data, 'JPEG', photoStartX, photoY, photoWidth, photoHeight);
+                                photoY += photoHeight + 8;
                                 
                             } catch (error) {
                                 console.warn('Failed to add image to PDF:', error);
-                                pdf.text(`[Photo: ${photo.name}]`, photoStartX, photoY + 10);
-                                photoY += 20;
+                                pdf.text(`[Photo ${i + 1}]`, photoStartX, photoY + 5);
+                                photoY += 15;
                             }
                         }
                     } else {
-                        // For multiple patches, place photos below description
-                        yPosition += 5;
-                        const maxPhotosPerRow = 3;
-                        const photoWidth = Math.min(50, (pageWidth - 60) / maxPhotosPerRow);
+                        // For multiple patches, add small photos inline
+                        contentY += 3;
+                        const maxPhotosInBox = 2;
+                        const smallPhotoWidth = 25;
                         
-                        let rowHeight = 0;
-                        for (let i = 0; i < patch.photos.length; i++) {
-                            if (yPosition > pageHeight - 60) {
-                                pdf.addPage();
-                                yPosition = 30;
-                                rowHeight = 0;
-                            }
-                            
+                        for (let i = 0; i < patch.photos.length && i < maxPhotosInBox; i++) {
                             const photo = patch.photos[i];
-                            const xPos = leftCol + (i % maxPhotosPerRow) * (photoWidth + 5);
+                            const xPos = leftCol + 15 + (i * (smallPhotoWidth + 5));
+                            
+                            if (contentY + 20 > boxStartY + boxHeight - 10) {
+                                break; // Photo won't fit in box
+                            }
                             
                             try {
-                                // Create image to get actual dimensions for proper aspect ratio
-                                const img = new Image();
-                                img.src = photo.data;
-                                
-                                // Calculate proper dimensions maintaining aspect ratio
-                                let actualPhotoWidth = photoWidth;
-                                let actualPhotoHeight = photoWidth * 0.75; // Default 4:3 ratio
-                                
-                                if (img.width && img.height) {
-                                    const aspectRatio = img.width / img.height;
-                                    actualPhotoHeight = photoWidth / aspectRatio;
-                                    
-                                    // Limit height to reasonable size
-                                    if (actualPhotoHeight > 45) {
-                                        actualPhotoHeight = 45;
-                                        actualPhotoWidth = actualPhotoHeight * aspectRatio;
-                                    }
-                                }
-                                
-                                pdf.addImage(photo.data, 'JPEG', xPos, yPosition, actualPhotoWidth, actualPhotoHeight);
-                                rowHeight = Math.max(rowHeight, actualPhotoHeight);
-                                
+                                pdf.addImage(photo.data, 'JPEG', xPos, contentY, smallPhotoWidth, 18);
                             } catch (error) {
                                 console.warn('Failed to add image to PDF:', error);
-                                pdf.text(`[Photo: ${photo.name}]`, xPos, yPosition + 10);
-                                rowHeight = Math.max(rowHeight, 20);
-                            }
-                            
-                            if ((i + 1) % maxPhotosPerRow === 0) {
-                                yPosition += rowHeight + 5;
-                                rowHeight = 0;
+                                pdf.text(`[Photo ${i + 1}]`, xPos, contentY + 10);
                             }
                         }
+                        contentY += 22;
                         
-                        // Add space for incomplete row
-                        if (patch.photos.length % maxPhotosPerRow !== 0) {
-                            yPosition += rowHeight + 5;
+                        // Add note if more photos exist
+                        if (patch.photos.length > maxPhotosInBox) {
+                            pdf.setFontSize(8);
+                            pdf.text(`(${patch.photos.length - maxPhotosInBox} more photos available)`, leftCol + 15, contentY);
+                            pdf.setFontSize(10);
+                            contentY += 6;
                         }
                     }
                 }
                 
-                yPosition += 15; // Space between patches
+                contentY += 10; // Space between patches
             }
             
-            // Signature section
-            let sigYPosition = Math.max(yPosition + 20, pageHeight - 100);
+            // Move position past the content box
+            yPosition = boxStartY + boxHeight + 15;
             
-            // If we're too close to the bottom and have multiple patches, add new page
-            if (!singlePatch && sigYPosition > pageHeight - 80) {
-                pdf.addPage();
-                sigYPosition = 50;
-            }
+            // Acceptance text (matching template)
+            let acceptanceY = yPosition + 10;
+            pdf.setFontSize(9);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('ACCEPTANCE OF BID:', leftCol, acceptanceY);
             
+            acceptanceY += 8;
+            pdf.setFontSize(8);
+            pdf.setFont(undefined, 'normal');
+            const acceptanceText = 'The above prices, specifications and conditions are satisfactory and are hereby accepted. You are authorized to do the work as specified. Payment will be made in full at completion of job. After 30 days from completion interest will be added to the unpaid balance at the rate of 0.5% per month (18% per year). If legal action is required, you agree to pay collection and attorney fees.';
+            const acceptanceLines = pdf.splitTextToSize(acceptanceText, pageWidth - 40);
+            pdf.text(acceptanceLines, leftCol, acceptanceY);
+            
+            acceptanceY += acceptanceLines.length * 5 + 15;
+            
+            // Signature section matching template
+            const sigYPosition = acceptanceY;
             const sigWidth = 80;
             const sigHeight = 20;
             
@@ -678,42 +681,47 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 }
             }
             
-            // Job Manager signature (left side)
+            // Left signature section - Job Manager
             pdf.setFontSize(10);
-            pdf.setFont(undefined, 'normal');
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Job Manager', leftCol + 5, sigYPosition);
             
             if (hasSignature) {
-                // If job is signed, use the signature data
-                pdf.text(signatureName, leftCol + sigWidth/2, sigYPosition + 15, { align: 'center' });
-                pdf.text(signatureDate, leftCol + sigWidth/2, sigYPosition + 35, { align: 'center' });
+                pdf.setFont(undefined, 'normal');
+                pdf.text(signatureName, leftCol + 5, sigYPosition + 25);
             } else {
-                // Create interactive signature fields (basic rectangles for manual signing)
-                pdf.rect(leftCol, sigYPosition, sigWidth, sigHeight);
-                pdf.rect(leftCol, sigYPosition + 20, sigWidth, 10);
+                // Signature line
+                pdf.line(leftCol, sigYPosition + 20, leftCol + sigWidth, sigYPosition + 20);
             }
             
-            // Labels
-            pdf.text('Job Manager', leftCol + sigWidth/2, sigYPosition + 50, { align: 'center' });
+            pdf.text('Signature', leftCol + sigWidth/2, sigYPosition + 35, { align: 'center' });
             
-            // Project Manager signature (right side) - always interactive
+            // Date lines under signature
+            pdf.line(leftCol, sigYPosition + 45, leftCol + 35, sigYPosition + 45);
+            pdf.line(leftCol + 45, sigYPosition + 45, leftCol + sigWidth, sigYPosition + 45);
+            pdf.text('Print', leftCol + 17, sigYPosition + 55, { align: 'center' });
+            pdf.text('Date', leftCol + 62, sigYPosition + 55, { align: 'center' });
+            
+            // Right signature section - Tolman Construction
             const rightSigX = rightCol;
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Tolman Construction', rightSigX + 5, sigYPosition);
             
-            pdf.rect(rightSigX, sigYPosition, sigWidth, sigHeight);
-            pdf.rect(rightSigX, sigYPosition + 20, sigWidth, 10);
+            // Always interactive for Tolman signature
+            pdf.line(rightSigX, sigYPosition + 20, rightSigX + sigWidth, sigYPosition + 20);
+            pdf.text('Signature', rightSigX + sigWidth/2, sigYPosition + 35, { align: 'center' });
             
-            pdf.text('Tolman Construction - Project Manager', rightSigX + sigWidth/2, sigYPosition + 50, { align: 'center' });
+            // Date lines
+            pdf.line(rightSigX, sigYPosition + 45, rightSigX + 35, sigYPosition + 45);
+            pdf.line(rightSigX + 45, sigYPosition + 45, rightSigX + sigWidth, sigYPosition + 45);
+            pdf.text('Print', rightSigX + 17, sigYPosition + 55, { align: 'center' });
+            pdf.text('Date', rightSigX + 62, sigYPosition + 55, { align: 'center' });
             
-            // Date labels
-            pdf.setFontSize(8);
-            pdf.text('DATE', leftCol + sigWidth/2, sigYPosition + 45, { align: 'center' });
-            pdf.text('DATE', rightSigX + sigWidth/2, sigYPosition + 45, { align: 'center' });
-            
-            // Footer
-            const footerY = pageHeight - 15;
-            pdf.setFontSize(9);
-            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401', pageWidth / 2, footerY, { align: 'center' });
-            pdf.text('Office: (801) 444-9600   projects@tolmandrywall.com', pageWidth / 2, footerY + 7, { align: 'center' });
-            pdf.text('DRYWALL • STEEL FRAMING • ACOUSTICAL CEILING', pageWidth / 2, footerY + 14, { align: 'center' });
+            // Footer matching template
+            const footerY = pageHeight - 10;
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401   •   (801) 444-9600', pageWidth / 2, footerY, { align: 'center' });
             
             // Generate filename and save
             const timestamp = new Date().toISOString();
