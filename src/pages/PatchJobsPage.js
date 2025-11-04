@@ -324,8 +324,8 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                 </div>
             </div>
 
-            {/* Patch Jobs Table */}
-            <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-white shadow-lg rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -366,12 +366,15 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                 >
                                     Created <SortIcon direction={sortConfig.key === 'createdAt' ? sortConfig.direction : null} />
                                 </th>
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => requestSort('assignedToName')}
-                                >
-                                    Assigned To <SortIcon direction={sortConfig.key === 'assignedToName' ? sortConfig.direction : null} />
-                                </th>
+                                {/* Hide Assigned To column for patch guys */}
+                                {userData?.role !== 'patch-guy' && (
+                                    <th 
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                        onClick={() => requestSort('assignedToName')}
+                                    >
+                                        Assigned To <SortIcon direction={sortConfig.key === 'assignedToName' ? sortConfig.direction : null} />
+                                    </th>
+                                )}
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
                                 </th>
@@ -440,9 +443,12 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {formatDate(job.createdAt)}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {job.assignedToName || 'Unassigned'}
-                                    </td>
+                                    {/* Hide Assigned To column for patch guys */}
+                                    {userData?.role !== 'patch-guy' && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {job.assignedToName || 'Unassigned'}
+                                        </td>
+                                    )}
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end space-x-2">
                                             {activeTab === 'trash' ? (
@@ -466,13 +472,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <button
-                                                        onClick={() => onEditPatchJob(job.id)}
-                                                        className="text-blue-600 hover:text-blue-900"
-                                                        title="Edit"
-                                                    >
-                                                        Edit
-                                                    </button>
+                                                    {/* Remove Edit button since job name is clickable */}
                                                     <button
                                                         onClick={() => openDeleteModal(job)}
                                                         className="text-red-600 hover:text-red-900"
@@ -489,24 +489,131 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                         </tbody>
                     </table>
                 </div>
-                
-                {sortedPatchJobs.length === 0 && (
-                    <div className="text-center py-12">
-                        <PatchIcon />
-                        <p className="mt-2 text-sm text-gray-500">
-                            {searchTerm ? `No patch jobs found matching "${searchTerm}"` : 'No patch jobs found'}
-                        </p>
-                        {!searchTerm && (
-                            <button
-                                onClick={onNewPatchJob}
-                                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
-                            >
-                                Create your first patch job
-                            </button>
-                        )}
-                    </div>
-                )}
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+                {sortedPatchJobs.map((job) => (
+                    <div key={job.id} className="bg-white shadow-lg rounded-lg p-4 border border-gray-200">
+                        <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                                <h3 
+                                    className="text-lg font-semibold text-blue-600 cursor-pointer hover:text-blue-800 mb-1"
+                                    onClick={() => onEditPatchJob(job.id)}
+                                >
+                                    {job.jobName || 'Untitled Job'}
+                                </h3>
+                                <p className="text-sm text-gray-600">Job #: {job.jobNumber || 'N/A'}</p>
+                            </div>
+                            <div className="flex flex-col items-end">
+                                <span className="text-lg font-bold text-green-600 mb-1">
+                                    {formatCurrency(job.totalAmount)}
+                                </span>
+                                {activeTab === 'trash' ? (
+                                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                        Deleted
+                                    </span>
+                                ) : editingStatus[job.id] ? (
+                                    <div className="flex items-center space-x-1">
+                                        <select
+                                            value={pendingStatusChanges[job.id] || job.status}
+                                            onChange={(e) => handleStatusChange(job.id, e.target.value)}
+                                            className="text-xs border border-gray-300 rounded px-1 py-1"
+                                        >
+                                            <option value="Scheduled">Scheduled</option>
+                                            <option value="Done">Done</option>
+                                            <option value="Billed">Billed</option>
+                                            <option value="Archived">Archived</option>
+                                        </select>
+                                        <button
+                                            onClick={() => saveStatusChange(job.id)}
+                                            className="text-green-600 hover:text-green-800 text-sm"
+                                        >
+                                            ✓
+                                        </button>
+                                        <button
+                                            onClick={() => cancelStatusChange(job.id)}
+                                            className="text-red-600 hover:text-red-800 text-sm"
+                                        >
+                                            ✗
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <span 
+                                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${getStatusColor(job.status)}`}
+                                        onClick={() => handleStatusEdit(job.id, job.status)}
+                                    >
+                                        {job.status || 'Scheduled'}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-2 text-sm">
+                            <div>
+                                <span className="font-medium text-gray-700">Customer:</span> {job.customer || 'N/A'}
+                            </div>
+                            <div>
+                                <span className="font-medium text-gray-700">Address:</span> {job.address || 'N/A'}
+                            </div>
+                            <div>
+                                <span className="font-medium text-gray-700">Created:</span> {formatDate(job.createdAt)}
+                            </div>
+                            {/* Only show assignment for non-patch-guy users */}
+                            {userData?.role !== 'patch-guy' && (
+                                <div>
+                                    <span className="font-medium text-gray-700">Assigned To:</span> {job.assignedToName || 'Unassigned'}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end mt-3 space-x-2">
+                            {activeTab === 'trash' ? (
+                                <>
+                                    <button
+                                        onClick={() => openRestoreModal(job)}
+                                        className="px-3 py-1 text-sm text-green-600 hover:text-green-900 border border-green-300 rounded"
+                                    >
+                                        Restore
+                                    </button>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => openPermanentDeleteModal(job)}
+                                            className="px-3 py-1 text-sm text-red-600 hover:text-red-900 border border-red-300 rounded"
+                                        >
+                                            Delete Permanently
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => openDeleteModal(job)}
+                                    className="px-3 py-1 text-sm text-red-600 hover:text-red-900 border border-red-300 rounded"
+                                >
+                                    Delete
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+                
+            {sortedPatchJobs.length === 0 && (
+                <div className="text-center py-12">
+                    <PatchIcon />
+                    <p className="mt-2 text-sm text-gray-500">
+                        {searchTerm ? `No patch jobs found matching "${searchTerm}"` : 'No patch jobs found'}
+                    </p>
+                    {!searchTerm && userData?.role !== 'patch-guy' && (
+                        <button
+                            onClick={onNewPatchJob}
+                            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
+                        >
+                            Create your first patch job
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Confirmation Modals */}
             <ConfirmationModal

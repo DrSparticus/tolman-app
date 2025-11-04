@@ -150,12 +150,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         const q = query(collection(db, usersPath), where('role', '==', 'patch-guy'));
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const patchGuysList = snapshot.docs.map(doc => ({
-                id: doc.id,
-                email: doc.data().email,
-                name: doc.data().name || doc.data().email,
-                ...doc.data()
-            }));
+            const patchGuysList = snapshot.docs.map(doc => {
+                const userData = doc.data();
+                // Try multiple ways to get a display name
+                const displayName = userData.name || 
+                                   (userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
+                                   userData.firstName ||
+                                   userData.displayName ||
+                                   userData.email;
+                
+                return {
+                    id: doc.id,
+                    email: userData.email,
+                    name: displayName,
+                    ...userData
+                };
+            });
             setPatchGuys(patchGuysList);
         });
 
@@ -190,7 +200,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         // Auto-save when signature is added to immediately lock patches
         if (signature && signature.trim().length > 0 && patchJobId) {
             try {
-                await savePatchJob();
+                await savePatchJob(false); // Don't navigate away on auto-save
             } catch (error) {
                 console.error('Error auto-saving signature:', error);
             }
@@ -281,7 +291,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     // Save function - minimal validation, allows saving drafts
-    const savePatchJob = async () => {
+    const savePatchJob = async (shouldNavigateAway = true) => {
         setIsSaving(true);
 
         try {
@@ -313,11 +323,15 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 }
             }
 
-            alert('Patch job saved successfully!');
-            setCurrentPage('patch-jobs');
+            if (shouldNavigateAway) {
+                alert('Patch job saved successfully!');
+                setCurrentPage('patch-jobs');
+            }
         } catch (error) {
             console.error('Error saving patch job:', error);
-            alert('Error saving patch job. Please try again.');
+            if (shouldNavigateAway) {
+                alert('Error saving patch job. Please try again.');
+            }
         } finally {
             setIsSaving(false);
         }
