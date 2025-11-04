@@ -439,8 +439,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 
                 if (changesList.length > 0) {
                     const changeDescription = changesList.length === 1 
-                        ? changesList[0] 
-                        : `${changesList.length} changes made:\n${changesList.map(c => `- ${c}`).join('\n')}`;
+                        ? `${changesList[0]} (saved as draft)`
+                        : `${changesList.length} changes made (saved as draft):\n${changesList.map(c => `- ${c}`).join('\n')}`;
                     
                     newChangeEntries.push({
                         timestamp: new Date().toISOString(),
@@ -450,10 +450,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         },
                         change: changeDescription
                     });
-                }
-                
-                // Always add a "saved" entry, but only if there were changes or this is the first save
-                if (changesList.length > 0 || !lastSavedPatchJob) {
+                } else if (!lastSavedPatchJob) {
+                    // Only add a "saved" entry for the very first save when no changes are detected
                     newChangeEntries.push({
                         timestamp: new Date().toISOString(),
                         user: {
@@ -463,6 +461,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         change: 'Patch job saved as draft'
                     });
                 }
+                // If there are no changes and this isn't the first save, don't log anything
                 
                 patchJobData.changeLog = [...(patchJob.changeLog || []), ...newChangeEntries];
                 
@@ -591,29 +590,24 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 const changesList = generateChangeLogEntries();
                 const newChangeEntries = [];
                 
+                // Combine changes with submission info in a single entry
+                let changeDescription;
                 if (changesList.length > 0) {
-                    const changeDescription = changesList.length === 1 
+                    const changesText = changesList.length === 1 
                         ? changesList[0] 
                         : `${changesList.length} changes made:\n${changesList.map(c => `- ${c}`).join('\n')}`;
-                    
-                    newChangeEntries.push({
-                        timestamp: new Date().toISOString(),
-                        user: {
-                            name: getUserDisplayName(),
-                            email: userData?.email || 'Unknown'
-                        },
-                        change: changeDescription
-                    });
+                    changeDescription = `${changesText}\n\nPatch job submitted (Total: $${calculateTotal().toFixed(2)})`;
+                } else {
+                    changeDescription = `Patch job submitted (Total: $${calculateTotal().toFixed(2)})`;
                 }
                 
-                // Add submission entry
                 newChangeEntries.push({
                     timestamp: new Date().toISOString(),
                     user: {
                         name: getUserDisplayName(),
                         email: userData?.email || 'Unknown'
                     },
-                    change: `Patch job submitted (Total: $${calculateTotal().toFixed(2)})`
+                    change: changeDescription
                 });
                 
                 patchJobData.changeLog = [...(patchJob.changeLog || []), ...newChangeEntries];

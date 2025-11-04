@@ -26,7 +26,7 @@ async function fixMissingUser() {
     await db.collection('artifacts/tolmantest/users').doc(missingUserId).set({
       email: email,
       role: 'admin',
-      name: 'Brett Tolman',
+      name: 'Brett Stott',
       active: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       addedBy: 'system_fix'
