@@ -336,6 +336,12 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    onClick={() => requestSort('jobName')}
+                                >
+                                    Job Name <SortIcon direction={sortConfig.key === 'jobName' ? sortConfig.direction : null} />
+                                </th>
                                 {/* Only show Job # for users with advanced view permission */}
                                 {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
                                     <th 
@@ -345,12 +351,6 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                         Job # <SortIcon direction={sortConfig.key === 'jobNumber' ? sortConfig.direction : null} />
                                     </th>
                                 )}
-                                <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => requestSort('jobName')}
-                                >
-                                    Job Name <SortIcon direction={sortConfig.key === 'jobName' ? sortConfig.direction : null} />
-                                </th>
                                 <th 
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                     onClick={() => requestSort('customer')}
@@ -392,18 +392,18 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                         <tbody className="bg-white divide-y divide-gray-200">
                             {sortedPatchJobs.map((job) => (
                                 <tr key={job.id} className="hover:bg-gray-50">
-                                    {/* Only show Job # for users with advanced view permission */}
-                                    {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {job.jobNumber || 'N/A'}
-                                        </td>
-                                    )}
                                     <td 
                                         className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
                                         onClick={() => onEditPatchJob(job.id)}
                                     >
                                         {job.jobName || 'Untitled Job'}
                                     </td>
+                                    {/* Only show Job # for users with advanced view permission */}
+                                    {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {job.jobNumber || 'N/A'}
+                                        </td>
+                                    )}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {job.customer || 'N/A'}
                                     </td>

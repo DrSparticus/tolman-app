@@ -4,6 +4,7 @@ import { LocationControls, useLocationServices } from '../components/LocationSer
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
 import SignatureModal from '../components/SignatureModal';
+import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
 
 const patchJobsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/patchJobs`;
@@ -26,7 +27,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         assignedToName: '',
         totalAmount: 0,
         createdAt: new Date().toISOString(),
-        createdBy: userData?.email || 'Unknown'
+        createdBy: userData?.email || 'Unknown',
+        changeLog: []
     });
 
     const [showProjectLinkModal, setShowProjectLinkModal] = useState(false);
@@ -196,7 +198,16 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     const handleSignatureChange = async (signature) => {
+        const hadSignature = isSignaturePresent();
         handleInputChange('signature', signature);
+        
+        // Log the signature change
+        if (signature && signature.trim().length > 0 && !hadSignature) {
+            addChangeLog('Customer signature added - patches now locked');
+        } else if ((!signature || signature.trim().length === 0) && hadSignature) {
+            addChangeLog('Customer signature removed - patches unlocked');
+        }
+        
         // Auto-save when signature is added to immediately lock patches
         if (signature && signature.trim().length > 0 && patchJobId) {
             try {
@@ -221,6 +232,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             jobName: `${project.projectName} - Patch Work`,
             patches: [createNewPatch(1)]
         }));
+        addChangeLog(`Linked to project: ${project.projectName} (${project.jobNumber || 'No job number'})`);
     };
 
     const handleCreateNew = () => {
@@ -239,9 +251,30 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             ...prev,
             patches: [...prev.patches, newPatch]
         }));
+        addChangeLog(`Added new patch: Patch ${newPatchNumber}`);
     };
 
     const updatePatch = (patchId, updatedPatch) => {
+        // Find the current patch to track what changed
+        const currentPatch = patchJob.patches.find(p => p.id === patchId);
+        let changes = [];
+        
+        if (currentPatch) {
+            if (currentPatch.description !== updatedPatch.description) {
+                changes.push(`description: "${currentPatch.description}" → "${updatedPatch.description}"`);
+            }
+            if (currentPatch.amount !== updatedPatch.amount) {
+                changes.push(`amount: $${currentPatch.amount || 0} → $${updatedPatch.amount || 0}`);
+            }
+            if (currentPatch.amountType !== updatedPatch.amountType) {
+                changes.push(`type: ${currentPatch.amountType} → ${updatedPatch.amountType}`);
+            }
+            
+            if (changes.length > 0) {
+                addChangeLog(`Updated Patch ${currentPatch.patchNumber}:\n${changes.map(c => `- ${c}`).join('\n')}`);
+            }
+        }
+
         setPatchJob(prev => ({
             ...prev,
             patches: prev.patches.map(patch =>
@@ -251,6 +284,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     const removePatch = (patchId) => {
+        const patchToRemove = patchJob.patches.find(p => p.id === patchId);
+        if (patchToRemove) {
+            addChangeLog(`Removed Patch ${patchToRemove.patchNumber}: ${patchToRemove.description}`);
+        }
+        
         setPatchJob(prev => ({
             ...prev,
             patches: prev.patches.filter(patch => patch.id !== patchId)
@@ -287,9 +325,30 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return userData?.role === 'admin';
     };
 
+    // Add change to the change log
+    const addChangeLog = (changeDescription) => {
+        const newLogEntry = {
+            timestamp: new Date().toISOString(),
+            user: {
+                name: userData?.name || userData?.email || 'Unknown User',
+                email: userData?.email || 'Unknown'
+            },
+            change: changeDescription
+        };
+
+        // Only add to change log for existing patch jobs (not new ones)
+        if (patchJobId && !patchJobId.startsWith('new-')) {
+            setPatchJob(prev => ({
+                ...prev,
+                changeLog: [...(prev.changeLog || []), newLogEntry]
+            }));
+        }
+    };
+
     const handleClearSignature = () => {
         if (isAdmin()) {
             handleInputChange('signature', '');
+            addChangeLog('Signature cleared by admin');
         }
     };
 
@@ -317,9 +376,24 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             if (patchJobId && !patchJobId.startsWith('new-')) {
                 // Updating existing patch job
-                await updateDoc(doc(db, patchJobsPath, patchJobId), patchJobData);
+                addChangeLog('Patch job saved as draft');
+                await updateDoc(doc(db, patchJobsPath, patchJobId), {
+                    ...patchJobData,
+                    changeLog: [...(patchJob.changeLog || []), ...(patchJobData.changeLog || [])]
+                });
             } else {
                 // Creating new patch job (either no ID or temporary ID)
+                const initialChangeLog = {
+                    timestamp: new Date().toISOString(),
+                    user: {
+                        name: userData?.name || userData?.email || 'Unknown User',
+                        email: userData?.email || 'Unknown'
+                    },
+                    change: 'Patch job created'
+                };
+                
+                patchJobData.changeLog = [initialChangeLog, ...(patchJob.changeLog || [])];
+                
                 const docRef = await addDoc(collection(db, patchJobsPath), patchJobData);
                 
                 // If this was a temporary ID, clean up sessionStorage and update URL
@@ -422,9 +496,42 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             if (patchJobId && !patchJobId.startsWith('new-')) {
                 // Updating existing patch job
-                await updateDoc(doc(db, patchJobsPath, patchJobId), patchJobData);
+                const submitChangeLog = {
+                    timestamp: new Date().toISOString(),
+                    user: {
+                        name: userData?.name || userData?.email || 'Unknown User',
+                        email: userData?.email || 'Unknown'
+                    },
+                    change: `Patch job submitted (Total: $${calculateTotal().toFixed(2)})`
+                };
+                
+                await updateDoc(doc(db, patchJobsPath, patchJobId), {
+                    ...patchJobData,
+                    changeLog: [...(patchJob.changeLog || []), submitChangeLog]
+                });
             } else {
                 // Creating new patch job (either no ID or temporary ID)
+                const initialChanges = [
+                    {
+                        timestamp: new Date().toISOString(),
+                        user: {
+                            name: userData?.name || userData?.email || 'Unknown User',
+                            email: userData?.email || 'Unknown'
+                        },
+                        change: 'Patch job created'
+                    },
+                    {
+                        timestamp: new Date().toISOString(),
+                        user: {
+                            name: userData?.name || userData?.email || 'Unknown User',
+                            email: userData?.email || 'Unknown'
+                        },
+                        change: `Patch job submitted (Total: $${calculateTotal().toFixed(2)})`
+                    }
+                ];
+                
+                patchJobData.changeLog = [...initialChanges, ...(patchJob.changeLog || [])];
+                
                 await addDoc(collection(db, patchJobsPath), patchJobData);
                 
                 // If this was a temporary ID, clean up sessionStorage
@@ -519,16 +626,18 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                 placeholder="Enter address or use current location"
                             />
                             {patchJob.coordinates && (
-                                <div className="mt-1 text-xs text-gray-600">
-                                    <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
-                                    <div className="flex space-x-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => locationServices.openInMaps(patchJob.coordinates)}
-                                            className="text-blue-600 hover:text-blue-800 underline"
-                                        >
-                                            Map
-                                        </button>
+                                <div className="mt-2 text-xs text-gray-600">
+                                    <div className="flex items-center justify-between">
+                                        <span>Coordinates: {patchJob.coordinates.lat.toFixed(6)}, {patchJob.coordinates.lng.toFixed(6)}</span>
+                                        <div className="flex space-x-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => locationServices.openInMaps(patchJob.coordinates)}
+                                                className="text-blue-600 hover:text-blue-800 underline"
+                                            >
+                                                Map
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -736,7 +845,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 </div>
             </div>
 
-
+            {/* Change Log - Only visible to Advanced View users */}
+            {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
+                <ChangeLog 
+                    log={patchJob.changeLog || []} 
+                    hasLogAccess={true}
+                />
+            )}
 
             {/* Project Link Modal */}
             <ProjectLinkModal
