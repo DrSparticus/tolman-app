@@ -469,7 +469,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             yPosition += lineHeight;
             
             pdf.setFont(undefined, 'normal');
-            for (const [index, patch] of patchJob.patches.entries()) {
+            for (const patch of patchJob.patches) {
                 // Check if we need a new page
                 if (yPosition > pageHeight - 60) {
                     pdf.addPage();
