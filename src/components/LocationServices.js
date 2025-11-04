@@ -356,7 +356,7 @@ export const useLocationServices = (db, handleInputChange) => {
 };
 
 // Location Controls Component for address field
-export const LocationControls = ({ bid, locationSettings, locationServices, hideLabel = false }) => {
+export const LocationControls = ({ bid, locationSettings, locationServices, hideLabel = false, showButtonOnly = false }) => {
     const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
     
     if (!locationSettings?.enableLocationServices) return null;
@@ -382,7 +382,17 @@ export const LocationControls = ({ bid, locationSettings, locationServices, hide
 
     return (
         <>
-            {!hideLabel && (
+            {showButtonOnly && (
+                <button
+                    type="button"
+                    onClick={handleOpenMapSelector}
+                    className="px-2 py-0 text-xs text-white rounded hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{backgroundColor: '#303a7e', height: '1.25rem'}}
+                >
+                    🎯 Map
+                </button>
+            )}
+            {!hideLabel && !showButtonOnly && (
                 <div className="flex items-center justify-between mb-1">
                     <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
                     <div className="flex space-x-1">
@@ -397,7 +407,7 @@ export const LocationControls = ({ bid, locationSettings, locationServices, hide
                     </div>
                 </div>
             )}
-            {hideLabel && (
+            {hideLabel && !showButtonOnly && (
                 <button
                     type="button"
                     onClick={handleOpenMapSelector}
