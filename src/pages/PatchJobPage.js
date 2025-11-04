@@ -515,6 +515,37 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     // Submit function - full validation required
+    // Define workflow progression
+    const getNextStatus = (currentStatus) => {
+        switch (currentStatus) {
+            case 'Scheduled':
+                return 'Done';
+            case 'Done':
+                return 'Billed';
+            case 'Billed':
+                return 'Archived';
+            default:
+                return 'Done'; // Default for any unknown status
+        }
+    };
+
+    const getStatusButtonText = (currentStatus) => {
+        switch (currentStatus) {
+            case 'Scheduled':
+                return 'Mark as Complete';
+            case 'Done':
+                return 'Mark as Billed';
+            case 'Billed':
+                return 'Archive Job';
+            default:
+                return 'Complete Job';
+        }
+    };
+
+    const shouldShowStatusButton = (currentStatus) => {
+        return currentStatus !== 'Archived';
+    };
+
     const submitPatchJob = async () => {
         if (!patchJob.jobName.trim()) {
             alert('Please enter a job name');
@@ -568,12 +599,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         setIsSaving(true);
 
         try {
+            const nextStatus = getNextStatus(patchJob.status);
             let patchJobData = {
                 ...patchJob,
                 totalAmount: calculateTotal(),
                 updatedAt: new Date().toISOString(),
                 updatedBy: userData?.email || 'Unknown',
-                status: 'Submitted'
+                status: nextStatus
             };
 
             // Auto-assign patch-guy users to their own jobs if no assignment is set
@@ -591,14 +623,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 const newChangeEntries = [];
                 
                 // Combine changes with submission info in a single entry
+                const getStatusActionText = (status) => {
+                    switch (status) {
+                        case 'Done':
+                            return 'marked as complete';
+                        case 'Billed':
+                            return 'marked as billed';
+                        case 'Archived':
+                            return 'archived';
+                        default:
+                            return 'status updated';
+                    }
+                };
+                
                 let changeDescription;
                 if (changesList.length > 0) {
                     const changesText = changesList.length === 1 
                         ? changesList[0] 
                         : `${changesList.length} changes made:\n${changesList.map(c => `- ${c}`).join('\n')}`;
-                    changeDescription = `${changesText}\n\nPatch job submitted (Total: $${calculateTotal().toFixed(2)})`;
+                    changeDescription = `${changesText}\n\nPatch job ${getStatusActionText(nextStatus)} (Total: $${calculateTotal().toFixed(2)})`;
                 } else {
-                    changeDescription = `Patch job submitted (Total: $${calculateTotal().toFixed(2)})`;
+                    changeDescription = `Patch job ${getStatusActionText(nextStatus)} (Total: $${calculateTotal().toFixed(2)})`;
                 }
                 
                 newChangeEntries.push({
@@ -682,13 +727,15 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     >
                         {isSaving ? 'Saving...' : 'Save Draft'}
                     </button>
-                    <button
-                        onClick={submitPatchJob}
-                        disabled={isSaving}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        {isSaving ? 'Submitting...' : 'Submit Patch Job'}
-                    </button>
+                    {shouldShowStatusButton(patchJob.status) && (
+                        <button
+                            onClick={submitPatchJob}
+                            disabled={isSaving}
+                            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            {isSaving ? 'Processing...' : getStatusButtonText(patchJob.status)}
+                        </button>
+                    )}
                 </div>
             </div>
 
