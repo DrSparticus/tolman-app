@@ -836,17 +836,42 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const filename = `Change_Order_${patchJob.jobName?.replace(/[^a-zA-Z0-9]/g, '_') || 'PatchJob'}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
             
             // Create PDF record
+            const minimalSnapshot = {
+                jobName: patchJob.jobName,
+                projectName: patchJob.projectName,
+                customer: patchJob.customer,
+                address: patchJob.address,
+                requestedBy: patchJob.customerPhone,
+                notes: patchJob.notes,
+                totalAmount: calculateTotal(),
+                patches: (patchJob.patches || []).map(p => ({
+                    number: p.number,
+                    description: p.description,
+                    amountType: p.amountType,
+                    amount: p.amount,
+                    photosCount: (p.photos || []).length
+                }))
+            };
             const pdfRecord = {
                 id: Date.now().toString(),
                 filename,
                 generatedAt: timestamp,
                 generatedBy: getUserDisplayName(),
-                dataSnapshot: JSON.parse(JSON.stringify(patchJob)), // Deep copy of current state
+                dataSnapshot: minimalSnapshot,
                 isOutdated: false
             };
             
             // Save PDF record to database and state
-            const updatedPDFs = [...generatedPDFs.map(pdf => ({ ...pdf, isOutdated: true })), pdfRecord];
+            const MAX_PDF_HISTORY = 10;
+            // Normalize old entries to shed heavy payloads
+            const normalizedOld = generatedPDFs.map(pdf => ({
+                id: pdf.id,
+                filename: pdf.filename,
+                generatedAt: pdf.generatedAt,
+                generatedBy: pdf.generatedBy,
+                isOutdated: true
+            }));
+            const updatedPDFs = [...normalizedOld, pdfRecord].slice(-MAX_PDF_HISTORY);
             setGeneratedPDFs(updatedPDFs);
             
             // Update database
@@ -903,15 +928,17 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             address: patchJob.address
         });
         
-        const snapshot = JSON.stringify({
-            patches: latestPDF.dataSnapshot.patches || [],
-            totalAmount: latestPDF.dataSnapshot.totalAmount || 0,
-            notes: latestPDF.dataSnapshot.notes || '',
-            customer: latestPDF.dataSnapshot.customer || '',
-            address: latestPDF.dataSnapshot.address || ''
-        });
+        const snapshot = latestPDF.dataSnapshot
+            ? JSON.stringify({
+                patches: latestPDF.dataSnapshot.patches || [],
+                totalAmount: latestPDF.dataSnapshot.totalAmount || 0,
+                notes: latestPDF.dataSnapshot.notes || '',
+                customer: latestPDF.dataSnapshot.customer || '',
+                address: latestPDF.dataSnapshot.address || ''
+              })
+            : '';
         
-        return current !== snapshot;
+        return snapshot === '' ? true : current !== snapshot;
     };
 
     const handleClearSignature = () => {
