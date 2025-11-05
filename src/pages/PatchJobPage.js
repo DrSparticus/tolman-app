@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { collection, doc, getDoc, addDoc, updateDoc, query, where, onSnapshot } from 'firebase/firestore';
+import React, { useState } from 'react';
+import { collection, doc, addDoc, updateDoc } from 'firebase/firestore';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
@@ -13,10 +13,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 let CACHED_LOGO_INFO = null;
 const LOGO_CANDIDATES = ['/FullCompanyLogo.png', '/newlogo512.png', '/logo512.png', '/logo.png'];
 
-function getImageType(dataUrl) {
-    if (typeof dataUrl !== 'string') return 'PNG';
-    return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-}
+//
 
 async function fetchAsDataURL(url) {
     try {
@@ -65,40 +62,7 @@ async function getLogoInfo() {
     return null;
 }
 
-async function getPhotoInfo(dataUrl) {
-    try {
-        return await getImageInfoFromDataURL(dataUrl);
-    } catch (e) {
-        return null;
-    }
-}
-
-// Utilities for resiliency and conversions
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function convertToJPEGDataURL(dataUrl, quality = 0.92) {
-    return await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth || img.width;
-                canvas.height = img.naturalHeight || img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                const jpegUrl = canvas.toDataURL('image/jpeg', quality);
-                resolve(jpegUrl);
-            } catch (err) {
-                reject(err);
-            }
-        };
-        img.onerror = reject;
-        img.src = dataUrl;
-    });
-}
+//
 
 // Tolman Construction logo as base64 (will need to be replaced with actual logo data)
 // Tolman Construction logo - Professional company branding
@@ -128,12 +92,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [generatedPDFs, setGeneratedPDFs] = useState([]);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const isNewPatchJob = !patchJobId || patchJobId.startsWith('new-');
     const [lastSavedPatchJob, setLastSavedPatchJob] = useState(null);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [showProjectLinkModal, setShowProjectLinkModal] = useState(false);
-    const [patchGuys, setPatchGuys] = useState([]);
+    const [patchGuys] = useState([]);
     const locationServices = useLocationServices();
 
     // Basic config defaults; adjust if you have centralized settings elsewhere
@@ -664,13 +627,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         }
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-xl font-semibold">Loading patch job...</div>
-            </div>
-        );
-    }
+    //
 
     return (
         <div className="max-w-6xl mx-auto">
