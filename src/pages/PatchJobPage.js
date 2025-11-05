@@ -97,7 +97,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [showProjectLinkModal, setShowProjectLinkModal] = useState(false);
     const [patchGuys] = useState([]);
-    const locationServices = useLocationServices();
+    // Adapter so LocationServices (which expects event-style input changes) can update our local state
+    const handleLSInputChangeEvent = (e) => {
+        const name = e?.target?.name;
+        const value = e?.target?.value;
+        if (name) handleInputChange(name, value);
+    };
+    const locationServices = useLocationServices(db, handleLSInputChangeEvent);
 
     // Basic config defaults; adjust if you have centralized settings elsewhere
     const patchJobConfig = {
@@ -135,26 +141,41 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             ...prev,
             patches: [
                 ...prev.patches,
-                { id: crypto.randomUUID(), number: (prev.patches.length + 1), description: '', amountType: 'fixed', amount: 0, photos: [] }
+                { id: crypto.randomUUID(), number: (prev.patches.length + 1), description: '', amountType: 'charge', amount: 0, photos: [] }
             ]
         }));
     };
-    const updatePatch = (updated) => {
+    const updatePatch = (id, updated) => {
         setPatchJob(prev => ({
             ...prev,
-            patches: prev.patches.map(p => p.id === updated.id ? updated : p)
+            patches: prev.patches.map(p => p.id === id ? updated : p)
         }));
     };
-    const removePatch = (removed) => {
+    const removePatch = (id) => {
         setPatchJob(prev => ({
             ...prev,
-            patches: prev.patches.filter(p => p.id !== removed.id).map((p, idx) => ({ ...p, number: idx + 1 }))
+            patches: prev.patches.filter(p => p.id !== id).map((p, idx) => ({ ...p, number: idx + 1 }))
         }));
     };
 
     const handleSignatureChange = (sig) => {
         handleInputChange('signature', sig);
     };
+
+    // Ensure a default Patch 1 is present for new Patch Jobs
+    React.useEffect(() => {
+        if (isNewPatchJob && (patchJob.patches?.length || 0) === 0) {
+            addPatch();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isNewPatchJob]);
+
+    // Show project link modal on new Patch Job creation to link or create a project
+    React.useEffect(() => {
+        if (isNewPatchJob && !showProjectLinkModal && !patchJob.projectId) {
+            setShowProjectLinkModal(true);
+        }
+    }, [isNewPatchJob, showProjectLinkModal, patchJob.projectId]);
 
     const generateChangeLogEntries = () => {
         if (!lastSavedPatchJob) return [];
