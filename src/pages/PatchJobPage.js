@@ -137,12 +137,21 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return name || userData.name || userData.email || 'Unknown';
     };
 
+    const getEffectiveHourlyRate = () => {
+        // Prefer frozen rate saved on the job; else use current config
+        const saved = Number(patchJob.hourlyRate);
+        if (!Number.isNaN(saved) && saved > 0) return saved;
+        const cfg = Number(patchJobConfig.hourlyRate) || 0;
+        return cfg;
+    };
+
     const calculateTotal = () => {
+        const rate = getEffectiveHourlyRate();
         const patches = patchJob.patches || [];
         const subtotal = patches.reduce((sum, p) => {
             const amt = parseFloat(p.amount || 0) || 0;
             if (p.amountType === 'hours') {
-                return sum + amt * (Number(patchJobConfig.hourlyRate) || 0);
+                return sum + amt * rate;
             }
             return sum + amt;
         }, 0);
@@ -275,7 +284,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     description: p.description,
                     amountType: p.amountType,
                     amount: p.amount,
-                    hourlyRate: patchJobConfig.hourlyRate,
+                    hourlyRate: getEffectiveHourlyRate(),
                     photos: (p.photos || []).map(ph => ({ data: ph.data, url: ph.url }))
                 })),
                 logoDataUrl: logoInfo?.dataUrl || null,
@@ -594,6 +603,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 status: nextStatus
             };
 
+            // When marking as Done, freeze the hourly rate on the job so future config changes won't affect historical totals
+            if (nextStatus === 'Done') {
+                const rateToFreeze = getEffectiveHourlyRate();
+                patchJobData.hourlyRate = rateToFreeze;
+            }
+
             // Auto-assign patch-guy users to their own jobs if no assignment is set
             if (userData?.role === 'patch-guy' && (!patchJob.assignedTo || patchJob.assignedTo === '')) {
                 patchJobData = {
@@ -673,6 +688,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 ];
                 
                 patchJobData.changeLog = [...initialChanges, ...(patchJob.changeLog || [])];
+                if (nextStatus === 'Done') {
+                    patchJobData.hourlyRate = getEffectiveHourlyRate();
+                }
                 
                 await addDoc(collection(db, patchJobsPath), patchJobData);
                 
