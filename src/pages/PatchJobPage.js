@@ -105,11 +105,31 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
     const locationServices = useLocationServices(db, handleLSInputChangeEvent);
 
-    // Basic config defaults; adjust if you have centralized settings elsewhere
-    const patchJobConfig = {
+    // Patch Job pricing/signature config (live-updated from Firestore)
+    const [patchJobConfig, setPatchJobConfig] = useState({
         signatureThreshold: 1000,
         hourlyRate: 75,
-    };
+        minimumTotalCharge: 0,
+    });
+
+    // Load Patch Job config from Firestore so hourlyRate matches admin settings
+    React.useEffect(() => {
+        if (!db) return;
+        const configDoc = doc(db, `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config`, 'patchJobSettings');
+        const unsub = onSnapshot(configDoc, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data() || {};
+                setPatchJobConfig(prev => ({
+                    ...prev,
+                    ...(['hourlyRate','signatureThreshold','minimumTotalCharge'].reduce((acc,k)=>{
+                        if (k in data) acc[k] = Number(data[k]) || 0;
+                        return acc;
+                    }, {}))
+                }));
+            }
+        });
+        return () => unsub();
+    }, [db]);
 
     const getUserDisplayName = () => {
         if (!userData) return 'Unknown';
@@ -119,13 +139,16 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
     const calculateTotal = () => {
         const patches = patchJob.patches || [];
-        return patches.reduce((sum, p) => {
+        const subtotal = patches.reduce((sum, p) => {
             const amt = parseFloat(p.amount || 0) || 0;
             if (p.amountType === 'hours') {
-                return sum + amt * patchJobConfig.hourlyRate;
+                return sum + amt * (Number(patchJobConfig.hourlyRate) || 0);
             }
             return sum + amt;
         }, 0);
+        // Optional minimum total charge application (only if subtotal > 0)
+        const min = Number(patchJobConfig.minimumTotalCharge) || 0;
+        return subtotal > 0 && min > 0 ? Math.max(subtotal, min) : subtotal;
     };
 
     const isAdmin = () => (userData?.role === 'admin');
