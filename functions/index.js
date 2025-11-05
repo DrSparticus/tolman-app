@@ -1,4 +1,4 @@
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const chromium = require('@sparticuz/chromium');
@@ -100,22 +100,25 @@ const template = Handlebars.compile(templateSource);
 
 exports.generatePatchOrderPdf = onCall(async (request) => {
   const data = request.data || {};
-  const {
-    artifactProjectId,
-    patchJobId,
-    projectName,
-    jobName,
-    customer,
-    address,
-    requestedBy,
-    total,
-    notes,
-    patches = [],
-    logoDataUrl,
-    logoUrl
-  } = data;
+  let step = 'start';
+  try {
+    const {
+      artifactProjectId,
+      patchJobId,
+      projectName,
+      jobName,
+      customer,
+      address,
+      requestedBy,
+      total,
+      notes,
+      patches = [],
+      logoDataUrl,
+      logoUrl
+    } = data;
 
   // Prepare template model
+  step = 'prepare-template-model';
   const patchModels = (patches || []).map((p) => {
     let amountText = '';
     if (p.amountType === 'hours') {
@@ -133,19 +136,23 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
 
   // Resolve logo
   let finalLogoDataUrl = logoDataUrl || undefined;
-  if (!finalLogoDataUrl && logoUrl) {
+  step = 'resolve-logo';
+  if (!finalLogoDataUrl && logoUrl && /^https?:\/\//i.test(logoUrl) && !/localhost|127\.0\.0\.1/i.test(logoUrl)) {
     try {
       const res = await fetch(logoUrl);
       if (res.ok) {
         const buf = Buffer.from(await res.arrayBuffer());
         const mime = res.headers.get('content-type') || 'image/png';
         finalLogoDataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+      } else {
+        console.warn('Logo fetch non-OK status', res.status);
       }
     } catch (e) {
-      // ignore and continue without logo
+      console.warn('Logo fetch failed:', e?.message || e);
     }
   }
 
+  step = 'render-html';
   const html = template({
     logoDataUrl: finalLogoDataUrl,
     projectName: projectName || jobName || '',
@@ -158,6 +165,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
   });
 
   // Launch headless Chromium
+  step = 'launch-browser';
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
@@ -166,15 +174,18 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
   });
 
   try {
+    step = 'render-page';
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
+    step = 'generate-pdf';
     const pdfBuffer = await page.pdf({
       format: 'Letter',
       printBackground: true,
       margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
     });
 
+    step = 'save-to-storage';
     const bucket = getStorage().bucket();
     const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
@@ -183,10 +194,15 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     const file = bucket.file(storagePath);
     await file.save(pdfBuffer, { contentType: 'application/pdf', resumable: false, public: false, metadata: { cacheControl: 'no-store' } });
 
+    step = 'signed-url';
     const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 }); // 7 days
 
     return { filename, storagePath, downloadUrl: signedUrl };
   } finally {
     await browser.close();
+  }
+  } catch (err) {
+    console.error('generatePatchOrderPdf failed at step:', step, '\nError:', err);
+    throw new HttpsError('internal', `PDF generation failed at step: ${step}`, { message: err?.message || String(err) });
   }
 });
