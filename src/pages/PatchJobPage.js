@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { collection, doc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
@@ -176,6 +176,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             setShowProjectLinkModal(true);
         }
     }, [isNewPatchJob, showProjectLinkModal, patchJob.projectId]);
+
+    // Load existing Patch Job from Firestore when editing
+    React.useEffect(() => {
+        if (!db || !patchJobId || patchJobId.startsWith('new-')) return;
+        const ref = doc(db, patchJobsPath, patchJobId);
+        const unsub = onSnapshot(ref, (snap) => {
+            if (snap.exists()) {
+                const data = snap.data() || {};
+                setPatchJob(prev => ({
+                    ...prev,
+                    ...data,
+                    patches: Array.isArray(data.patches) ? data.patches : [],
+                    changeLog: Array.isArray(data.changeLog) ? data.changeLog : [],
+                    signature: data.signature || ''
+                }));
+                setGeneratedPDFs(Array.isArray(data.generatedPDFs) ? data.generatedPDFs : []);
+                setLastSavedPatchJob({ ...data });
+            }
+        });
+        return () => unsub();
+    }, [db, patchJobId]);
 
     const generateChangeLogEntries = () => {
         if (!lastSavedPatchJob) return [];
