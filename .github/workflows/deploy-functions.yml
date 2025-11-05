@@ -77,5 +77,5 @@ jobs:
           fi
           echo "project=$PROJECT_ID" >> $GITHUB_OUTPUT
 
-      - name: Deploy Functions
-        run: firebase deploy --only functions --project ${{ steps.project.outputs.project }}
+      - name: Deploy Functions (auto-setup cleanup policy)
+        run: firebase deploy --only functions --project ${{ steps.project.outputs.project }} --force
