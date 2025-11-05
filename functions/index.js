@@ -54,7 +54,7 @@ const templateSource = `
     <div class="row"><div class="label">Address:</div><div class="value">{{address}}</div></div>
     <div class="row"><div class="label">Contractor:</div><div class="value">{{customer}}</div></div>
     <div class="row"><div class="label">Requested by:</div><div class="value">{{requestedBy}}</div></div>
-    <div class="row"><div class="label">Price:</div><div class="value">${{total}}</div></div>
+  <div class="row"><div class="label">Price:</div><div class="value">&#36;{{total}}</div></div>
   </div>
 
   <div class="box">
