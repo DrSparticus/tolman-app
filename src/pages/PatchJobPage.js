@@ -9,64 +9,27 @@ import { PlusIcon } from '../Icons';
 // Switched PDF generation to Firebase Cloud Functions + Puppeteer
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// Helpers: load logo and images with natural dimensions to preserve aspect ratio
-let CACHED_LOGO_INFO = null;
-const LOGO_CANDIDATES = ['/FullCompanyLogo.png', '/newlogo512.png', '/logo512.png', '/logo.png'];
-
-//
-
-async function fetchAsDataURL(url) {
-    try {
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        const blob = await res.blob();
-        return await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) {
-        return null;
-    }
-}
-
-async function getImageInfoFromDataURL(dataUrl) {
-    return await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve({ dataUrl, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
-        img.onerror = reject;
-        img.src = dataUrl;
-    });
-}
-
-async function getLogoInfo() {
-    if (CACHED_LOGO_INFO) return CACHED_LOGO_INFO;
-    for (const candidate of LOGO_CANDIDATES) {
-        const dataUrl = await fetchAsDataURL(candidate);
-        if (dataUrl) {
-            const info = await getImageInfoFromDataURL(dataUrl);
-            CACHED_LOGO_INFO = info;
-            return info;
+// Simple helper to inline logo for Cloud Function PDF generation
+async function getLogoDataUrl() {
+    const candidates = ['/FullCompanyLogo.png', '/newlogo512.png', '/logo512.png', '/logo.png'];
+    for (const url of candidates) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            return dataUrl;
+        } catch (_) {
+            continue;
         }
     }
-    // Fallback: if an embedded constant exists
-    try {
-        // eslint-disable-next-line no-undef
-        if (typeof TOLMAN_LOGO_BASE64 !== 'undefined' && TOLMAN_LOGO_BASE64) {
-            const info = await getImageInfoFromDataURL(TOLMAN_LOGO_BASE64);
-            CACHED_LOGO_INFO = info;
-            return info;
-        }
-    } catch (_) {}
     return null;
 }
-
-//
-
-// Tolman Construction logo as base64 (will need to be replaced with actual logo data)
-// Tolman Construction logo - Professional company branding
-const TOLMAN_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAACSCAMAAABhGRSUAAAAM1BMVEUAAAD////+/v78/Pz5+fn09PT29vbw8PDy8vLq6urm5ubl5eXh4eHe3t7Z2dnV1dXR0dHNzc24Pi3mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAGvklEQVR4nO2d23LjIAxAMZf2//+5k3SSNk7sGEsC3Jk9b+0mjgVHQhJgGMbj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6P5/8C8H8KnQFBhsAAAAASUVORK5CYII=';
 
 const patchJobsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/patchJobs`;
 
@@ -265,7 +228,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
         setIsGeneratingPDF(true);
         try {
-            const logoInfo = await getLogoInfo();
+            const logoDataUrl = await getLogoDataUrl();
             const functions = getFunctions(undefined, 'us-central1');
             const generate = httpsCallable(functions, 'generatePatchOrderPdf');
 
@@ -287,9 +250,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     hourlyRate: getEffectiveHourlyRate(),
                     photos: (p.photos || []).map(ph => ({ data: ph.data, url: ph.url }))
                 })),
-                logoDataUrl: logoInfo?.dataUrl || null,
-                // Optional: provide a public URL fallback (served from Hosting)
-                logoUrl: `${window.location.origin}/FullCompanyLogo.png`
+                logoDataUrl: logoDataUrl,
+                // Public URL fallback (served from Firebase Hosting)
+                logoUrl: `https://${process.env.REACT_APP_FIREBASE_PROJECT_ID}.web.app/FullCompanyLogo.png`
             };
 
             const resp = await generate(payload);
