@@ -1,0 +1,17 @@
+# Node dependencies (do not commit)
+node_modules/
+
+# Local env/config (do not commit)
+.env
+.env.*
+.runtimeconfig.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS/Editor
+.DS_Store
+.vscode/

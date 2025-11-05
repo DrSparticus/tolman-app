@@ -41,6 +41,11 @@ jobs:
       run: |
         npm install -g firebase-tools@13
         echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION }}' > /tmp/firebase-service-account.json
+        # Install function dependencies
+        npm ci --prefix functions
+        # Deploy Functions (default site)
+        firebase deploy --only functions --project tolman-app
+        # Deploy Hosting target 'production'
         firebase deploy --only hosting:production --project tolman-app
       env:
         GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-service-account.json

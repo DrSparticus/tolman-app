@@ -1,0 +1,73 @@
+name: Deploy Firebase Functions
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      # Use branch-specific service account JSON already present in repo secrets
+      - name: Authenticate to Google Cloud (prod)
+        if: github.ref_name == 'main'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRODUCTION }}
+
+      - name: Authenticate to Google Cloud (staging)
+        if: github.ref_name != 'main'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+
+      - name: Install root deps (optional)
+        run: npm ci
+
+      - name: Install functions deps
+        run: npm ci || npm install
+        working-directory: functions
+
+      # Derive PROJECT_ID from existing secrets when explicit vars are not set
+      - name: Resolve Firebase Project ID
+        id: project
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            AUTH_DOMAIN='${{ secrets.PROD_FIREBASE_AUTH_DOMAIN }}'
+            BUCKET='${{ secrets.PROD_FIREBASE_STORAGE_BUCKET }}'
+          else
+            AUTH_DOMAIN='${{ secrets.STAGING_FIREBASE_AUTH_DOMAIN }}'
+            BUCKET='${{ secrets.STAGING_FIREBASE_STORAGE_BUCKET }}'
+          fi
+          PROJECT_ID=""
+          if [[ -n "$AUTH_DOMAIN" ]]; then
+            PROJECT_ID="${AUTH_DOMAIN%.firebaseapp.com}"
+          fi
+          if [[ -z "$PROJECT_ID" && -n "$BUCKET" ]]; then
+            PROJECT_ID="${BUCKET%.appspot.com}"
+          fi
+          if [[ -z "$PROJECT_ID" ]]; then
+            echo "Failed to resolve Firebase project ID from secrets. Please set repo variables FIREBASE_STAGING_PROJECT_ID / FIREBASE_PROD_PROJECT_ID." >&2
+            exit 1
+          fi
+          echo "project=$PROJECT_ID" >> $GITHUB_OUTPUT
+
+      - name: Deploy Functions
+        run: firebase deploy --only functions --project ${{ steps.project.outputs.project }}

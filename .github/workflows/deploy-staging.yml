@@ -49,6 +49,11 @@ jobs:
         echo "Configuring Firebase for staging deployment..."
         echo '{"hosting":{"public":"build","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}],"headers":[{"source":"**/*.@(js|css)","headers":[{"key":"Cache-Control","value":"max-age=31536000"}]},{"source":"**","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"X-Frame-Options","value":"DENY"},{"key":"X-XSS-Protection","value":"1; mode=block"}]}]}}' > firebase-staging.json
         echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}' > /tmp/firebase-service-account.json
+        # Install function dependencies
+        npm ci --prefix functions
+        # Deploy Functions first (uses repo firebase.json)
+        firebase deploy --only functions --project tolmantest --non-interactive
+        # Deploy Hosting with staging config
         firebase deploy --only hosting --project tolmantest --config firebase-staging.json --non-interactive
       env:
         GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-service-account.json

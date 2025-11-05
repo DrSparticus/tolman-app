@@ -6,7 +6,8 @@ import ProjectLinkModal from '../components/ProjectLinkModal';
 import SignatureModal from '../components/SignatureModal';
 import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
-import jsPDF from 'jspdf';
+// Switched PDF generation to Firebase Cloud Functions + Puppeteer
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Helpers: load logo and images with natural dimensions to preserve aspect ratio
 let CACHED_LOGO_INFO = null;
@@ -109,787 +110,155 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [patchJob, setPatchJob] = useState({
         jobName: '',
         jobNumber: '',
-        customer: '',
-        customerPhone: '',
-        customerEmail: '',
-        address: '',
         projectId: '',
         projectName: '',
-        patches: [],
-        status: 'Scheduled',
-        notes: '',
-        signature: '',
+        customer: '',
+        customerEmail: '',
+        customerPhone: '',
+        address: '',
+        coordinates: null,
+        status: 'Draft',
         assignedTo: '',
         assignedToName: '',
-        totalAmount: 0,
-        createdAt: new Date().toISOString(),
-        createdBy: userData?.email || 'Unknown',
+        notes: '',
+        patches: [],
+        signature: '',
         changeLog: []
     });
-
-    const [showProjectLinkModal, setShowProjectLinkModal] = useState(false);
-    const [showSignatureModal, setShowSignatureModal] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isNewPatchJob] = useState(!patchJobId);
-    const [patchGuys, setPatchGuys] = useState([]);
-    const [lastSavedPatchJob, setLastSavedPatchJob] = useState(null); // Track last saved state for change logging
-    const [patchJobConfig, setPatchJobConfig] = useState({
-        hourlyRate: 50.00,
-        minimumTotalCharge: 150.00,
-        signatureThreshold: 500.00
-    });
-    const [generatedPDFs, setGeneratedPDFs] = useState([]); // Track generated change order PDFs
+    const [generatedPDFs, setGeneratedPDFs] = useState([]);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const isNewPatchJob = !patchJobId || patchJobId.startsWith('new-');
+    const [lastSavedPatchJob, setLastSavedPatchJob] = useState(null);
+    const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [showProjectLinkModal, setShowProjectLinkModal] = useState(false);
+    const [patchGuys, setPatchGuys] = useState([]);
+    const locationServices = useLocationServices();
 
-    const locationServices = useLocationServices(db, (event, value) => {
-        // Handle both direct calls and event-like calls from LocationServices
-        if (event && event.target) {
-            setPatchJob(prev => ({ ...prev, [event.target.name]: event.target.value }));
-        } else {
-            // Direct field/value call
-            setPatchJob(prev => ({ ...prev, [event]: value }));
-        }
-    });
+    // Basic config defaults; adjust if you have centralized settings elsewhere
+    const patchJobConfig = {
+        signatureThreshold: 1000,
+        hourlyRate: 75,
+    };
 
-    // Load existing patch job if editing
-    useEffect(() => {
-        if (!db || !patchJobId) {
-            // For completely new patch jobs (no ID at all), show the project link modal
-            if (!patchJobId) {
-                setShowProjectLinkModal(true);
+    const getUserDisplayName = () => {
+        if (!userData) return 'Unknown';
+        const name = [userData.firstName, userData.lastName].filter(Boolean).join(' ').trim();
+        return name || userData.name || userData.email || 'Unknown';
+    };
+
+    const calculateTotal = () => {
+        const patches = patchJob.patches || [];
+        return patches.reduce((sum, p) => {
+            const amt = parseFloat(p.amount || 0) || 0;
+            if (p.amountType === 'hours') {
+                return sum + amt * patchJobConfig.hourlyRate;
             }
-            return;
-        }
+            return sum + amt;
+        }, 0);
+    };
 
-        // Check if this is a temporary ID (new patch job)
-        if (patchJobId.startsWith('new-')) {
-            // Try to restore from sessionStorage for unsaved patch jobs
-            const savedData = sessionStorage.getItem(`patchJob_${patchJobId}`);
-            if (savedData) {
-                try {
-                    const parsedData = JSON.parse(savedData);
-                    setPatchJob(prev => ({
-                        ...prev,
-                        ...parsedData,
-                        patches: parsedData.patches || [createNewPatch(1)]
-                    }));
-                } catch (error) {
-                    console.error('Error parsing saved patch job data:', error);
-                    // If parsing fails, show project link modal
-                    setShowProjectLinkModal(true);
-                }
-            } else {
-                // No saved data, show project link modal for new patch job
-                setShowProjectLinkModal(true);
-            }
-            return;
-        }
-
-        // Load existing saved patch job from database
-        const loadPatchJob = async () => {
-            setIsLoading(true);
-            try {
-                const patchJobDoc = await getDoc(doc(db, patchJobsPath, patchJobId));
-                if (patchJobDoc.exists()) {
-                    const data = patchJobDoc.data();
-                    const patchJobData = {
-                        ...data,
-                        patches: data.patches || [createNewPatch(1)]
-                    };
-                    setPatchJob(prev => ({
-                        ...prev,
-                        ...patchJobData
-                    }));
-                    setLastSavedPatchJob(patchJobData); // Set baseline for change tracking
-                    setGeneratedPDFs(data.generatedPDFs || []); // Load existing PDF records
-                } else {
-                    // Patch job doesn't exist, might be a bad URL
-                    console.error('Patch job not found:', patchJobId);
-                    alert('Patch job not found. Redirecting to patch jobs list.');
-                    setCurrentPage('patch-jobs');
-                }
-            } catch (error) {
-                console.error('Error loading patch job:', error);
-                alert('Error loading patch job. Please try again.');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadPatchJob();
-    }, [db, patchJobId, setCurrentPage]);
-
-    // Save patch job data to sessionStorage for temporary IDs (unsaved patch jobs)
-    useEffect(() => {
-        if (patchJobId && patchJobId.startsWith('new-')) {
-            sessionStorage.setItem(`patchJob_${patchJobId}`, JSON.stringify(patchJob));
-        }
-    }, [patchJob, patchJobId]);
-
-    // Load patch job configuration
-    useEffect(() => {
-        if (!db) return;
-        
-        const loadConfig = async () => {
-            try {
-                const configPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/config/patchJobSettings`;
-                const configRef = doc(db, configPath);
-                const configSnap = await getDoc(configRef);
-                
-                if (configSnap.exists()) {
-                    setPatchJobConfig(prev => ({ ...prev, ...configSnap.data() }));
-                }
-            } catch (error) {
-                console.error('Error loading patch job config:', error);
-            }
-        };
-
-        loadConfig();
-    }, [db]);
-
-    // Load patch guys (users with patch-guy role)
-    useEffect(() => {
-        if (!db) return;
-
-        const usersPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`;
-        const q = query(collection(db, usersPath), where('role', '==', 'patch-guy'));
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const patchGuysList = snapshot.docs.map(doc => {
-                const userData = doc.data();
-                // Try multiple ways to get a display name
-                const displayName = userData.name || 
-                                   (userData.firstName && userData.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
-                                   userData.firstName ||
-                                   userData.displayName ||
-                                   userData.email;
-                
-                return {
-                    id: doc.id,
-                    email: userData.email,
-                    name: displayName,
-                    ...userData
-                };
-            });
-            setPatchGuys(patchGuysList);
-        });
-
-        return unsubscribe;
-    }, [db]);
-
-    // Initialize with one blank patch for new jobs
-    useEffect(() => {
-        if (isNewPatchJob && patchJob.patches.length === 0) {
-            setPatchJob(prev => ({
-                ...prev,
-                patches: [createNewPatch(1)]
-            }));
-        }
-    }, [isNewPatchJob, patchJob.patches.length]);
-
-    const createNewPatch = (number) => ({
-        id: `patch-${Date.now()}-${Math.random()}`,
-        number: number,
-        description: '',
-        amountType: 'hours', // 'hours' or 'charge'
-        amount: '',
-        photos: []
-    });
+    const isAdmin = () => (userData?.role === 'admin');
+    const isSignaturePresent = () => Boolean(patchJob.signature && String(patchJob.signature).length > 0);
+    const isPatchesLocked = () => isSignaturePresent() && !isAdmin();
 
     const handleInputChange = (field, value) => {
         setPatchJob(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleSignatureChange = async (signature) => {
-        handleInputChange('signature', signature);
-        
-        // Auto-save when signature is added to immediately lock patches
-        if (signature && signature.trim().length > 0 && patchJobId) {
-            try {
-                await savePatchJob(false); // Don't navigate away on auto-save
-            } catch (error) {
-                console.error('Error auto-saving signature:', error);
-            }
-        }
-    };
-
-    const handleProjectSelection = (project) => {
-        setPatchJob(prev => ({
-            ...prev,
-            projectId: project.id,
-            projectName: project.projectName,
-            jobNumber: project.jobNumber || '',
-            // Map contractor fields to customer fields for unified data structure
-            customer: project.contractor || project.customer || '',
-            customerPhone: project.contractorPhone || project.customerPhone || '',
-            customerEmail: project.contractorEmail || project.customerEmail || '',
-            address: project.address || '',
-            jobName: `${project.projectName} - Patch Work`,
-            patches: [createNewPatch(1)]
-        }));
-    };
-
-    const handleCreateNew = () => {
-        // Just proceed with a blank patch job with one patch
-        setPatchJob(prev => ({
-            ...prev,
-            jobName: 'New Patch Job',
-            patches: [createNewPatch(1)]
-        }));
-    };
-
     const addPatch = () => {
-        const newPatchNumber = patchJob.patches.length + 1;
-        const newPatch = createNewPatch(newPatchNumber);
         setPatchJob(prev => ({
             ...prev,
-            patches: [...prev.patches, newPatch]
+            patches: [
+                ...prev.patches,
+                { id: crypto.randomUUID(), number: (prev.patches.length + 1), description: '', amountType: 'fixed', amount: 0, photos: [] }
+            ]
+        }));
+    };
+    const updatePatch = (updated) => {
+        setPatchJob(prev => ({
+            ...prev,
+            patches: prev.patches.map(p => p.id === updated.id ? updated : p)
+        }));
+    };
+    const removePatch = (removed) => {
+        setPatchJob(prev => ({
+            ...prev,
+            patches: prev.patches.filter(p => p.id !== removed.id).map((p, idx) => ({ ...p, number: idx + 1 }))
         }));
     };
 
-    const updatePatch = (patchId, updatedPatch) => {
-        // Only update the patch data, don't log changes here (will be logged on save)
-        setPatchJob(prev => ({
-            ...prev,
-            patches: prev.patches.map(patch =>
-                patch.id === patchId ? updatedPatch : patch
-            )
-        }));
+    const handleSignatureChange = (sig) => {
+        handleInputChange('signature', sig);
     };
 
-    const removePatch = (patchId) => {
-        setPatchJob(prev => ({
-            ...prev,
-            patches: prev.patches.filter(patch => patch.id !== patchId)
-        }));
-    };
-
-    const calculateTotal = () => {
-        return patchJob.patches.reduce((total, patch) => {
-            if (patch.amountType === 'charge' && patch.amount) {
-                return total + parseFloat(patch.amount || 0);
-            } else if (patch.amountType === 'hours' && patch.amount) {
-                return total + (parseFloat(patch.amount || 0) * patchJobConfig.hourlyRate);
-            }
-            return total;
-        }, 0);
-    };
-
-    const isSignaturePresent = () => {
-        if (!patchJob.signature) return false;
-        try {
-            const sigData = JSON.parse(patchJob.signature);
-            return sigData.name && sigData.name.trim().length > 0;
-        } catch (error) {
-            // Legacy signature format
-            return patchJob.signature.trim().length > 0;
-        }
-    };
-
-    const isPatchesLocked = () => {
-        return isSignaturePresent() && !isAdmin();
-    };
-
-    const isAdmin = () => {
-        return userData?.role === 'admin';
-    };
-
-    // Helper function to get proper display name for current user
-    const getUserDisplayName = () => {
-        return userData?.name || 
-               (userData?.firstName && userData?.lastName ? `${userData.firstName} ${userData.lastName}` : '') ||
-               userData?.firstName ||
-               userData?.displayName ||
-               userData?.email ||
-               'Unknown User';
-    };
-
-    // Generate change log entries by comparing current state with last saved state
     const generateChangeLogEntries = () => {
         if (!lastSavedPatchJob) return [];
-        
         const changes = [];
-        
-        // Check basic field changes
-        const fieldsToCheck = {
-            jobName: 'Job Name',
-            customer: 'Customer',
-            customerPhone: 'Requested by',
-            customerEmail: 'Requester\'s contact',
-            address: 'Address',
-            projectName: 'Project Name',
-            status: 'Status',
-            notes: 'Notes',
-            assignedToName: 'Assigned To'
-        };
-        
-        Object.entries(fieldsToCheck).forEach(([field, label]) => {
-            if (lastSavedPatchJob[field] !== patchJob[field]) {
-                changes.push(`${label} changed: "${lastSavedPatchJob[field] || ''}" → "${patchJob[field] || ''}"`);
+        const fields = ['jobName', 'jobNumber', 'customer', 'customerPhone', 'customerEmail', 'address', 'notes', 'status'];
+        fields.forEach(f => {
+            if ((lastSavedPatchJob[f] || '') !== (patchJob[f] || '')) {
+                changes.push(`${f} updated`);
             }
         });
-        
-        // Check signature changes
-        const hadSignature = lastSavedPatchJob.signature && lastSavedPatchJob.signature.trim().length > 0;
-        const hasSignature = patchJob.signature && patchJob.signature.trim().length > 0;
-        
-        if (!hadSignature && hasSignature) {
-            changes.push('Customer signature added - patches now locked');
-        } else if (hadSignature && !hasSignature) {
-            changes.push('Customer signature removed - patches unlocked');
+        if (JSON.stringify(lastSavedPatchJob.patches || []) !== JSON.stringify(patchJob.patches || [])) {
+            changes.push('patches updated');
         }
-        
-        // Check patch changes
-        const oldPatches = lastSavedPatchJob.patches || [];
-        const newPatches = patchJob.patches || [];
-        
-        // Helper function to format amount based on type
-        const formatAmount = (amount, amountType) => {
-            if (!amount || amount === '') return '$0';
-            if (amountType === 'hours') {
-                return `${amount} hours`;
-            } else {
-                return `$${amount}`;
-            }
-        };
-
-        // Find added patches
-        newPatches.forEach(newPatch => {
-            const oldPatch = oldPatches.find(p => p.id === newPatch.id);
-            if (!oldPatch) {
-                changes.push(`Added Patch ${newPatch.number}: ${newPatch.description}`);
-            } else {
-                // Check for patch updates
-                const patchChanges = [];
-                if (oldPatch.description !== newPatch.description) {
-                    patchChanges.push(`description: "${oldPatch.description}" → "${newPatch.description}"`);
-                }
-                if (oldPatch.amount !== newPatch.amount || oldPatch.amountType !== newPatch.amountType) {
-                    const oldAmountFormatted = formatAmount(oldPatch.amount, oldPatch.amountType);
-                    const newAmountFormatted = formatAmount(newPatch.amount, newPatch.amountType);
-                    patchChanges.push(`amount: ${oldAmountFormatted} → ${newAmountFormatted}`);
-                }
-                
-                // Check for photo attachments
-                const oldPhotosCount = (oldPatch.photos || []).length;
-                const newPhotosCount = (newPatch.photos || []).length;
-                if (oldPhotosCount !== newPhotosCount) {
-                    if (newPhotosCount > oldPhotosCount) {
-                        const addedCount = newPhotosCount - oldPhotosCount;
-                        patchChanges.push(`${addedCount} photo${addedCount > 1 ? 's' : ''} attached`);
-                    } else {
-                        const removedCount = oldPhotosCount - newPhotosCount;
-                        patchChanges.push(`${removedCount} photo${removedCount > 1 ? 's' : ''} removed`);
-                    }
-                }
-                
-                if (patchChanges.length > 0) {
-                    changes.push(`Updated Patch ${newPatch.number}:\n${patchChanges.map(c => `- ${c}`).join('\n')}`);
-                }
-            }
-        });
-        
-        // Find removed patches
-        oldPatches.forEach(oldPatch => {
-            const stillExists = newPatches.find(p => p.id === oldPatch.id);
-            if (!stillExists) {
-                changes.push(`Removed Patch ${oldPatch.number}: ${oldPatch.description}`);
-            }
-        });
-        
         return changes;
     };
 
-    // Generate PDF change order
+    // Project Link handlers (stubs)
+    const handleProjectSelection = (project) => {
+        handleInputChange('projectId', project?.id || '');
+        handleInputChange('projectName', project?.name || '');
+        setShowProjectLinkModal(false);
+    };
+    const handleCreateNew = () => {
+        setShowProjectLinkModal(false);
+    };
+
     const generateChangeOrderPDF = async () => {
+        // If current PDF exists and is not outdated, open it directly
+        const latestCurrent = (generatedPDFs || []).find(p => !p.isOutdated) || (generatedPDFs || [])[generatedPDFs.length - 1];
+        if (latestCurrent && !isPDFOutdated() && latestCurrent.downloadUrl) {
+            try { window.open(latestCurrent.downloadUrl, '_blank', 'noopener'); } catch (_) {}
+            return;
+        }
+
         setIsGeneratingPDF(true);
-        
         try {
-            const pdf = new jsPDF();
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            let yPosition = 20;
-            
-            // Add centered company logo (includes tagline in image) with resilient fallbacks
-            try {
-                const logoInfo = await getLogoInfo();
-                if (logoInfo) {
-                    // Max dimensions for header logo
-                    const maxLogoWidth = Math.min(pageWidth - 40, 120);
-                    const maxLogoHeight = 30;
-                    const ratio = logoInfo.width / logoInfo.height;
-                    let drawW = maxLogoWidth;
-                    let drawH = drawW / ratio;
-                    if (drawH > maxLogoHeight) {
-                        drawH = maxLogoHeight;
-                        drawW = drawH * ratio;
-                    }
-                    const drawX = (pageWidth - drawW) / 2;
+            const logoInfo = await getLogoInfo();
+            const functions = getFunctions(undefined, 'us-central1');
+            const generate = httpsCallable(functions, 'generatePatchOrderPdf');
 
-                    // Try PNG (or original type) → then JPEG fallback → then one retry with delay
-                    let added = false;
-                    try {
-                        pdf.addImage(logoInfo.dataUrl, getImageType(logoInfo.dataUrl), drawX, yPosition, drawW, drawH);
-                        added = true;
-                    } catch (e1) {
-                        try {
-                            const jpegUrl = await convertToJPEGDataURL(logoInfo.dataUrl, 0.9);
-                            pdf.addImage(jpegUrl, 'JPEG', drawX, yPosition, drawW, drawH);
-                            added = true;
-                        } catch (e2) {
-                            // Short backoff and retry once with JPEG
-                            await sleep(150);
-                            try {
-                                const jpegUrl2 = await convertToJPEGDataURL(logoInfo.dataUrl, 0.85);
-                                pdf.addImage(jpegUrl2, 'JPEG', drawX, yPosition, drawW, drawH);
-                                added = true;
-                            } catch (e3) {
-                                console.warn('Logo add failed after retries:', e1, e2, e3);
-                            }
-                        }
-                    }
+            const payload = {
+                artifactProjectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+                patchJobId: patchJobId || null,
+                projectName: patchJob.projectName,
+                jobName: patchJob.jobName,
+                customer: patchJob.customer,
+                address: patchJob.address,
+                requestedBy: patchJob.customerPhone,
+                total: calculateTotal(),
+                notes: patchJob.notes,
+                patches: (patchJob.patches || []).map(p => ({
+                    number: p.number,
+                    description: p.description,
+                    amountType: p.amountType,
+                    amount: p.amount,
+                    hourlyRate: patchJobConfig.hourlyRate,
+                    photos: (p.photos || []).map(ph => ({ data: ph.data, url: ph.url }))
+                })),
+                logoDataUrl: logoInfo?.dataUrl || null,
+                // Optional: provide a public URL fallback (served from Hosting)
+                logoUrl: `${window.location.origin}/FullCompanyLogo.png`
+            };
 
-                    if (added) {
-                        yPosition += drawH + 10;
-                    } else {
-                        // Fallback header text
-                        pdf.setFontSize(20);
-                        pdf.setFont(undefined, 'bold');
-                        pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition + 15, { align: 'center' });
-                        yPosition += 30;
-                    }
-                } else {
-                    // Fallback header text
-                    pdf.setFontSize(20);
-                    pdf.setFont(undefined, 'bold');
-                    pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition + 15, { align: 'center' });
-                    yPosition += 30;
-                }
-            } catch (error) {
-                console.warn('Failed to add logo to PDF:', error);
-                pdf.setFontSize(20);
-                pdf.setFont(undefined, 'bold');
-                pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition + 15, { align: 'center' });
-                yPosition += 30;
-            }
+            const resp = await generate(payload);
+            const { filename, storagePath, downloadUrl } = resp.data || {};
 
-            // Optional divider under header
-            pdf.setLineWidth(2);
-            pdf.line(20, yPosition, pageWidth - 20, yPosition);
-            yPosition += 10;
-            
-            // Title
-            yPosition += 25;
-            pdf.setFontSize(18);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Patch Work Order', pageWidth / 2, yPosition, { align: 'center' });
-            
-            yPosition += 25;
-            
-            // Form fields matching the template layout, aligned to common columns
-            pdf.setFontSize(11);
-            pdf.setFont(undefined, 'bold');
-            
-            const leftCol = 20;
-            const rightCol = pageWidth / 2 + 10;
-            const lineHeight = 12;
-            const labelWidthLeft = 70;  // fixed label width so values align
-            const labelWidthRight = 70; // fixed label width so values align
-            const hGap = 6; // small horizontal gap between label and value
-            
-            // Left column fields
-            // Project Name
-            // Project Name (right-justified label, left-justified value, no underline)
-            pdf.text('Project Name:', leftCol + labelWidthLeft, yPosition, { align: 'right' });
-            pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + labelWidthLeft + hGap, yPosition);
-            
-            yPosition += lineHeight + 5;
-            pdf.setFont(undefined, 'bold');
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Contractor:', leftCol + labelWidthLeft, yPosition, { align: 'right' });
-            pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.customer || '', leftCol + labelWidthLeft + hGap, yPosition);
-            
-            yPosition += lineHeight + 5;
-            pdf.setFont(undefined, 'bold');
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Price:', leftCol + labelWidthLeft, yPosition, { align: 'right' });
-            pdf.setFont(undefined, 'normal');
-            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + labelWidthLeft + hGap, yPosition);
-            
-            // Right column fields
-            const rightYStart = yPosition - (lineHeight + 5) * 2;
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Address:', rightCol + labelWidthRight, rightYStart, { align: 'right' });
-            pdf.setFont(undefined, 'normal');
-            const addressText = patchJob.address || '';
-            if (addressText.length > 40) {
-                const valueX = rightCol + labelWidthRight + hGap;
-                const valueWidth = pageWidth - 20 - valueX;
-                const addressLines = pdf.splitTextToSize(addressText, valueWidth);
-                pdf.text(addressLines, valueX, rightYStart);
-            } else {
-                pdf.text(addressText, rightCol + labelWidthRight + hGap, rightYStart);
-            }
-            
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Requested by:', rightCol + labelWidthRight, rightYStart + lineHeight + 5, { align: 'right' });
-            pdf.setFont(undefined, 'normal');
-            pdf.text(patchJob.customerPhone || '', rightCol + labelWidthRight + hGap, rightYStart + lineHeight + 5);
-            
-            yPosition += 25;
-            
-            // Large content box for patch work details (like the template)
-            const boxStartY = yPosition;
-            const boxHeight = 120; // Large box height
-            const boxWidth = pageWidth - 40;
-            
-            // Draw the main content box
-            pdf.setLineWidth(1);
-            pdf.rect(leftCol, boxStartY, boxWidth, boxHeight);
-            
-            // Content inside the box
-            let contentY = boxStartY + 10;
-            pdf.setFontSize(10);
-            pdf.setFont(undefined, 'normal');
-            
-            // Add description if available
-            if (patchJob.notes) {
-                pdf.setFont(undefined, 'bold');
-                pdf.text('Description:', leftCol + 5, contentY);
-                contentY += 8;
-                
-                pdf.setFont(undefined, 'normal');
-                const noteLines = pdf.splitTextToSize(patchJob.notes, boxWidth - 20);
-                pdf.text(noteLines, leftCol + 5, contentY);
-                contentY += noteLines.length * 6 + 8;
-            }
-            
-            // Work Performed section inside the box
-            pdf.setFont(undefined, 'bold');
-            pdf.text('WORK PERFORMED:', leftCol + 5, contentY);
-            contentY += 8;
-            
-            pdf.setFont(undefined, 'normal');
-            
-            const singlePatch = patchJob.patches.length === 1;
-            
-            for (const patch of patchJob.patches) {
-                let patchContentWidth = boxWidth - 20;
-                let photoStartX = null;
-                
-                // For single patch, calculate space for photos on the right side of box
-                if (singlePatch && patch.photos && patch.photos.length > 0) {
-                    const photoAreaWidth = Math.min(80, boxWidth / 3);
-                    patchContentWidth = boxWidth - photoAreaWidth - 30;
-                    photoStartX = leftCol + patchContentWidth + 15;
-                }
-                
-                // Check if content fits in remaining box space
-                if (contentY > boxStartY + boxHeight - 30) {
-                    // Content doesn't fit, need to add more pages or expand box
-                    break;
-                }
-                
-                const patchTitle = `Patch ${patch.number}: ${patch.description}`;
-                const patchLines = pdf.splitTextToSize(patchTitle, patchContentWidth);
-                pdf.text(patchLines, leftCol + 5, contentY);
-                contentY += patchLines.length * 6;
-                
-                // Add amount information
-                let amountText = '';
-                if (patch.amountType === 'hours') {
-                    const hourCost = parseFloat(patch.amount || 0) * patchJobConfig.hourlyRate;
-                    amountText = `${patch.amount} hours × $${patchJobConfig.hourlyRate}/hr = $${hourCost.toFixed(2)}`;
-                } else {
-                    amountText = `Fixed charge: $${parseFloat(patch.amount || 0).toFixed(2)}`;
-                }
-                pdf.text(amountText, leftCol + 15, contentY);
-                contentY += 6;
-                
-                // Add photos within the box
-                if (patch.photos && patch.photos.length > 0) {
-                    if (singlePatch && photoStartX) {
-                        // For single patch, place photos to the right within the box
-                        let photoY = boxStartY + 15;
-                        const maxPhotoWidth = 35;
-                        const maxPhotoHeight = 30;
-                        
-                        for (let i = 0; i < patch.photos.length && i < 3; i++) { // Limit to 3 photos in box
-                            const photo = patch.photos[i];
-                            
-                            try {
-                                // Load image to get natural dimensions for aspect ratio
-                                const info = await getPhotoInfo(photo.data);
-                                let photoWidth = maxPhotoWidth;
-                                let photoHeight = maxPhotoHeight;
-                                if (info && info.width && info.height) {
-                                    const ratio = info.width / info.height;
-                                    // Fit within max bounds while preserving aspect ratio
-                                    photoWidth = Math.min(maxPhotoWidth, maxPhotoHeight * ratio);
-                                    photoHeight = photoWidth / ratio;
-                                    if (photoHeight > maxPhotoHeight) {
-                                        photoHeight = maxPhotoHeight;
-                                        photoWidth = photoHeight * ratio;
-                                    }
-                                }
-
-                                // Ensure photo fits within box bounds
-                                if (photoY + photoHeight > boxStartY + boxHeight - 10) {
-                                    break; // Photo won't fit
-                                }
-                                
-                                pdf.addImage(photo.data, getImageType(photo.data), photoStartX, photoY, photoWidth, photoHeight);
-                                photoY += photoHeight + 8;
-                                
-                            } catch (error) {
-                                console.warn('Failed to add image to PDF:', error);
-                                pdf.text(`[Photo ${i + 1}]`, photoStartX, photoY + 5);
-                                photoY += 15;
-                            }
-                        }
-                    } else {
-                        // For multiple patches, add small photos inline
-                        contentY += 3;
-                        const maxPhotosInBox = 2;
-                        const smallPhotoWidth = 25;
-                        const smallPhotoHeight = 18;
-                        
-                        for (let i = 0; i < patch.photos.length && i < maxPhotosInBox; i++) {
-                            const photo = patch.photos[i];
-                            const xPos = leftCol + 15 + (i * (smallPhotoWidth + 5));
-                            
-                            if (contentY + 20 > boxStartY + boxHeight - 10) {
-                                break; // Photo won't fit in box
-                            }
-                            
-                            try {
-                                const info = await getPhotoInfo(photo.data);
-                                let drawW = smallPhotoWidth;
-                                let drawH = smallPhotoHeight;
-                                if (info && info.width && info.height) {
-                                    const ratio = info.width / info.height;
-                                    drawW = Math.min(smallPhotoWidth, smallPhotoHeight * ratio);
-                                    drawH = drawW / ratio;
-                                    if (drawH > smallPhotoHeight) {
-                                        drawH = smallPhotoHeight;
-                                        drawW = drawH * ratio;
-                                    }
-                                }
-                                pdf.addImage(photo.data, getImageType(photo.data), xPos, contentY, drawW, drawH);
-                            } catch (error) {
-                                console.warn('Failed to add image to PDF:', error);
-                                pdf.text(`[Photo ${i + 1}]`, xPos, contentY + 10);
-                            }
-                        }
-                        contentY += 22;
-                        
-                        // Add note if more photos exist
-                        if (patch.photos.length > maxPhotosInBox) {
-                            pdf.setFontSize(8);
-                            pdf.text(`(${patch.photos.length - maxPhotosInBox} more photos available)`, leftCol + 15, contentY);
-                            pdf.setFontSize(10);
-                            contentY += 6;
-                        }
-                    }
-                }
-                
-                contentY += 10; // Space between patches
-            }
-            
-            // Move position past the content box
-            yPosition = boxStartY + boxHeight + 15;
-
-            // Footer immediately beneath the box (as requested)
-            pdf.setFontSize(10);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401   •   (801) 444-9600', pageWidth / 2, yPosition, { align: 'center' });
-            yPosition += 12;
-            
-            // Acceptance text (matching template)
-            let acceptanceY = yPosition + 10;
-            pdf.setFontSize(9);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('ACCEPTANCE OF BID:', leftCol, acceptanceY);
-            
-            acceptanceY += 8;
-            pdf.setFontSize(8);
-            pdf.setFont(undefined, 'normal');
-            const acceptanceText = 'The above prices, specifications and conditions are satisfactory and are hereby accepted. You are authorized to do the work as specified. Payment will be made in full at completion of job. After 30 days from completion interest will be added to the unpaid balance at the rate of 0.5% per month (18% per year). If legal action is required, you agree to pay collection and attorney fees.';
-            const acceptanceLines = pdf.splitTextToSize(acceptanceText, pageWidth - 40);
-            pdf.text(acceptanceLines, leftCol, acceptanceY);
-            
-            acceptanceY += acceptanceLines.length * 5 + 15;
-            
-            // Signature section matching template
-            const sigYPosition = acceptanceY;
-            const sigWidth = 80;
-            
-            // Get signature data if job is signed
-            let hasSignature = false;
-            let signatureName = '';
-            let signatureDate = '';
-            
-            if (isSignaturePresent()) {
-                hasSignature = true;
-                try {
-                    const sigData = JSON.parse(patchJob.signature);
-                    signatureName = sigData.name || '';
-                    signatureDate = sigData.date ? new Date(sigData.date).toLocaleDateString() : '';
-                } catch (error) {
-                    // Legacy signature format
-                    signatureName = 'Signed';
-                    signatureDate = new Date().toLocaleDateString();
-                }
-            }
-            
-            // Left signature section - Job Manager
-            pdf.setFontSize(10);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Job Manager', leftCol + 5, sigYPosition);
-            
-            if (hasSignature) {
-                pdf.setFont(undefined, 'normal');
-                pdf.text(signatureName, leftCol + 5, sigYPosition + 25);
-                if (signatureDate) {
-                    pdf.text(signatureDate, leftCol + 62, sigYPosition + 40, { align: 'center' });
-                }
-            } else {
-                // Signature line
-                pdf.line(leftCol, sigYPosition + 20, leftCol + sigWidth, sigYPosition + 20);
-            }
-            
-            pdf.text('Signature', leftCol + sigWidth/2, sigYPosition + 35, { align: 'center' });
-            
-            // Date lines under signature
-            pdf.line(leftCol, sigYPosition + 45, leftCol + 35, sigYPosition + 45);
-            pdf.line(leftCol + 45, sigYPosition + 45, leftCol + sigWidth, sigYPosition + 45);
-            pdf.text('Print', leftCol + 17, sigYPosition + 55, { align: 'center' });
-            pdf.text('Date', leftCol + 62, sigYPosition + 55, { align: 'center' });
-            
-            // Right signature section - Tolman Construction
-            const rightSigX = rightCol;
-            pdf.setFont(undefined, 'bold');
-            pdf.text('Tolman Construction', rightSigX + 5, sigYPosition);
-            
-            // Always interactive for Tolman signature
-            pdf.line(rightSigX, sigYPosition + 20, rightSigX + sigWidth, sigYPosition + 20);
-            pdf.text('Signature', rightSigX + sigWidth/2, sigYPosition + 35, { align: 'center' });
-            
-            // Date lines
-            pdf.line(rightSigX, sigYPosition + 45, rightSigX + 35, sigYPosition + 45);
-            pdf.line(rightSigX + 45, sigYPosition + 45, rightSigX + sigWidth, sigYPosition + 45);
-            pdf.text('Print', rightSigX + 17, sigYPosition + 55, { align: 'center' });
-            pdf.text('Date', rightSigX + 62, sigYPosition + 55, { align: 'center' });
-            
-            // Footer was moved under the box above
-            
-            // Generate filename and save
             const timestamp = new Date().toISOString();
-            const filename = `Change_Order_${patchJob.jobName?.replace(/[^a-zA-Z0-9]/g, '_') || 'PatchJob'}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
-            
-            // Create PDF record
             const minimalSnapshot = {
                 jobName: patchJob.jobName,
                 projectName: patchJob.projectName,
@@ -908,27 +277,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             };
             const pdfRecord = {
                 id: Date.now().toString(),
-                filename,
+                filename: filename || 'PatchOrder.pdf',
+                storagePath: storagePath || '',
+                downloadUrl: downloadUrl || '',
                 generatedAt: timestamp,
                 generatedBy: getUserDisplayName(),
                 dataSnapshot: minimalSnapshot,
                 isOutdated: false
             };
-            
-            // Save PDF record to database and state
             const MAX_PDF_HISTORY = 10;
-            // Normalize old entries to shed heavy payloads
-            const normalizedOld = generatedPDFs.map(pdf => ({
+            const normalizedOld = (generatedPDFs || []).map(pdf => ({
                 id: pdf.id,
                 filename: pdf.filename,
+                storagePath: pdf.storagePath,
+                downloadUrl: pdf.downloadUrl,
                 generatedAt: pdf.generatedAt,
                 generatedBy: pdf.generatedBy,
                 isOutdated: true
             }));
             const updatedPDFs = [...normalizedOld, pdfRecord].slice(-MAX_PDF_HISTORY);
             setGeneratedPDFs(updatedPDFs);
-            
-            // Update database
+
             if (patchJobId && !patchJobId.startsWith('new-')) {
                 await updateDoc(doc(db, patchJobsPath, patchJobId), {
                     generatedPDFs: updatedPDFs,
@@ -936,32 +305,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     updatedBy: userData?.email || 'Unknown'
                 });
             }
-            
-            // Download PDF
-            pdf.save(filename);
-            
-            // Add change log entry
+
+            try { if (downloadUrl) window.open(downloadUrl, '_blank', 'noopener'); } catch (_) {}
+
             const changeEntry = {
                 timestamp,
-                user: {
-                    name: getUserDisplayName(),
-                    email: userData?.email || 'Unknown'
-                },
-                change: `Change Order PDF generated: ${filename}`
+                user: { name: getUserDisplayName(), email: userData?.email || 'Unknown' },
+                change: `Change Order PDF generated: ${pdfRecord.filename}`
             };
-            
             const updatedChangeLog = [...(patchJob.changeLog || []), changeEntry];
             setPatchJob(prev => ({ ...prev, changeLog: updatedChangeLog }));
-            
             if (patchJobId && !patchJobId.startsWith('new-')) {
-                await updateDoc(doc(db, patchJobsPath, patchJobId), {
-                    changeLog: updatedChangeLog
-                });
+                await updateDoc(doc(db, patchJobsPath, patchJobId), { changeLog: updatedChangeLog });
             }
-            
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert('Error generating PDF. Please try again.');
+            alert('Error generating PDF via Cloud Function. Please try again.');
         } finally {
             setIsGeneratingPDF(false);
         }
@@ -1659,6 +1018,18 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                                     ))}
                                                 </div>
                                             </details>
+                                        )}
+
+                                        {/* Quick link to latest PDF if available */}
+                                        {generatedPDFs.length > 0 && generatedPDFs[generatedPDFs.length - 1]?.downloadUrl && (
+                                            <a
+                                                href={generatedPDFs[generatedPDFs.length - 1].downloadUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block w-full text-center text-blue-600 hover:text-blue-800 text-xs underline mt-1"
+                                            >
+                                                View latest generated PDF
+                                            </a>
                                         )}
                                     </div>
                                 )}
