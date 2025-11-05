@@ -6,7 +6,12 @@ const puppeteer = require('puppeteer-core');
 const Handlebars = require('handlebars');
 
 setGlobalOptions({ region: 'us-central1', memory: '1GiB', timeoutSeconds: 120 });
-admin.initializeApp();
+
+// Initialize with explicit storage bucket from env or default
+const storageBucket = process.env.STORAGE_BUCKET || process.env.GCLOUD_PROJECT ? `${process.env.GCLOUD_PROJECT}.appspot.com` : undefined;
+admin.initializeApp({
+  storageBucket: storageBucket
+});
 
 const { getStorage } = require('firebase-admin/storage');
 
@@ -186,26 +191,35 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     });
 
     step = 'save-to-storage';
-    const app = admin.app();
-    const fallbackProjectId = app?.options?.projectId || process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || '';
-    let bucketName = process.env.STORAGE_BUCKET || app?.options?.storageBucket || '';
-    if (!bucketName && fallbackProjectId) bucketName = `${fallbackProjectId}.appspot.com`;
-    if (!bucketName) {
-      throw new Error('No storage bucket configured. Set STORAGE_BUCKET env var or configure Firebase Storage in the project.');
-    }
-    const bucket = getStorage().bucket(bucketName);
-    console.log('Using bucket:', bucketName);
+    const bucket = getStorage().bucket();
+    console.log('Using bucket:', bucket.name);
+    
     const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
     const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'unknown'}/pdfs/${filename}`;
 
     const file = bucket.file(storagePath);
-    await file.save(pdfBuffer, { contentType: 'application/pdf', resumable: false, public: false, metadata: { cacheControl: 'no-store' } });
+    
+    // Save with metadata including download token for public access
+    const downloadToken = require('crypto').randomUUID();
+    await file.save(pdfBuffer, { 
+      contentType: 'application/pdf', 
+      resumable: false,
+      metadata: { 
+        cacheControl: 'no-store',
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken
+        }
+      }
+    });
 
-    step = 'signed-url';
-    const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: Date.now() + 1000 * 60 * 60 * 24 * 7 }); // 7 days
+    step = 'generate-download-url';
+    // Use Firebase's token-based download URL instead of signed URL (no IAM role required)
+    const bucketName = bucket.name;
+    const encodedPath = encodeURIComponent(storagePath);
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
-    return { filename, storagePath, downloadUrl: signedUrl };
+    return { filename, storagePath, downloadUrl };
   } finally {
     await browser.close();
   }
