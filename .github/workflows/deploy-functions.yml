@@ -42,6 +42,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
 
+      - name: Show active gcloud account (best-effort)
+        run: gcloud config list account --format 'value(core.account)' || true
+
       - name: Install root deps (optional)
         run: npm ci
 
