@@ -8,15 +8,16 @@ import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
 import jsPDF from 'jspdf';
 
-// Load and cache the actual company logo from public assets for embedding in PDFs
-let CACHED_LOGO_DATA_URL = null;
-const LOGO_CANDIDATES = [
-    '/newlogo512.png',
-    '/logo512.png',
-    '/logo.png'
-];
+// Helpers: load logo and images with natural dimensions to preserve aspect ratio
+let CACHED_LOGO_INFO = null;
+const LOGO_CANDIDATES = ['/FullCompanyLogo.png', '/newlogo512.png', '/logo512.png', '/logo.png'];
 
-async function loadImageAsDataURL(url) {
+function getImageType(dataUrl) {
+    if (typeof dataUrl !== 'string') return 'PNG';
+    return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+}
+
+async function fetchAsDataURL(url) {
     try {
         const res = await fetch(url);
         if (!res.ok) return null;
@@ -32,24 +33,43 @@ async function loadImageAsDataURL(url) {
     }
 }
 
-async function getLogoDataURL() {
-    if (CACHED_LOGO_DATA_URL) return CACHED_LOGO_DATA_URL;
+async function getImageInfoFromDataURL(dataUrl) {
+    return await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ dataUrl, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+        img.onerror = reject;
+        img.src = dataUrl;
+    });
+}
+
+async function getLogoInfo() {
+    if (CACHED_LOGO_INFO) return CACHED_LOGO_INFO;
     for (const candidate of LOGO_CANDIDATES) {
-        const dataUrl = await loadImageAsDataURL(candidate);
+        const dataUrl = await fetchAsDataURL(candidate);
         if (dataUrl) {
-            CACHED_LOGO_DATA_URL = dataUrl;
-            return dataUrl;
+            const info = await getImageInfoFromDataURL(dataUrl);
+            CACHED_LOGO_INFO = info;
+            return info;
         }
     }
-    // Fallback to embedded base64 if defined
+    // Fallback: if an embedded constant exists
     try {
         // eslint-disable-next-line no-undef
         if (typeof TOLMAN_LOGO_BASE64 !== 'undefined' && TOLMAN_LOGO_BASE64) {
-            CACHED_LOGO_DATA_URL = TOLMAN_LOGO_BASE64;
-            return TOLMAN_LOGO_BASE64;
+            const info = await getImageInfoFromDataURL(TOLMAN_LOGO_BASE64);
+            CACHED_LOGO_INFO = info;
+            return info;
         }
     } catch (_) {}
     return null;
+}
+
+async function getPhotoInfo(dataUrl) {
+    try {
+        return await getImageInfoFromDataURL(dataUrl);
+    } catch (e) {
+        return null;
+    }
 }
 
 // Tolman Construction logo as base64 (will need to be replaced with actual logo data)
@@ -461,41 +481,44 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         try {
             const pdf = new jsPDF();
             const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
             let yPosition = 20;
             
-            // Add company logo and header section matching the form
+            // Add centered company logo (includes tagline in image)
             try {
-                // Company logo in header area
-                const logoWidth = 60;
-                const logoHeight = 30;
-                const logoDataUrl = await getLogoDataURL();
-                if (logoDataUrl) {
-                    pdf.addImage(logoDataUrl, 'PNG', 20, yPosition, logoWidth, logoHeight);
+                const logoInfo = await getLogoInfo();
+                if (logoInfo) {
+                    // Max dimensions for header logo
+                    const maxLogoWidth = Math.min(pageWidth - 40, 120);
+                    const maxLogoHeight = 30;
+                    const ratio = logoInfo.width / logoInfo.height;
+                    let drawW = maxLogoWidth;
+                    let drawH = drawW / ratio;
+                    if (drawH > maxLogoHeight) {
+                        drawH = maxLogoHeight;
+                        drawW = drawH * ratio;
+                    }
+                    const drawX = (pageWidth - drawW) / 2;
+                    pdf.addImage(logoInfo.dataUrl, getImageType(logoInfo.dataUrl), drawX, yPosition, drawW, drawH);
+                    yPosition += drawH + 10;
                 } else {
-                    // Fallback header
+                    // Fallback header text
                     pdf.setFontSize(20);
                     pdf.setFont(undefined, 'bold');
-                    pdf.text('TOLMAN', 20, yPosition + 15);
-                    pdf.setFontSize(12);
-                    pdf.text('CONSTRUCTION INC.', 20, yPosition + 25);
+                    pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition + 15, { align: 'center' });
+                    yPosition += 30;
                 }
             } catch (error) {
                 console.warn('Failed to add logo to PDF:', error);
-                // Fallback header
                 pdf.setFontSize(20);
                 pdf.setFont(undefined, 'bold');
-                pdf.text('TOLMAN', 20, yPosition + 15);
-                pdf.setFontSize(12);
-                pdf.text('CONSTRUCTION INC.', 20, yPosition + 25);
+                pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition + 15, { align: 'center' });
+                yPosition += 30;
             }
-            
-            // Header line under logo
-            yPosition += 40;
+
+            // Optional divider under header
             pdf.setLineWidth(2);
             pdf.line(20, yPosition, pageWidth - 20, yPosition);
-            pdf.setFontSize(10);
-            pdf.text('DRYWALL • STEEL FRAMING • ACOUSTICAL CEILING', pageWidth / 2, yPosition + 8, { align: 'center' });
+            yPosition += 10;
             
             // Title
             yPosition += 25;
@@ -505,7 +528,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             
             yPosition += 25;
             
-            // Form fields matching the template layout
+            // Form fields matching the template layout, aligned to common columns
             pdf.setFontSize(11);
             pdf.setFont(undefined, 'bold');
             
@@ -513,51 +536,53 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const rightCol = pageWidth / 2 + 10;
             const lineHeight = 12;
             const fieldLineWidth = 80;
+            const labelWidthLeft = 50;  // fixed label width so values align
+            const labelWidthRight = 45; // fixed label width so values align
             
             // Left column fields
             // Project Name
             pdf.text('Project Name:', leftCol, yPosition);
             pdf.setFont(undefined, 'normal');
-            pdf.line(leftCol + 50, yPosition + 2, leftCol + fieldLineWidth + 50, yPosition + 2);
-            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + 52, yPosition);
+            pdf.line(leftCol + labelWidthLeft, yPosition + 2, leftCol + labelWidthLeft + fieldLineWidth, yPosition + 2);
+            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + labelWidthLeft + 2, yPosition);
             
             yPosition += lineHeight + 5;
             pdf.setFont(undefined, 'bold');
             pdf.text('Contractor:', leftCol, yPosition);
             pdf.setFont(undefined, 'normal');
-            pdf.line(leftCol + 35, yPosition + 2, leftCol + fieldLineWidth + 35, yPosition + 2);
-            pdf.text(patchJob.customer || '', leftCol + 37, yPosition);
+            pdf.line(leftCol + labelWidthLeft, yPosition + 2, leftCol + labelWidthLeft + fieldLineWidth, yPosition + 2);
+            pdf.text(patchJob.customer || '', leftCol + labelWidthLeft + 2, yPosition);
             
             yPosition += lineHeight + 5;
             pdf.setFont(undefined, 'bold');
             pdf.text('Price:', leftCol, yPosition);
             pdf.setFont(undefined, 'normal');
-            pdf.line(leftCol + 25, yPosition + 2, leftCol + fieldLineWidth + 25, yPosition + 2);
-            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + 27, yPosition);
+            pdf.line(leftCol + labelWidthLeft, yPosition + 2, leftCol + labelWidthLeft + fieldLineWidth, yPosition + 2);
+            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + labelWidthLeft + 2, yPosition);
             
             // Right column fields
             const rightYStart = yPosition - (lineHeight + 5) * 2;
             pdf.setFont(undefined, 'bold');
             pdf.text('Address:', rightCol, rightYStart);
             pdf.setFont(undefined, 'normal');
-            pdf.line(rightCol + 30, rightYStart + 2, pageWidth - 20, rightYStart + 2);
+            pdf.line(rightCol + labelWidthRight, rightYStart + 2, pageWidth - 20, rightYStart + 2);
             const addressText = patchJob.address || '';
             if (addressText.length > 40) {
                 const addressLines = pdf.splitTextToSize(addressText, pageWidth - rightCol - 35);
-                pdf.text(addressLines[0], rightCol + 32, rightYStart);
+                pdf.text(addressLines[0], rightCol + labelWidthRight + 2, rightYStart);
                 if (addressLines[1]) {
                     pdf.line(rightCol, rightYStart + lineHeight + 7, pageWidth - 20, rightYStart + lineHeight + 7);
                     pdf.text(addressLines[1], rightCol + 2, rightYStart + lineHeight + 5);
                 }
             } else {
-                pdf.text(addressText, rightCol + 32, rightYStart);
+                pdf.text(addressText, rightCol + labelWidthRight + 2, rightYStart);
             }
             
             pdf.setFont(undefined, 'bold');
             pdf.text('Requested by:', rightCol, rightYStart + lineHeight + 5);
             pdf.setFont(undefined, 'normal');
-            pdf.line(rightCol + 45, rightYStart + lineHeight + 7, pageWidth - 20, rightYStart + lineHeight + 7);
-            pdf.text(patchJob.customerPhone || '', rightCol + 47, rightYStart + lineHeight + 5);
+            pdf.line(rightCol + labelWidthRight, rightYStart + lineHeight + 7, pageWidth - 20, rightYStart + lineHeight + 7);
+            pdf.text(patchJob.customerPhone || '', rightCol + labelWidthRight + 2, rightYStart + lineHeight + 5);
             
             yPosition += 25;
             
@@ -635,21 +660,33 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         // For single patch, place photos to the right within the box
                         let photoY = boxStartY + 15;
                         const maxPhotoWidth = 35;
+                        const maxPhotoHeight = 30;
                         
                         for (let i = 0; i < patch.photos.length && i < 3; i++) { // Limit to 3 photos in box
                             const photo = patch.photos[i];
                             
                             try {
-                                // Calculate proper dimensions maintaining aspect ratio
+                                // Load image to get natural dimensions for aspect ratio
+                                const info = await getPhotoInfo(photo.data);
                                 let photoWidth = maxPhotoWidth;
-                                let photoHeight = maxPhotoWidth * 0.75; // Default 4:3 ratio
-                                
+                                let photoHeight = maxPhotoHeight;
+                                if (info && info.width && info.height) {
+                                    const ratio = info.width / info.height;
+                                    // Fit within max bounds while preserving aspect ratio
+                                    photoWidth = Math.min(maxPhotoWidth, maxPhotoHeight * ratio);
+                                    photoHeight = photoWidth / ratio;
+                                    if (photoHeight > maxPhotoHeight) {
+                                        photoHeight = maxPhotoHeight;
+                                        photoWidth = photoHeight * ratio;
+                                    }
+                                }
+
                                 // Ensure photo fits within box bounds
                                 if (photoY + photoHeight > boxStartY + boxHeight - 10) {
                                     break; // Photo won't fit
                                 }
                                 
-                                pdf.addImage(photo.data, 'JPEG', photoStartX, photoY, photoWidth, photoHeight);
+                                pdf.addImage(photo.data, getImageType(photo.data), photoStartX, photoY, photoWidth, photoHeight);
                                 photoY += photoHeight + 8;
                                 
                             } catch (error) {
@@ -663,6 +700,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         contentY += 3;
                         const maxPhotosInBox = 2;
                         const smallPhotoWidth = 25;
+                        const smallPhotoHeight = 18;
                         
                         for (let i = 0; i < patch.photos.length && i < maxPhotosInBox; i++) {
                             const photo = patch.photos[i];
@@ -673,7 +711,19 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             }
                             
                             try {
-                                pdf.addImage(photo.data, 'JPEG', xPos, contentY, smallPhotoWidth, 18);
+                                const info = await getPhotoInfo(photo.data);
+                                let drawW = smallPhotoWidth;
+                                let drawH = smallPhotoHeight;
+                                if (info && info.width && info.height) {
+                                    const ratio = info.width / info.height;
+                                    drawW = Math.min(smallPhotoWidth, smallPhotoHeight * ratio);
+                                    drawH = drawW / ratio;
+                                    if (drawH > smallPhotoHeight) {
+                                        drawH = smallPhotoHeight;
+                                        drawW = drawH * ratio;
+                                    }
+                                }
+                                pdf.addImage(photo.data, getImageType(photo.data), xPos, contentY, drawW, drawH);
                             } catch (error) {
                                 console.warn('Failed to add image to PDF:', error);
                                 pdf.text(`[Photo ${i + 1}]`, xPos, contentY + 10);
@@ -696,6 +746,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             
             // Move position past the content box
             yPosition = boxStartY + boxHeight + 15;
+
+            // Footer immediately beneath the box (as requested)
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401   •   (801) 444-9600', pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += 12;
             
             // Acceptance text (matching template)
             let acceptanceY = yPosition + 10;
@@ -773,11 +829,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             pdf.text('Print', rightSigX + 17, sigYPosition + 55, { align: 'center' });
             pdf.text('Date', rightSigX + 62, sigYPosition + 55, { align: 'center' });
             
-            // Footer matching template
-            const footerY = pageHeight - 10;
-            pdf.setFontSize(10);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('1758 S 1900 W, Suite B6, West Haven, UT 84401   •   (801) 444-9600', pageWidth / 2, footerY, { align: 'center' });
+            // Footer was moved under the box above
             
             // Generate filename and save
             const timestamp = new Date().toISOString();
