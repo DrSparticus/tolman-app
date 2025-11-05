@@ -593,54 +593,50 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const leftCol = 20;
             const rightCol = pageWidth / 2 + 10;
             const lineHeight = 12;
-            const fieldLineWidth = 80;
-            const labelWidthLeft = 50;  // fixed label width so values align
-            const labelWidthRight = 45; // fixed label width so values align
+            const labelWidthLeft = 70;  // fixed label width so values align
+            const labelWidthRight = 70; // fixed label width so values align
+            const hGap = 6; // small horizontal gap between label and value
             
             // Left column fields
             // Project Name
-            pdf.text('Project Name:', leftCol, yPosition);
+            // Project Name (right-justified label, left-justified value, no underline)
+            pdf.text('Project Name:', leftCol + labelWidthLeft, yPosition, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.line(leftCol + labelWidthLeft, yPosition + 2, leftCol + labelWidthLeft + fieldLineWidth, yPosition + 2);
-            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + labelWidthLeft + 2, yPosition);
+            pdf.text(patchJob.projectName || patchJob.jobName || '', leftCol + labelWidthLeft + hGap, yPosition);
             
             yPosition += lineHeight + 5;
             pdf.setFont(undefined, 'bold');
-            pdf.text('Contractor:', leftCol, yPosition);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Contractor:', leftCol + labelWidthLeft, yPosition, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.line(leftCol + labelWidthLeft, yPosition + 2, leftCol + labelWidthLeft + fieldLineWidth, yPosition + 2);
-            pdf.text(patchJob.customer || '', leftCol + labelWidthLeft + 2, yPosition);
+            pdf.text(patchJob.customer || '', leftCol + labelWidthLeft + hGap, yPosition);
             
             yPosition += lineHeight + 5;
             pdf.setFont(undefined, 'bold');
-            pdf.text('Price:', leftCol, yPosition);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Price:', leftCol + labelWidthLeft, yPosition, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.line(leftCol + labelWidthLeft, yPosition + 2, leftCol + labelWidthLeft + fieldLineWidth, yPosition + 2);
-            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + labelWidthLeft + 2, yPosition);
+            pdf.text(`$${calculateTotal().toFixed(2)}`, leftCol + labelWidthLeft + hGap, yPosition);
             
             // Right column fields
             const rightYStart = yPosition - (lineHeight + 5) * 2;
             pdf.setFont(undefined, 'bold');
-            pdf.text('Address:', rightCol, rightYStart);
+            pdf.text('Address:', rightCol + labelWidthRight, rightYStart, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.line(rightCol + labelWidthRight, rightYStart + 2, pageWidth - 20, rightYStart + 2);
             const addressText = patchJob.address || '';
             if (addressText.length > 40) {
-                const addressLines = pdf.splitTextToSize(addressText, pageWidth - rightCol - 35);
-                pdf.text(addressLines[0], rightCol + labelWidthRight + 2, rightYStart);
-                if (addressLines[1]) {
-                    pdf.line(rightCol, rightYStart + lineHeight + 7, pageWidth - 20, rightYStart + lineHeight + 7);
-                    pdf.text(addressLines[1], rightCol + 2, rightYStart + lineHeight + 5);
-                }
+                const valueX = rightCol + labelWidthRight + hGap;
+                const valueWidth = pageWidth - 20 - valueX;
+                const addressLines = pdf.splitTextToSize(addressText, valueWidth);
+                pdf.text(addressLines, valueX, rightYStart);
             } else {
-                pdf.text(addressText, rightCol + labelWidthRight + 2, rightYStart);
+                pdf.text(addressText, rightCol + labelWidthRight + hGap, rightYStart);
             }
             
             pdf.setFont(undefined, 'bold');
-            pdf.text('Requested by:', rightCol, rightYStart + lineHeight + 5);
+            pdf.text('Requested by:', rightCol + labelWidthRight, rightYStart + lineHeight + 5, { align: 'right' });
             pdf.setFont(undefined, 'normal');
-            pdf.line(rightCol + labelWidthRight, rightYStart + lineHeight + 7, pageWidth - 20, rightYStart + lineHeight + 7);
-            pdf.text(patchJob.customerPhone || '', rightCol + labelWidthRight + 2, rightYStart + lineHeight + 5);
+            pdf.text(patchJob.customerPhone || '', rightCol + labelWidthRight + hGap, rightYStart + lineHeight + 5);
             
             yPosition += 25;
             
