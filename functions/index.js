@@ -186,7 +186,15 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     });
 
     step = 'save-to-storage';
-    const bucket = getStorage().bucket();
+    const app = admin.app();
+    const fallbackProjectId = app?.options?.projectId || process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || '';
+    let bucketName = process.env.STORAGE_BUCKET || app?.options?.storageBucket || '';
+    if (!bucketName && fallbackProjectId) bucketName = `${fallbackProjectId}.appspot.com`;
+    if (!bucketName) {
+      throw new Error('No storage bucket configured. Set STORAGE_BUCKET env var or configure Firebase Storage in the project.');
+    }
+    const bucket = getStorage().bucket(bucketName);
+    console.log('Using bucket:', bucketName);
     const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
     const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'unknown'}/pdfs/${filename}`;
