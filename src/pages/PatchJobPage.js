@@ -72,6 +72,33 @@ async function getPhotoInfo(dataUrl) {
     }
 }
 
+// Utilities for resiliency and conversions
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function convertToJPEGDataURL(dataUrl, quality = 0.92) {
+    return await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const jpegUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve(jpegUrl);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
+    });
+}
+
 // Tolman Construction logo as base64 (will need to be replaced with actual logo data)
 // Tolman Construction logo - Professional company branding
 const TOLMAN_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAACSCAMAAABhGRSUAAAAM1BMVEUAAAD////+/v78/Pz5+fn09PT29vbw8PDy8vLq6urm5ubl5eXh4eHe3t7Z2dnV1dXR0dHNzc24Pi3mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAGvklEQVR4nO2d23LjIAxAMZf2//+5k3SSNk7sGEsC3Jk9b+0mjgVHQhJgGMbj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6P5/8C8H8KnQFBhsAAAAASUVORK5CYII=';
@@ -483,7 +510,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const pageWidth = pdf.internal.pageSize.getWidth();
             let yPosition = 20;
             
-            // Add centered company logo (includes tagline in image)
+            // Add centered company logo (includes tagline in image) with resilient fallbacks
             try {
                 const logoInfo = await getLogoInfo();
                 if (logoInfo) {
@@ -498,8 +525,39 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         drawW = drawH * ratio;
                     }
                     const drawX = (pageWidth - drawW) / 2;
-                    pdf.addImage(logoInfo.dataUrl, getImageType(logoInfo.dataUrl), drawX, yPosition, drawW, drawH);
-                    yPosition += drawH + 10;
+
+                    // Try PNG (or original type) → then JPEG fallback → then one retry with delay
+                    let added = false;
+                    try {
+                        pdf.addImage(logoInfo.dataUrl, getImageType(logoInfo.dataUrl), drawX, yPosition, drawW, drawH);
+                        added = true;
+                    } catch (e1) {
+                        try {
+                            const jpegUrl = await convertToJPEGDataURL(logoInfo.dataUrl, 0.9);
+                            pdf.addImage(jpegUrl, 'JPEG', drawX, yPosition, drawW, drawH);
+                            added = true;
+                        } catch (e2) {
+                            // Short backoff and retry once with JPEG
+                            await sleep(150);
+                            try {
+                                const jpegUrl2 = await convertToJPEGDataURL(logoInfo.dataUrl, 0.85);
+                                pdf.addImage(jpegUrl2, 'JPEG', drawX, yPosition, drawW, drawH);
+                                added = true;
+                            } catch (e3) {
+                                console.warn('Logo add failed after retries:', e1, e2, e3);
+                            }
+                        }
+                    }
+
+                    if (added) {
+                        yPosition += drawH + 10;
+                    } else {
+                        // Fallback header text
+                        pdf.setFontSize(20);
+                        pdf.setFont(undefined, 'bold');
+                        pdf.text('TOLMAN CONSTRUCTION INC.', pageWidth / 2, yPosition + 15, { align: 'center' });
+                        yPosition += 30;
+                    }
                 } else {
                     // Fallback header text
                     pdf.setFontSize(20);
