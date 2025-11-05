@@ -8,6 +8,50 @@ import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
 import jsPDF from 'jspdf';
 
+// Load and cache the actual company logo from public assets for embedding in PDFs
+let CACHED_LOGO_DATA_URL = null;
+const LOGO_CANDIDATES = [
+    '/newlogo512.png',
+    '/logo512.png',
+    '/logo.png'
+];
+
+async function loadImageAsDataURL(url) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        return null;
+    }
+}
+
+async function getLogoDataURL() {
+    if (CACHED_LOGO_DATA_URL) return CACHED_LOGO_DATA_URL;
+    for (const candidate of LOGO_CANDIDATES) {
+        const dataUrl = await loadImageAsDataURL(candidate);
+        if (dataUrl) {
+            CACHED_LOGO_DATA_URL = dataUrl;
+            return dataUrl;
+        }
+    }
+    // Fallback to embedded base64 if defined
+    try {
+        // eslint-disable-next-line no-undef
+        if (typeof TOLMAN_LOGO_BASE64 !== 'undefined' && TOLMAN_LOGO_BASE64) {
+            CACHED_LOGO_DATA_URL = TOLMAN_LOGO_BASE64;
+            return TOLMAN_LOGO_BASE64;
+        }
+    } catch (_) {}
+    return null;
+}
+
 // Tolman Construction logo as base64 (will need to be replaced with actual logo data)
 // Tolman Construction logo - Professional company branding
 const TOLMAN_LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAACSCAMAAABhGRSUAAAAM1BMVEUAAAD////+/v78/Pz5+fn09PT29vbw8PDy8vLq6urm5ubl5eXh4eHe3t7Z2dnV1dXR0dHNzc24Pi3mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAGvklEQVR4nO2d23LjIAxAMZf2//+5k3SSNk7sGEsC3Jk9b+0mjgVHQhJgGMbj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/H4/F4PB6P5/8C8H8KnQFBhsAAAAASUVORK5CYII=';
@@ -425,7 +469,17 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 // Company logo in header area
                 const logoWidth = 60;
                 const logoHeight = 30;
-                pdf.addImage(TOLMAN_LOGO_BASE64, 'PNG', 20, yPosition, logoWidth, logoHeight);
+                const logoDataUrl = await getLogoDataURL();
+                if (logoDataUrl) {
+                    pdf.addImage(logoDataUrl, 'PNG', 20, yPosition, logoWidth, logoHeight);
+                } else {
+                    // Fallback header
+                    pdf.setFontSize(20);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.text('TOLMAN', 20, yPosition + 15);
+                    pdf.setFontSize(12);
+                    pdf.text('CONSTRUCTION INC.', 20, yPosition + 25);
+                }
             } catch (error) {
                 console.warn('Failed to add logo to PDF:', error);
                 // Fallback header
@@ -661,7 +715,6 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             // Signature section matching template
             const sigYPosition = acceptanceY;
             const sigWidth = 80;
-            const sigHeight = 20;
             
             // Get signature data if job is signed
             let hasSignature = false;
@@ -689,6 +742,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             if (hasSignature) {
                 pdf.setFont(undefined, 'normal');
                 pdf.text(signatureName, leftCol + 5, sigYPosition + 25);
+                if (signatureDate) {
+                    pdf.text(signatureDate, leftCol + 62, sigYPosition + 40, { align: 'center' });
+                }
             } else {
                 // Signature line
                 pdf.line(leftCol, sigYPosition + 20, leftCol + sigWidth, sigYPosition + 20);
