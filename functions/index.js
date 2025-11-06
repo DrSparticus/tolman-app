@@ -198,20 +198,41 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
     const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'unknown'}/pdfs/${filename}`;
 
+    console.log('[save-to-storage] Debug info:', {
+      bucketName: bucket.name,
+      storagePath,
+      filename,
+      pdfBufferSize: pdfBuffer.length,
+      envStorageBucket: process.env.STORAGE_BUCKET,
+      adminStorageBucket: admin.app().options.storageBucket
+    });
+
     const file = bucket.file(storagePath);
     
     // Save with metadata including download token for public access
     const downloadToken = require('crypto').randomUUID();
-    await file.save(pdfBuffer, { 
-      contentType: 'application/pdf', 
-      resumable: false,
-      metadata: { 
-        cacheControl: 'no-store',
-        metadata: {
-          firebaseStorageDownloadTokens: downloadToken
+    try {
+      await file.save(pdfBuffer, { 
+        contentType: 'application/pdf', 
+        resumable: false,
+        metadata: { 
+          cacheControl: 'no-store',
+          metadata: {
+            firebaseStorageDownloadTokens: downloadToken
+          }
         }
-      }
-    });
+      });
+      console.log('[save-to-storage] File saved successfully to:', storagePath);
+    } catch (saveError) {
+      console.error('[save-to-storage] File save failed:', {
+        errorMessage: saveError.message,
+        errorCode: saveError.code,
+        errorStack: saveError.stack,
+        bucketName: bucket.name,
+        storagePath
+      });
+      throw saveError;
+    }
 
     step = 'generate-download-url';
     // Use Firebase's token-based download URL instead of signed URL (no IAM role required)
