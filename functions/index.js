@@ -7,11 +7,8 @@ const Handlebars = require('handlebars');
 
 setGlobalOptions({ region: 'us-central1', memory: '1GiB', timeoutSeconds: 120 });
 
-// Initialize with explicit storage bucket from env or default
-const storageBucket = process.env.STORAGE_BUCKET || process.env.GCLOUD_PROJECT ? `${process.env.GCLOUD_PROJECT}.appspot.com` : undefined;
-admin.initializeApp({
-  storageBucket: storageBucket
-});
+// Initialize Admin SDK without explicit bucket (will use default from project config)
+admin.initializeApp();
 
 const { getStorage } = require('firebase-admin/storage');
 
@@ -191,15 +188,21 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     });
 
     step = 'save-to-storage';
-    const bucket = getStorage().bucket();
-    console.log('Using bucket:', bucket.name);
+    // Use explicit bucket from env var (set by CI workflow)
+    const bucketName = process.env.STORAGE_BUCKET;
+    if (!bucketName) {
+      throw new Error('STORAGE_BUCKET environment variable not set');
+    }
+    
+    const bucket = getStorage().bucket(bucketName);
+    console.log('Using bucket:', bucketName);
     
     const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
     const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'unknown'}/pdfs/${filename}`;
 
     console.log('[save-to-storage] Debug info:', {
-      bucketName: bucket.name,
+      bucketName,
       storagePath,
       filename,
       pdfBufferSize: pdfBuffer.length,
@@ -236,7 +239,6 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
 
     step = 'generate-download-url';
     // Use Firebase's token-based download URL instead of signed URL (no IAM role required)
-    const bucketName = bucket.name;
     const encodedPath = encodeURIComponent(storagePath);
     const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
