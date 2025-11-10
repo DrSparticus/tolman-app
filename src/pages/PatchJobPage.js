@@ -234,7 +234,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     // Project Link handlers (stubs)
     const handleProjectSelection = (project) => {
         handleInputChange('projectId', project?.id || '');
-        handleInputChange('projectName', project?.name || '');
+        handleInputChange('projectName', project?.projectName || '');
+        handleInputChange('customer', project?.customer || '');
+        handleInputChange('address', project?.address || '');
+        // Set coordinates if available
+        if (project?.coordinates) {
+            handleInputChange('coordinates', project.coordinates);
+        }
         setShowProjectLinkModal(false);
     };
     const handleCreateNew = () => {
@@ -273,13 +279,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         }
         setIsSaving(false);
 
-        // If current PDF exists and is not outdated, open it directly
-        const latestCurrent = (generatedPDFs || []).find(p => !p.isOutdated) || (generatedPDFs || [])[generatedPDFs.length - 1];
-        if (latestCurrent && !isPDFOutdated() && latestCurrent.downloadUrl) {
-            try { window.open(latestCurrent.downloadUrl, '_blank', 'noopener'); } catch (_) {}
-            return;
-        }
-
+        // Always generate a fresh PDF when the button is clicked
         setIsGeneratingPDF(true);
         try {
             const logoDataUrl = await getLogoDataUrl();
