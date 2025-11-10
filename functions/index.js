@@ -188,21 +188,22 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     });
 
     step = 'save-to-storage';
-    // Use default Firebase Storage bucket (automatically resolved by admin SDK)
-    const bucket = getStorage().bucket();
-    console.log('Using bucket:', bucket.name);
+    // Use the standard .appspot.com bucket (every Firebase project has this)
+    const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'tolmantest';
+    const bucketName = `${projectId}.appspot.com`;
+    const bucket = getStorage().bucket(bucketName);
+    console.log('Using bucket:', bucketName, '(project:', projectId, ')');
     
     const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
     const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'unknown'}/pdfs/${filename}`;
 
     console.log('[save-to-storage] Debug info:', {
-      bucketName: bucket.name,
+      bucketName,
       storagePath,
       filename,
       pdfBufferSize: pdfBuffer.length,
-      envStorageBucket: process.env.STORAGE_BUCKET,
-      adminStorageBucket: admin.app().options.storageBucket
+      projectId
     });
 
     const file = bucket.file(storagePath);
@@ -235,7 +236,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     step = 'generate-download-url';
     // Use Firebase's token-based download URL instead of signed URL (no IAM role required)
     const encodedPath = encodeURIComponent(storagePath);
-    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
     return { filename, storagePath, downloadUrl };
   } finally {
