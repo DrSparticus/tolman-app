@@ -20,45 +20,82 @@ const templateSource = `
 <meta charset="utf-8" />
 <title>Patch Work Order</title>
 <style>
-  @page { size: Letter; margin: 28px; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; }
-  .header { text-align: center; margin-bottom: 10px; }
-  .logo { max-width: 520px; max-height: 110px; margin: 0 auto; display: block; }
+  body { 
+    font-family: Arial, Helvetica, sans-serif; 
+    color: #111;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* First page header */
+  .first-page-header { text-align: center; margin-bottom: 10px; }
+  .logo-large { max-width: 520px; max-height: 110px; margin: 0 auto; display: block; }
   .divider { border-top: 3px solid #111; margin: 8px 0 12px; }
   .title { text-align: center; font-size: 20px; font-weight: 700; margin: 8px 0 14px; }
+  
+  /* Subsequent pages header */
+  .running-header {
+    display: none; /* Will be shown via page break */
+    padding: 10px 0;
+    border-bottom: 2px solid #111;
+    margin-bottom: 16px;
+  }
+  .running-header-content {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+    align-items: center;
+  }
+  .logo-small { max-width: 260px; max-height: 55px; display: block; }
+  .running-info { text-align: left; }
+  .running-job { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  .running-address { font-size: 11px; color: #333; }
+  
+  /* Show running header on all pages except first */
+  @media print {
+    .running-header { display: block !important; }
+    .first-page-only .running-header { display: none !important; }
+  }
+  
   .two-col { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; row-gap: 8px; margin-bottom: 10px; }
   .row { display: grid; grid-template-columns: 140px 1fr; align-items: baseline; }
   .label { text-align: right; font-weight: 700; padding-right: 6px; }
   .value { text-align: left; }
   .box { border: 3px solid #111; min-height: 420px; padding: 14px; margin-top: 12px; }
   .section-title { font-weight: 700; margin-bottom: 8px; }
-  .patch { margin: 10px 0; display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: start; }
+  .patch { margin: 10px 0; display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: start; page-break-inside: avoid; }
   .patch-content { }
   .patch-photos { display: flex; flex-direction: column; gap: 6px; }
   .amount { margin-left: 14px; margin-top: 4px; }
   .photo { max-height: 100px; max-width: 100%; border: 1px solid #ccc; object-fit: contain; }
   .patch-separator { border-top: 1px solid #999; margin: 14px auto; width: 75%; }
   .accept { font-size: 11px; text-align: center; margin: 12px 50px 4px; }
-  .sign-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; margin-top: 10px; }
+  .sign-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; margin-top: 10px; page-break-inside: avoid; }
   .sign-col { text-align: center; }
   .sign-line { border-top: 2px solid #111; margin: 36px 0 6px; }
   .sign-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 11px; gap: 8px; }
-  .footer { text-align: center; font-weight: 700; margin-top: 12px; }
   .muted { color: #333; }
+  
+  /* Page break control */
+  .page-break { page-break-before: always; }
+  .no-page-break { page-break-inside: avoid; }
 </style>
 </head>
 <body>
-  <div class="header">
-    {{#if logoDataUrl}}<img class="logo" src="{{logoDataUrl}}" />{{/if}}
-  </div>
-  <div class="divider"></div>
-  <div class="title">Patch Work Order</div>
-  <div class="two-col">
-    <div class="row"><div class="label">Project Name:</div><div class="value">{{projectName}}</div></div>
-    <div class="row"><div class="label">Contractor:</div><div class="value">{{customer}}</div></div>
-    <div class="row"><div class="label">Address:</div><div class="value">{{address}}</div></div>
-    <div class="row"><div class="label">Requested by:</div><div class="value">{{requestedBy}}</div></div>
-  <div class="row"><div class="label">Price:</div><div class="value">&#36;{{total}}</div></div>
+  <!-- First page content -->
+  <div class="first-page-only">
+    <div class="first-page-header">
+      {{#if logoDataUrl}}<img class="logo-large" src="{{logoDataUrl}}" />{{/if}}
+    </div>
+    <div class="divider"></div>
+    <div class="title">Patch Work Order</div>
+    <div class="two-col">
+      <div class="row"><div class="label">Project Name:</div><div class="value">{{projectName}}</div></div>
+      <div class="row"><div class="label">Contractor:</div><div class="value">{{customer}}</div></div>
+      <div class="row"><div class="label">Address:</div><div class="value">{{address}}</div></div>
+      <div class="row"><div class="label">Requested by:</div><div class="value">{{requestedBy}}</div></div>
+      <div class="row"><div class="label">Price:</div><div class="value">&#36;{{total}}</div></div>
+    </div>
   </div>
 
   <div class="box">
@@ -194,13 +231,40 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     step = 'generate-pdf';
-    const pdfBuffer = await page.pdf({
+    // Create header template for running header (pages 2+)
+    // Note: headerTemplate shows on ALL pages, so we include job info
+    const headerTemplate = logoDataUrl ? `
+      <div style="width: 100%; padding: 8px 20px 4px; border-bottom: 2px solid #111; font-size: 10px; display: flex; align-items: center; justify-content: space-between; -webkit-print-color-adjust: exact;">
+        <img src="${logoDataUrl}" style="max-width: 200px; max-height: 40px;" />
+        <div style="text-align: right; line-height: 1.3;">
+          <div style="font-weight: 700; font-size: 11px;">${jobName || projectName || ''}</div>
+          <div style="color: #333; font-size: 9px;">${address || ''}</div>
+        </div>
+      </div>
+    ` : `
+      <div style="width: 100%; padding: 8px 20px 4px; border-bottom: 2px solid #111; font-size: 11px; font-weight: 700; -webkit-print-color-adjust: exact;">
+        ${jobName || projectName || ''}
+      </div>
+    `;
+
+    // Create footer template with page numbers (bottom right)
+    const footerTemplate = `
+      <div style="width: 100%; padding: 4px 20px; font-size: 9px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact;">
+        <div style="color: #666;">1758 S 1900 W, Suite B6, West Haven, UT 84401 • (801) 444-9600</div>
+        <div style="color: #666; text-align: right;">
+          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+        </div>
+      </div>
+    `;
+
+    const pdfBuffer = await page.pdf({ 
       format: 'Letter',
       printBackground: true,
-      margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
-    });
-
-    step = 'save-to-storage';
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      margin: { top: '80px', right: '20px', bottom: '50px', left: '20px' }
+    });    step = 'save-to-storage';
     // Use the Firebase Storage bucket (shown in Firebase Console)
     const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'tolmantest';
     const bucketName = `${projectId}.firebasestorage.app`;
