@@ -188,21 +188,16 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     });
 
     step = 'save-to-storage';
-    // Use explicit bucket from env var (set by CI workflow)
-    const bucketName = process.env.STORAGE_BUCKET;
-    if (!bucketName) {
-      throw new Error('STORAGE_BUCKET environment variable not set');
-    }
-    
-    const bucket = getStorage().bucket(bucketName);
-    console.log('Using bucket:', bucketName);
+    // Use default Firebase Storage bucket (automatically resolved by admin SDK)
+    const bucket = getStorage().bucket();
+    console.log('Using bucket:', bucket.name);
     
     const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
     const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'unknown'}/pdfs/${filename}`;
 
     console.log('[save-to-storage] Debug info:', {
-      bucketName,
+      bucketName: bucket.name,
       storagePath,
       filename,
       pdfBufferSize: pdfBuffer.length,
@@ -240,7 +235,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     step = 'generate-download-url';
     // Use Firebase's token-based download URL instead of signed URL (no IAM role required)
     const encodedPath = encodeURIComponent(storagePath);
-    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
+    const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
 
     return { filename, storagePath, downloadUrl };
   } finally {
