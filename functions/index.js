@@ -20,6 +20,14 @@ const templateSource = `
 <meta charset="utf-8" />
 <title>Patch Work Order</title>
 <style>
+  @page {
+    margin: 70px 20px 50px 20px;
+  }
+  
+  @page:first {
+    margin-top: 20px;
+  }
+  
   body { 
     font-family: Arial, Helvetica, sans-serif; 
     color: #111;
@@ -27,35 +35,29 @@ const templateSource = `
     padding: 0;
   }
   
+  /* Running header for pages 2+ */
+  .running-header {
+    position: running(pageHeader);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0 4px;
+    border-bottom: 2px solid #111;
+  }
+  .running-header img { max-width: 200px; max-height: 40px; }
+  .running-info { text-align: right; line-height: 1.3; }
+  .running-job { font-weight: 700; font-size: 11px; margin-bottom: 2px; }
+  .running-address { font-size: 9px; color: #333; }
+  
+  @page:not(:first) {
+    @top-left-corner { content: element(pageHeader); }
+  }
+  
   /* First page header */
   .first-page-header { text-align: center; margin-bottom: 10px; }
   .logo-large { max-width: 520px; max-height: 110px; margin: 0 auto; display: block; }
   .divider { border-top: 3px solid #111; margin: 8px 0 12px; }
   .title { text-align: center; font-size: 20px; font-weight: 700; margin: 8px 0 14px; }
-  
-  /* Subsequent pages header */
-  .running-header {
-    display: none; /* Will be shown via page break */
-    padding: 10px 0;
-    border-bottom: 2px solid #111;
-    margin-bottom: 16px;
-  }
-  .running-header-content {
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 16px;
-    align-items: center;
-  }
-  .logo-small { max-width: 260px; max-height: 55px; display: block; }
-  .running-info { text-align: left; }
-  .running-job { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
-  .running-address { font-size: 11px; color: #333; }
-  
-  /* Show running header on all pages except first */
-  @media print {
-    .running-header { display: block !important; }
-    .first-page-only .running-header { display: none !important; }
-  }
   
   .two-col { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; row-gap: 8px; margin-bottom: 10px; }
   .row { display: grid; grid-template-columns: 140px 1fr; align-items: baseline; }
@@ -76,12 +78,18 @@ const templateSource = `
   .sign-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 11px; gap: 8px; }
   .muted { color: #333; }
   
-  /* Page break control */
-  .page-break { page-break-before: always; }
-  .no-page-break { page-break-inside: avoid; }
 </style>
 </head>
 <body>
+  <!-- Running header for pages 2+ -->
+  <div class="running-header">
+    {{#if logoDataUrl}}<img src="{{logoDataUrl}}" />{{/if}}
+    <div class="running-info">
+      <div class="running-job">{{jobName}}</div>
+      <div class="running-address">{{address}}</div>
+    </div>
+  </div>
+
   <!-- First page content -->
   <div class="first-page-only">
     <div class="first-page-header">
@@ -142,8 +150,6 @@ const templateSource = `
       </div>
     </div>
   </div>
-
-  <div class="footer">1758 S 1900 W, Suite B6, West Haven, UT 84401   •   (801) 444-9600</div>
 </body>
 </html>
 `;
@@ -231,27 +237,15 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     step = 'generate-pdf';
-    // Create header template for running header (pages 2+)
-    // Note: headerTemplate shows on ALL pages, so we include job info
-    const headerTemplate = logoDataUrl ? `
-      <div style="width: 100%; padding: 8px 20px 4px; border-bottom: 2px solid #111; font-size: 10px; display: flex; align-items: center; justify-content: space-between; -webkit-print-color-adjust: exact;">
-        <img src="${logoDataUrl}" style="max-width: 200px; max-height: 40px;" />
-        <div style="text-align: right; line-height: 1.3;">
-          <div style="font-weight: 700; font-size: 11px;">${jobName || projectName || ''}</div>
-          <div style="color: #333; font-size: 9px;">${address || ''}</div>
-        </div>
-      </div>
-    ` : `
-      <div style="width: 100%; padding: 8px 20px 4px; border-bottom: 2px solid #111; font-size: 11px; font-weight: 700; -webkit-print-color-adjust: exact;">
-        ${jobName || projectName || ''}
-      </div>
-    `;
+    // Create empty header for first page, then show running header on pages 2+
+    // Note: Puppeteer doesn't support per-page headers, so we'll use a minimal approach
+    const headerTemplate = '<div></div>'; // Empty header - we'll rely on content for page 1
 
-    // Create footer template with page numbers (bottom right)
+    // Create footer template with centered/bold company info and page numbers on right
     const footerTemplate = `
-      <div style="width: 100%; padding: 4px 20px; font-size: 9px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact;">
-        <div style="color: #666;">1758 S 1900 W, Suite B6, West Haven, UT 84401 • (801) 444-9600</div>
-        <div style="color: #666; text-align: right;">
+      <div style="width: 100%; padding: 4px 20px; font-size: 10px; display: flex; justify-content: center; align-items: center; position: relative; -webkit-print-color-adjust: exact;">
+        <div style="font-weight: 700; text-align: center;">1758 S 1900 W, Suite B6, West Haven, UT 84401 • (801) 444-9600</div>
+        <div style="position: absolute; right: 20px; color: #666; font-weight: normal; font-size: 9px;">
           Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
       </div>
@@ -263,7 +257,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
       displayHeaderFooter: true,
       headerTemplate,
       footerTemplate,
-      margin: { top: '80px', right: '20px', bottom: '50px', left: '20px' }
+      margin: { top: '20px', right: '20px', bottom: '50px', left: '20px' }
     });    step = 'save-to-storage';
     // Use the Firebase Storage bucket (shown in Firebase Console)
     const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'tolmantest';
