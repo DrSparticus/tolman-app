@@ -188,24 +188,11 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     });
 
     step = 'save-to-storage';
-    // Use the standard .appspot.com bucket (every Firebase project has this)
+    // Use the Firebase Storage bucket (shown in Firebase Console)
     const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'tolmantest';
-    const bucketName = `${projectId}.appspot.com`;
+    const bucketName = `${projectId}.firebasestorage.app`;
     const bucket = getStorage().bucket(bucketName);
     console.log('Using bucket:', bucketName, '(project:', projectId, ')');
-    
-    // Check if bucket exists, create if not
-    try {
-      const [exists] = await bucket.exists();
-      if (!exists) {
-        console.log('Bucket does not exist, creating:', bucketName);
-        await bucket.create();
-        console.log('Bucket created successfully');
-      }
-    } catch (bucketError) {
-      console.error('Bucket check/create error:', bucketError.message);
-      // Continue anyway - maybe we don't have permission to check but can still write
-    }
     
     const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
