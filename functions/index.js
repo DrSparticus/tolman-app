@@ -143,7 +143,8 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
       const cost = Number(p.amount || 0).toFixed(2);
       amountText = `Fixed charge: $${cost}`;
     }
-    const images = (p.photos || []).slice(0, 3).map(ph => ph.data || ph.url).filter(Boolean);
+    // Prefer URL over base64 data for photos (URLs are stored in Firebase Storage)
+    const images = (p.photos || []).slice(0, 3).map(ph => ph.url || ph.data).filter(Boolean);
     return { number: p.number, description: p.description, amountText, images };
   });
 

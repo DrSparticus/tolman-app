@@ -134,8 +134,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return patches.map(patch => ({
             ...patch,
             photos: (patch.photos || []).map(photo => {
-                // Keep only the URL and metadata, remove the base64 data
-                const { data, ...photoWithoutData } = photo;
+                // Keep only the URL and metadata, remove the base64 data and uploading flag
+                const { data, uploading, ...photoWithoutData } = photo;
                 return photoWithoutData;
             })
         }));
@@ -197,34 +197,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         const unsub = onSnapshot(ref, (snap) => {
             if (snap.exists()) {
                 const data = snap.data() || {};
-                setPatchJob(prev => {
-                    // Merge patches carefully: preserve base64 photo data from current state
-                    const incomingPatches = Array.isArray(data.patches) ? data.patches : [];
-                    const mergedPatches = incomingPatches.map((incomingPatch, idx) => {
-                        const existingPatch = prev.patches?.[idx];
-                        if (!existingPatch) return incomingPatch;
-                        
-                        // Merge photos: keep base64 data from existing state if it exists
-                        const mergedPhotos = (incomingPatch.photos || []).map((incomingPhoto, photoIdx) => {
-                            const existingPhoto = existingPatch.photos?.[photoIdx];
-                            // If existing photo has base64 data and same URL, keep the data
-                            if (existingPhoto?.data && existingPhoto.url === incomingPhoto.url) {
-                                return { ...incomingPhoto, data: existingPhoto.data };
-                            }
-                            return incomingPhoto;
-                        });
-                        
-                        return { ...incomingPatch, photos: mergedPhotos };
-                    });
-                    
-                    return {
-                        ...prev,
-                        ...data,
-                        patches: mergedPatches,
-                        changeLog: Array.isArray(data.changeLog) ? data.changeLog : [],
-                        signature: data.signature || ''
-                    };
-                });
+                setPatchJob(prev => ({
+                    ...prev,
+                    ...data,
+                    patches: Array.isArray(data.patches) ? data.patches : [],
+                    changeLog: Array.isArray(data.changeLog) ? data.changeLog : [],
+                    signature: data.signature || ''
+                }));
                 setGeneratedPDFs(Array.isArray(data.generatedPDFs) ? data.generatedPDFs : []);
                 setLastSavedPatchJob({ ...data });
                 // Store original total for signature removal check
@@ -1005,6 +984,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             canRemove={patchJob.patches.length > 1}
                             disabled={isSignaturePresent()}
                             isAdmin={isAdmin()}
+                            patchJobId={patchJobId}
+                            projectId={process.env.REACT_APP_FIREBASE_PROJECT_ID}
                         />
                     ))}
                 </div>

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { CameraIcon } from '../../Icons';
 
-const Patch = ({ patch, onUpdate, onRemove, canRemove = true, disabled = false, isAdmin = false }) => {
+const Patch = ({ patch, onUpdate, onRemove, canRemove = true, disabled = false, isAdmin = false, patchJobId, projectId }) => {
     const [photos, setPhotos] = useState(patch.photos || []);
     const [isDragOver, setIsDragOver] = useState(false);
     const [showMobileOptions, setShowMobileOptions] = useState(false);
@@ -15,27 +16,77 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true, disabled = false, 
         onUpdate(patch.id, { ...patch, [field]: value });
     };
 
-    const processFiles = useCallback((files) => {
-        Array.from(files).forEach(file => {
+    const uploadPhotoToStorage = useCallback(async (file, photoId) => {
+        try {
+            const storage = getStorage();
+            const artifactProjectId = process.env.REACT_APP_FIREBASE_PROJECT_ID;
+            const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'temp'}/photos/${photoId}_${file.name}`;
+            const fileRef = storageRef(storage, storagePath);
+            
+            await uploadBytes(fileRef, file);
+            const downloadURL = await getDownloadURL(fileRef);
+            
+            return downloadURL;
+        } catch (error) {
+            console.error('Error uploading photo to storage:', error);
+            throw error;
+        }
+    }, [patchJobId]);
+
+    const processFiles = useCallback(async (files) => {
+        const filesArray = Array.from(files);
+        
+        for (const file of filesArray) {
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = async (event) => {
+                    const photoId = Date.now() + Math.random();
+                    const base64Data = event.target.result;
+                    
+                    // Create photo with base64 data first (for immediate display)
                     const newPhoto = {
-                        id: Date.now() + Math.random(),
-                        data: event.target.result,
+                        id: photoId,
+                        data: base64Data,
                         name: file.name,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        uploading: true
                     };
+                    
                     setPhotos(prev => {
                         const updatedPhotos = [...prev, newPhoto];
                         onUpdate(patch.id, { ...patch, photos: updatedPhotos });
                         return updatedPhotos;
                     });
+                    
+                    // Upload to storage and get permanent URL
+                    try {
+                        const downloadURL = await uploadPhotoToStorage(file, photoId);
+                        
+                        // Update photo with URL and remove base64 data
+                        setPhotos(prev => {
+                            const updatedPhotos = prev.map(p => 
+                                p.id === photoId 
+                                    ? { ...p, url: downloadURL, uploading: false }
+                                    : p
+                            );
+                            onUpdate(patch.id, { ...patch, photos: updatedPhotos });
+                            return updatedPhotos;
+                        });
+                    } catch (error) {
+                        console.error('Failed to upload photo:', error);
+                        // Remove the photo if upload failed
+                        setPhotos(prev => {
+                            const updatedPhotos = prev.filter(p => p.id !== photoId);
+                            onUpdate(patch.id, { ...patch, photos: updatedPhotos });
+                            return updatedPhotos;
+                        });
+                        alert('Failed to upload photo. Please try again.');
+                    }
                 };
                 reader.readAsDataURL(file);
             }
-        });
-    }, [patch, onUpdate]);
+        }
+    }, [patch, onUpdate, uploadPhotoToStorage]);
 
     const handlePhotoCapture = (e) => {
         processFiles(e.target.files);
@@ -236,11 +287,16 @@ const Patch = ({ patch, onUpdate, onRemove, canRemove = true, disabled = false, 
                     {photos.map(photo => (
                         <div key={photo.id} className="relative w-32 h-40">
                             <img
-                                src={photo.data}
+                                src={photo.url || photo.data}
                                 alt="Patch work"
                                 className="w-full h-full object-cover rounded-lg border border-gray-300"
                             />
-                            {(!disabled || isAdmin) && (
+                            {photo.uploading && (
+                                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                                    <div className="text-white text-xs">Uploading...</div>
+                                </div>
+                            )}
+                            {(!disabled || isAdmin) && !photo.uploading && (
                                 <button
                                     type="button"
                                     onClick={() => removePhoto(photo.id)}
