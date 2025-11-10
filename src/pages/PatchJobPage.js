@@ -262,7 +262,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             };
 
             if (patchJobId) {
-                const patchJobRef = doc(db, 'patchJobs', patchJobId);
+                const patchJobRef = doc(db, patchJobsPath, patchJobId);
                 await updateDoc(patchJobRef, patchJobData);
             }
         } catch (saveError) {
