@@ -24,10 +24,6 @@ const templateSource = `
     margin: 70px 20px 50px 20px;
   }
   
-  @page:first {
-    margin-top: 20px;
-  }
-  
   body { 
     font-family: Arial, Helvetica, sans-serif; 
     color: #111;
@@ -35,28 +31,26 @@ const templateSource = `
     padding: 0;
   }
   
-  /* Running header for pages 2+ */
-  .running-header {
+  /* Consistent header for all pages */
+  .page-header {
     position: running(pageHeader);
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 0 4px;
+    gap: 16px;
+    padding: 8px 0 8px;
     border-bottom: 2px solid #111;
+    margin-bottom: 16px;
   }
-  .running-header img { max-width: 200px; max-height: 40px; }
-  .running-info { text-align: right; line-height: 1.3; }
-  .running-job { font-weight: 700; font-size: 11px; margin-bottom: 2px; }
-  .running-address { font-size: 9px; color: #333; }
+  .header-left { text-align: left; font-weight: 700; font-size: 12px; }
+  .header-center { text-align: center; }
+  .header-center img { max-width: 300px; max-height: 60px; }
+  .header-right { text-align: right; font-size: 11px; color: #333; }
   
-  @page:not(:first) {
+  @page {
     @top-left-corner { content: element(pageHeader); }
   }
   
-  /* First page header */
-  .first-page-header { text-align: center; margin-bottom: 10px; }
-  .logo-large { max-width: 520px; max-height: 110px; margin: 0 auto; display: block; }
-  .divider { border-top: 3px solid #111; margin: 8px 0 12px; }
   .title { text-align: center; font-size: 20px; font-weight: 700; margin: 8px 0 14px; }
   
   .two-col { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; row-gap: 8px; margin-bottom: 10px; }
@@ -81,23 +75,17 @@ const templateSource = `
 </style>
 </head>
 <body>
-  <!-- Running header for pages 2+ -->
-  <div class="running-header">
-    {{#if logoDataUrl}}<img src="{{logoDataUrl}}" />{{/if}}
-    <div class="running-info">
-      <div class="running-job">{{jobName}}</div>
-      <div class="running-address">{{address}}</div>
+  <!-- Consistent header for all pages -->
+  <div class="page-header">
+    <div class="header-left">{{projectName}}</div>
+    <div class="header-center">
+      {{#if logoDataUrl}}<img src="{{logoDataUrl}}" />{{/if}}
     </div>
+    <div class="header-right">{{address}}</div>
   </div>
 
-  <!-- First page content -->
-  <div class="first-page-only">
-    <div class="first-page-header">
-      {{#if logoDataUrl}}<img class="logo-large" src="{{logoDataUrl}}" />{{/if}}
-    </div>
-    <div class="divider"></div>
-    <div class="title">Patch Work Order</div>
-    <div class="two-col">
+  <div class="title">Patch Work Order</div>
+  <div class="two-col">
       <div class="row"><div class="label">Project Name:</div><div class="value">{{projectName}}</div></div>
       <div class="row"><div class="label">Contractor:</div><div class="value">{{customer}}</div></div>
       <div class="row"><div class="label">Address:</div><div class="value">{{address}}</div></div>
