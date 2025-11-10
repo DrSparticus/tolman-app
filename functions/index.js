@@ -20,35 +20,11 @@ const templateSource = `
 <meta charset="utf-8" />
 <title>Patch Work Order</title>
 <style>
-  @page {
-    margin: 70px 20px 50px 20px;
-  }
-  
   body { 
     font-family: Arial, Helvetica, sans-serif; 
     color: #111;
     margin: 0;
     padding: 0;
-  }
-  
-  /* Consistent header for all pages */
-  .page-header {
-    position: running(pageHeader);
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 16px;
-    padding: 8px 0 8px;
-    border-bottom: 2px solid #111;
-    margin-bottom: 16px;
-  }
-  .header-left { text-align: left; font-weight: 700; font-size: 12px; }
-  .header-center { text-align: center; }
-  .header-center img { max-width: 300px; max-height: 60px; }
-  .header-right { text-align: right; font-size: 11px; color: #333; }
-  
-  @page {
-    @top-left-corner { content: element(pageHeader); }
   }
   
   .title { text-align: center; font-size: 20px; font-weight: 700; margin: 8px 0 14px; }
@@ -75,15 +51,6 @@ const templateSource = `
 </style>
 </head>
 <body>
-  <!-- Consistent header for all pages -->
-  <div class="page-header">
-    <div class="header-left">{{projectName}}</div>
-    <div class="header-center">
-      {{#if logoDataUrl}}<img src="{{logoDataUrl}}" />{{/if}}
-    </div>
-    <div class="header-right">{{address}}</div>
-  </div>
-
   <div class="title">Patch Work Order</div>
   <div class="two-col">
       <div class="row"><div class="label">Project Name:</div><div class="value">{{projectName}}</div></div>
@@ -225,9 +192,16 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     step = 'generate-pdf';
-    // Create empty header for first page, then show running header on pages 2+
-    // Note: Puppeteer doesn't support per-page headers, so we'll use a minimal approach
-    const headerTemplate = '<div></div>'; // Empty header - we'll rely on content for page 1
+    // Create header template with 3-column layout: Project Name | Logo | Address
+    const headerTemplate = `
+      <div style="width: 100%; padding: 8px 20px; border-bottom: 2px solid #111; display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; font-size: 10px; -webkit-print-color-adjust: exact;">
+        <div style="text-align: left; font-weight: 700; font-size: 12px;">${projectName || ''}</div>
+        <div style="text-align: center;">
+          ${logoDataUrl ? `<img src="${logoDataUrl}" style="max-width: 300px; max-height: 60px;" />` : ''}
+        </div>
+        <div style="text-align: right; font-size: 11px; color: #333;">${address || ''}</div>
+      </div>
+    `;
 
     // Create footer template with centered/bold company info and page numbers on right
     const footerTemplate = `
@@ -245,7 +219,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
       displayHeaderFooter: true,
       headerTemplate,
       footerTemplate,
-      margin: { top: '20px', right: '20px', bottom: '50px', left: '20px' }
+      margin: { top: '100px', right: '20px', bottom: '50px', left: '20px' }
     });    step = 'save-to-storage';
     // Use the Firebase Storage bucket (shown in Firebase Console)
     const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'tolmantest';
