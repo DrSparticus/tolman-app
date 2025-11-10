@@ -128,6 +128,19 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return subtotal > 0 && min > 0 ? Math.max(subtotal, min) : subtotal;
     };
 
+    // Helper function to strip base64 photo data before saving to Firestore (prevents document size limit)
+    const stripPhotoDataForFirestore = (patches) => {
+        if (!patches || patches.length === 0) return patches;
+        return patches.map(patch => ({
+            ...patch,
+            photos: (patch.photos || []).map(photo => {
+                // Keep only the URL and metadata, remove the base64 data
+                const { data, ...photoWithoutData } = photo;
+                return photoWithoutData;
+            })
+        }));
+    };
+
     const isAdmin = () => (userData?.role === 'admin');
     const isSignaturePresent = () => Boolean(patchJob.signature && String(patchJob.signature).length > 0);
     const isPatchesLocked = () => isSignaturePresent() && !isAdmin();
@@ -242,6 +255,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             // Save current state
             const patchJobData = {
                 ...patchJob,
+                patches: stripPhotoDataForFirestore(patchJob.patches), // Strip photo data to stay under 1MB
                 totalAmount: calculateTotal(),
                 updatedAt: new Date().toISOString(),
                 updatedBy: userData?.email || 'Unknown'
@@ -407,6 +421,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         try {
             let patchJobData = {
                 ...patchJob,
+                patches: stripPhotoDataForFirestore(patchJob.patches), // Strip photo data to stay under 1MB
                 totalAmount: calculateTotal(),
                 updatedAt: new Date().toISOString(),
                 updatedBy: userData?.email || 'Unknown',
