@@ -4,6 +4,7 @@ import { LocationControls, useLocationServices } from '../components/LocationSer
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
 import SignatureModal from '../components/SignatureModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
 // Switched PDF generation to Firebase Cloud Functions + Puppeteer
@@ -74,6 +75,10 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         hourlyRate: 75,
         minimumTotalCharge: 0,
     });
+
+    // Track original total for signature removal warning
+    const [originalTotal, setOriginalTotal] = useState(null);
+    const [showSignatureRemovalWarning, setShowSignatureRemovalWarning] = useState(false);
 
     // Load Patch Job config from Firestore so hourlyRate matches admin settings
     React.useEffect(() => {
@@ -188,9 +193,14 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 }));
                 setGeneratedPDFs(Array.isArray(data.generatedPDFs) ? data.generatedPDFs : []);
                 setLastSavedPatchJob({ ...data });
+                // Store original total for signature removal check
+                if (originalTotal === null) {
+                    setOriginalTotal(data.totalAmount || 0);
+                }
             }
         });
         return () => unsub();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [db, patchJobId]);
 
     const generateChangeLogEntries = () => {
@@ -219,6 +229,36 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     const generateChangeOrderPDF = async () => {
+        // Save the patch job first to prevent data loss
+        setIsSaving(true);
+        try {
+            // Perform basic validation
+            if (!patchJob.jobName.trim() || !patchJob.customer.trim() || !patchJob.address.trim()) {
+                alert('Please fill in Job Name, Customer, and Address before generating PDF');
+                setIsSaving(false);
+                return;
+            }
+
+            // Save current state
+            const patchJobData = {
+                ...patchJob,
+                totalAmount: calculateTotal(),
+                updatedAt: new Date().toISOString(),
+                updatedBy: userData?.email || 'Unknown'
+            };
+
+            if (patchJobId) {
+                const patchJobRef = doc(db, 'patchJobs', patchJobId);
+                await updateDoc(patchJobRef, patchJobData);
+            }
+        } catch (saveError) {
+            console.error('Error saving before PDF generation:', saveError);
+            alert('Failed to save patch job before generating PDF');
+            setIsSaving(false);
+            return;
+        }
+        setIsSaving(false);
+
         // If current PDF exists and is not outdated, open it directly
         const latestCurrent = (generatedPDFs || []).find(p => !p.isOutdated) || (generatedPDFs || [])[generatedPDFs.length - 1];
         if (latestCurrent && !isPDFOutdated() && latestCurrent.downloadUrl) {
@@ -554,17 +594,41 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             return;
         }
 
+        // Check if we need to warn about signature removal due to total change
+        if (isSignaturePresent() && originalTotal !== null && Math.abs(total - originalTotal) > 0.01) {
+            if (!showSignatureRemovalWarning) {
+                setShowSignatureRemovalWarning(true);
+                return;
+            }
+        }
+
         setIsSaving(true);
 
         try {
             const nextStatus = getNextStatus(patchJob.status);
+            const currentTotal = calculateTotal();
+            const needsSignature = currentTotal >= patchJobConfig.signatureThreshold;
+            
             let patchJobData = {
                 ...patchJob,
-                totalAmount: calculateTotal(),
+                totalAmount: currentTotal,
                 updatedAt: new Date().toISOString(),
                 updatedBy: userData?.email || 'Unknown',
                 status: nextStatus
             };
+
+            // Remove signature if total changed and user confirmed
+            if (showSignatureRemovalWarning && isSignaturePresent()) {
+                patchJobData.customerSignature = null;
+                patchJobData.signature = '';
+                setShowSignatureRemovalWarning(false);
+            }
+
+            // Check if we need to revert Done status due to missing signature
+            if (nextStatus === 'Done' && needsSignature && !isSignaturePresent()) {
+                patchJobData.status = 'Scheduled';
+                alert('This job requires a customer signature due to the total amount. Status has been changed back to Scheduled.');
+            }
 
             // When marking as Done, freeze the hourly rate on the job so future config changes won't affect historical totals
             if (nextStatus === 'Done') {
@@ -893,16 +957,6 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             <span className="text-sm text-gray-500 ml-2">🔒 Locked (Signed)</span>
                         )}
                     </h2>
-                    {(!isSignaturePresent() || isAdmin()) && (
-                        <button
-                            onClick={addPatch}
-                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                            title={isSignaturePresent() && isAdmin() ? "Admin: Add patch to signed job" : "Add Patch"}
-                        >
-                            <PlusIcon />
-                            <span className="ml-2">Add Patch</span>
-                        </button>
-                    )}
                 </div>
 
                 <div className="space-y-6">
@@ -918,6 +972,20 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         />
                     ))}
                 </div>
+
+                {/* Add Patch button below patches */}
+                {(!isSignaturePresent() || isAdmin()) && (
+                    <div className="mt-6">
+                        <button
+                            onClick={addPatch}
+                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                            title={isSignaturePresent() && isAdmin() ? "Admin: Add patch to signed job" : "Add Patch"}
+                        >
+                            <PlusIcon />
+                            <span className="ml-2">Add Patch</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* Signature and Total Summary */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
@@ -1072,6 +1140,20 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 isAdmin={isAdmin()}
                 onClear={handleClearSignature}
                 patchesLocked={isPatchesLocked()}
+            />
+
+            {/* Signature Removal Warning Modal */}
+            <ConfirmationModal
+                isOpen={showSignatureRemovalWarning}
+                onClose={() => setShowSignatureRemovalWarning(false)}
+                onConfirm={() => {
+                    submitPatchJob();
+                }}
+                title="Remove Customer Signature?"
+                message={`The total amount has changed from $${(originalTotal || 0).toFixed(2)} to $${calculateTotal().toFixed(2)}. The customer signature will be removed if you continue. Do you want to proceed?`}
+                confirmText="Yes, Remove Signature"
+                cancelText="Cancel"
+                isDestructive={true}
             />
         </div>
     );

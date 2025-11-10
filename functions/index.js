@@ -32,15 +32,17 @@ const templateSource = `
   .value { text-align: left; }
   .box { border: 3px solid #111; min-height: 420px; padding: 14px; margin-top: 12px; }
   .section-title { font-weight: 700; margin-bottom: 8px; }
-  .patch { margin: 10px 0; }
-  .amount { margin-left: 14px; }
-  .photos { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
-  .photo { max-height: 120px; max-width: 160px; border: 1px solid #ccc; object-fit: contain; }
+  .patch { margin: 10px 0; display: grid; grid-template-columns: 2fr 1fr; gap: 14px; align-items: start; }
+  .patch-content { }
+  .patch-photos { display: flex; flex-direction: column; gap: 6px; }
+  .amount { margin-left: 14px; margin-top: 4px; }
+  .photo { max-height: 100px; max-width: 100%; border: 1px solid #ccc; object-fit: contain; }
+  .patch-separator { border-top: 1px solid #999; margin: 14px auto; width: 75%; }
   .accept { font-size: 11px; text-align: center; margin: 12px 50px 4px; }
   .sign-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; margin-top: 10px; }
   .sign-col { text-align: center; }
-  .sign-line { border-top: 2px solid #111; margin: 24px 0 4px; }
-  .sign-foot { display: grid; grid-template-columns: 1fr 1fr; font-size: 11px; }
+  .sign-line { border-top: 2px solid #111; margin: 36px 0 6px; }
+  .sign-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 11px; gap: 8px; }
   .footer { text-align: center; font-weight: 700; margin-top: 12px; }
   .muted { color: #333; }
 </style>
@@ -53,8 +55,8 @@ const templateSource = `
   <div class="title">Patch Work Order</div>
   <div class="two-col">
     <div class="row"><div class="label">Project Name:</div><div class="value">{{projectName}}</div></div>
-    <div class="row"><div class="label">Address:</div><div class="value">{{address}}</div></div>
     <div class="row"><div class="label">Contractor:</div><div class="value">{{customer}}</div></div>
+    <div class="row"><div class="label">Address:</div><div class="value">{{address}}</div></div>
     <div class="row"><div class="label">Requested by:</div><div class="value">{{requestedBy}}</div></div>
   <div class="row"><div class="label">Price:</div><div class="value">&#36;{{total}}</div></div>
   </div>
@@ -63,16 +65,21 @@ const templateSource = `
     <div class="section-title">WORK PERFORMED:</div>
     {{#each patches}}
       <div class="patch">
-        <div><strong>Patch {{number}}:</strong> {{description}}</div>
-        <div class="amount">{{amountText}}</div>
+        <div class="patch-content">
+          <div><strong>Patch {{number}}:</strong> {{description}}</div>
+          <div class="amount">{{amountText}}</div>
+        </div>
         {{#if images}}
-        <div class="photos">
+        <div class="patch-photos">
           {{#each images}}
             <img class="photo" src="{{this}}" />
           {{/each}}
         </div>
+        {{else}}
+        <div></div>
         {{/if}}
       </div>
+      {{#unless @last}}<div class="patch-separator"></div>{{/unless}}
     {{/each}}
   </div>
 
@@ -82,14 +89,20 @@ const templateSource = `
     <div class="sign-col">
       <div class="muted">Job Manager</div>
       <div class="sign-line"></div>
-      <div class="muted">Signature</div>
-      <div class="sign-foot"><div>Print</div><div>Date</div></div>
+      <div class="sign-labels">
+        <div>Signature</div>
+        <div>Print</div>
+        <div>Date</div>
+      </div>
     </div>
     <div class="sign-col">
       <div class="muted">Tolman Construction</div>
       <div class="sign-line"></div>
-      <div class="muted">Signature</div>
-      <div class="sign-foot"><div>Print</div><div>Date</div></div>
+      <div class="sign-labels">
+        <div>Signature</div>
+        <div>Print</div>
+        <div>Date</div>
+      </div>
     </div>
   </div>
 
