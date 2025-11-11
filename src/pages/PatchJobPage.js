@@ -234,9 +234,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     // Project Link handlers (stubs)
     const handleProjectSelection = (project) => {
         handleInputChange('projectId', project?.id || '');
-        handleInputChange('projectName', project?.projectName || '');
+        handleInputChange('projectName', project?.projectName ? `${project.projectName} - Patch Work` : '');
+        handleInputChange('jobName', project?.projectName ? `${project.projectName} - Patch Work` : '');
         handleInputChange('customer', project?.customer || '');
         handleInputChange('address', project?.address || '');
+        handleInputChange('jobNumber', project?.jobNumber || '');
         // Set coordinates if available
         if (project?.coordinates) {
             handleInputChange('coordinates', project.coordinates);
