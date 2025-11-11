@@ -36,10 +36,9 @@ const patchJobsPath = `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/pa
 
 const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [patchJob, setPatchJob] = useState({
-        jobName: '',
+        projectName: '',
         jobNumber: '',
         projectId: '',
-        projectName: '',
         customer: '',
         customerEmail: '',
         customerPhone: '',
@@ -219,7 +218,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const generateChangeLogEntries = () => {
         if (!lastSavedPatchJob) return [];
         const changes = [];
-        const fields = ['jobName', 'jobNumber', 'customer', 'customerPhone', 'customerEmail', 'address', 'notes', 'status'];
+        const fields = ['projectName', 'jobNumber', 'customer', 'customerPhone', 'customerEmail', 'address', 'notes', 'status'];
         fields.forEach(f => {
             if ((lastSavedPatchJob[f] || '') !== (patchJob[f] || '')) {
                 changes.push(`${f} updated`);
@@ -235,7 +234,6 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const handleProjectSelection = (project) => {
         handleInputChange('projectId', project?.id || '');
         handleInputChange('projectName', project?.projectName ? `${project.projectName} - Patch Work` : '');
-        handleInputChange('jobName', project?.projectName ? `${project.projectName} - Patch Work` : '');
         handleInputChange('customer', project?.customer || '');
         handleInputChange('address', project?.address || '');
         handleInputChange('jobNumber', project?.jobNumber || '');
@@ -254,8 +252,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         setIsSaving(true);
         try {
             // Perform basic validation
-            if (!patchJob.jobName.trim() || !patchJob.customer.trim() || !patchJob.address.trim()) {
-                alert('Please fill in Job Name, Customer, and Address before generating PDF');
+            if (!patchJob.projectName.trim() || !patchJob.customer.trim() || !patchJob.address.trim()) {
+                alert('Please fill in Project Name, Customer, and Address before generating PDF');
                 setIsSaving(false);
                 return;
             }
@@ -292,7 +290,6 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 artifactProjectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
                 patchJobId: patchJobId || null,
                 projectName: patchJob.projectName,
-                jobName: patchJob.jobName,
                 customer: patchJob.customer,
                 address: patchJob.address,
                 requestedBy: patchJob.customerPhone,
@@ -316,7 +313,6 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             const timestamp = new Date().toISOString();
             const minimalSnapshot = {
-                jobName: patchJob.jobName,
                 projectName: patchJob.projectName,
                 customer: patchJob.customer,
                 address: patchJob.address,
@@ -561,13 +557,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     const submitPatchJob = async () => {
-        if (!patchJob.jobName.trim()) {
-            alert('Please enter a job name');
+        if (!patchJob.projectName.trim()) {
+            alert('Please enter a project name');
             return;
         }
 
         if (!patchJob.customer.trim()) {
-            alert('Please enter a customer name');
+            alert('Please enter a customer/contractor name');
             return;
         }
 
@@ -795,15 +791,15 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="block text-sm font-medium text-gray-700">
-                                Job Name *
+                                Project Name *
                             </label>
                         </div>
                         <input
                             type="text"
-                            value={patchJob.jobName}
-                            onChange={(e) => handleInputChange('jobName', e.target.value)}
+                            value={patchJob.projectName}
+                            onChange={(e) => handleInputChange('projectName', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter job name"
+                            placeholder="Enter project name"
                         />
                     </div>
 
@@ -912,14 +908,14 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Customer Name *
+                            Customer/Contractor *
                         </label>
                         <input
                             type="text"
                             value={patchJob.customer}
                             onChange={(e) => handleInputChange('customer', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Customer name"
+                            placeholder="Customer or contractor name"
                         />
                     </div>
 

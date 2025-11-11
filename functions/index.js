@@ -119,7 +119,6 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
       artifactProjectId,
       patchJobId,
       projectName,
-      jobName,
       customer,
       address,
       requestedBy,
@@ -169,7 +168,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
   step = 'render-html';
   const html = template({
     logoDataUrl: finalLogoDataUrl,
-    projectName: projectName || jobName || '',
+    projectName: projectName || '',
     address: address || '',
     customer: customer || '',
     requestedBy: requestedBy || '',
@@ -197,7 +196,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     // Note: Header margins respect page margins (20px left/right)
     const headerTemplate = `
       <div style="width: calc(100% - 40px); margin: 0 20px; padding: 8px 0 12px; border-bottom: 2px solid #111; display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; font-size: 10px; -webkit-print-color-adjust: exact;">
-        <div style="text-align: left; font-weight: 700; font-size: 12px;">${projectName || jobName || ''}</div>
+        <div style="text-align: left; font-weight: 700; font-size: 12px;">${projectName || ''}</div>
         <div style="text-align: center;">
           ${logoDataUrl ? `<img src="${logoDataUrl}" style="max-width: 300px; max-height: 60px;" />` : ''}
         </div>

@@ -82,7 +82,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                 
                 const searchLower = searchTerm.toLowerCase();
                 return (
-                    (job.jobName || '').toLowerCase().includes(searchLower) ||
+                    (job.projectName || '').toLowerCase().includes(searchLower) ||
                     (job.customer || '').toLowerCase().includes(searchLower) ||
                     (job.address || '').toLowerCase().includes(searchLower) ||
                     (job.jobNumber || '').toLowerCase().includes(searchLower) ||
@@ -338,9 +338,9 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                             <tr>
                                 <th 
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                                    onClick={() => requestSort('jobName')}
+                                    onClick={() => requestSort('projectName')}
                                 >
-                                    Job Name <SortIcon direction={sortConfig.key === 'jobName' ? sortConfig.direction : null} />
+                                    Project Name <SortIcon direction={sortConfig.key === 'projectName' ? sortConfig.direction : null} />
                                 </th>
                                 {/* Only show Job # for users with advanced view permission */}
                                 {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
@@ -396,7 +396,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                         className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
                                         onClick={() => onEditPatchJob(job.id)}
                                     >
-                                        {job.jobName || 'Untitled Job'}
+                                        {job.projectName || 'Untitled Project'}
                                     </td>
                                     {/* Only show Job # for users with advanced view permission */}
                                     {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
@@ -523,7 +523,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                     className="text-lg font-semibold text-blue-600 cursor-pointer hover:text-blue-800 mb-1"
                                     onClick={() => onEditPatchJob(job.id)}
                                 >
-                                    {job.jobName || 'Untitled Job'}
+                                    {job.projectName || 'Untitled Project'}
                                 </h3>
                                 {/* Only show Job # for users with advanced view permission */}
                                 {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
@@ -649,7 +649,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                 onClose={closeDeleteModal}
                 onConfirm={handleDeleteJob}
                 title="Delete Patch Job"
-                message={`Are you sure you want to delete "${jobToDelete?.jobName}"? This action can be undone from the trash.`}
+                message={`Are you sure you want to delete "${jobToDelete?.projectName}"? This action can be undone from the trash.`}
             />
 
             <ConfirmationModal
@@ -657,7 +657,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                 onClose={closeRestoreModal}
                 onConfirm={handleRestoreJob}
                 title="Restore Patch Job"
-                message={`Are you sure you want to restore "${jobToRestore?.jobName}"?`}
+                message={`Are you sure you want to restore "${jobToRestore?.projectName}"?`}
             />
 
             <ConfirmationModal
@@ -665,7 +665,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                 onClose={closePermanentDeleteModal}
                 onConfirm={handlePermanentDeleteJob}
                 title="Permanently Delete Patch Job"
-                message={`Are you sure you want to permanently delete "${jobToPermanentlyDelete?.jobName}"? This action cannot be undone.`}
+                message={`Are you sure you want to permanently delete "${jobToPermanentlyDelete?.projectName}"? This action cannot be undone.`}
                 isDestructive={true}
             />
         </div>
