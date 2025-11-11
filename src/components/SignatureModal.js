@@ -166,7 +166,7 @@ const SignatureModal = ({
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-semibold text-gray-800">
-                            {patchesLocked ? '🔒 Signature Captured' : 'Customer Signature'}
+                            {patchesLocked ? '🔒 Signature Captured' : 'Contractor Signature'}
                         </h2>
                         <button
                             onClick={onClose}
@@ -185,17 +185,17 @@ const SignatureModal = ({
                     )}
 
                     <div className="space-y-4">
-                        {/* Customer Name */}
+                        {/* Contractor Name */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Customer Name {required && '*'}
+                                Contractor Name {required && '*'}
                             </label>
                             <input
                                 type="text"
                                 value={customerName}
                                 onChange={handleNameChange}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Enter customer name"
+                                placeholder="Enter contractor name"
                                 disabled={patchesLocked && !isAdmin}
                             />
                         </div>

@@ -182,7 +182,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isNewPatchJob]);
 
-    // Show project link modal on new Patch Job creation to link or create a project
+    // Show job link modal on new Patch Job creation to link or create a job
     React.useEffect(() => {
         if (isNewPatchJob && !showProjectLinkModal && !patchJob.projectId) {
             setShowProjectLinkModal(true);
@@ -230,7 +230,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return changes;
     };
 
-    // Project Link handlers (stubs)
+    // Job Link handlers
     const handleProjectSelection = (project) => {
         handleInputChange('projectId', project?.id || '');
         handleInputChange('projectName', project?.projectName ? `${project.projectName} - Patch Work` : '');
@@ -253,7 +253,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         try {
             // Perform basic validation
             if (!patchJob.projectName.trim() || !patchJob.customer.trim() || !patchJob.address.trim()) {
-                alert('Please fill in Project Name, Customer, and Address before generating PDF');
+                alert('Please fill in Job Name, Contractor, and Address before generating PDF');
                 setIsSaving(false);
                 return;
             }
@@ -558,12 +558,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
     const submitPatchJob = async () => {
         if (!patchJob.projectName.trim()) {
-            alert('Please enter a project name');
+            alert('Please enter a job name');
             return;
         }
 
         if (!patchJob.customer.trim()) {
-            alert('Please enter a customer/contractor name');
+            alert('Please enter a contractor name');
             return;
         }
 
@@ -603,7 +603,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         // Validate signature if required
         const total = calculateTotal();
         if (total >= patchJobConfig.signatureThreshold && !isSignaturePresent()) {
-            alert(`Customer signature is required for amounts over $${patchJobConfig.signatureThreshold.toFixed(2)}`);
+            alert(`Contractor signature is required for amounts over $${patchJobConfig.signatureThreshold.toFixed(2)}`);
             return;
         }
 
@@ -640,7 +640,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             // Check if we need to revert Done status due to missing signature
             if (nextStatus === 'Done' && needsSignature && !isSignaturePresent()) {
                 patchJobData.status = 'Scheduled';
-                alert('This job requires a customer signature due to the total amount. Status has been changed back to Scheduled.');
+                alert('This job requires a contractor signature due to the total amount. Status has been changed back to Scheduled.');
             }
 
             // When marking as Done, freeze the hourly rate on the job so future config changes won't affect historical totals
@@ -789,9 +789,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 {/* Job Name and Address */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                        <div className="flex items-center justify-between mb-2">
+                        <div class="flex items-center justify-between mb-2">
                             <label className="block text-sm font-medium text-gray-700">
-                                Project Name *
+                                Job Name *
                             </label>
                         </div>
                         <input
@@ -799,7 +799,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                             value={patchJob.projectName}
                             onChange={(e) => handleInputChange('projectName', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter project name"
+                            placeholder="Enter job name"
                         />
                     </div>
 
@@ -908,14 +908,14 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Customer/Contractor *
+                            Contractor *
                         </label>
                         <input
                             type="text"
                             value={patchJob.customer}
                             onChange={(e) => handleInputChange('customer', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Customer or contractor name"
+                            placeholder="Contractor name"
                         />
                     </div>
 
@@ -1164,8 +1164,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 onConfirm={() => {
                     submitPatchJob();
                 }}
-                title="Remove Customer Signature?"
-                message={`The total amount has changed from $${(originalTotal || 0).toFixed(2)} to $${calculateTotal().toFixed(2)}. The customer signature will be removed if you continue. Do you want to proceed?`}
+                title="Remove Contractor Signature?"
+                message={`The total amount has changed from $${(originalTotal || 0).toFixed(2)} to $${calculateTotal().toFixed(2)}. The contractor signature will be removed if you continue. Do you want to proceed?`}
                 confirmText="Yes, Remove Signature"
                 cancelText="Cancel"
                 isDestructive={true}

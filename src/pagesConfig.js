@@ -15,7 +15,7 @@ import {
 export const pages = [
     { id: 'home', icon: <HomeIcon />, text: 'Home' },
     { id: 'bids', icon: <QuoteIcon />, text: 'Bid Sheet' },
-    { id: 'projects', icon: <ProjectsIcon />, text: 'Projects' },
+    { id: 'projects', icon: <ProjectsIcon />, text: 'Jobs' },
     { id: 'patch-jobs', icon: <PatchIcon />, text: 'Patch Jobs' },
     { id: 'schedule', icon: <ScheduleIcon />, text: 'Schedule' },
     { id: 'change-orders', icon: <ChangeOrderIcon />, text: 'Change Orders' },

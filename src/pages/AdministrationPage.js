@@ -35,7 +35,7 @@ const AdministrationPage = ({ db, userData }) => {
             { id: 'edit', name: 'Edit Bids' },
             { id: 'delete', name: 'Delete Bids' },
             { id: 'advancedPricing', name: 'Advanced Pricing View' },
-            { id: 'convertToProject', name: 'Convert to Project' }
+            { id: 'convertToProject', name: 'Convert to Job' }
         ],
         customers: [
             { id: 'view', name: 'View Customers' },
@@ -62,15 +62,15 @@ const AdministrationPage = ({ db, userData }) => {
             { id: 'create', name: 'Create Crews' },
             { id: 'edit', name: 'Edit Crews' },
             { id: 'delete', name: 'Delete Crews' },
-            { id: 'assign', name: 'Assign to Projects' }
+            { id: 'assign', name: 'Assign to Jobs' }
         ],
         projects: [
-            { id: 'view', name: 'View Projects' },
-            { id: 'edit', name: 'Edit Projects' },
+            { id: 'view', name: 'View Jobs' },
+            { id: 'edit', name: 'Edit Jobs' },
             { id: 'schedule', name: 'Edit Schedule' },
             { id: 'complete', name: 'Mark Complete' },
             { id: 'viewStockDate', name: 'View Stock Date' },
-            { id: 'changeStatus', name: 'Change Project Status' }
+            { id: 'changeStatus', name: 'Change Job Status' }
         ],
         'patch-jobs': [
             { id: 'view', name: 'View Patch Jobs' },
@@ -176,7 +176,7 @@ const AdministrationPage = ({ db, userData }) => {
                         defaults[pageId][perm.id] = pageId === 'materials' && perm.id === 'view';
                         break;
                     case 'supervisor':
-                        // Supervisors should have access to home, projects, and schedule
+                        // Supervisors should have access to home, jobs, and schedule
                         if (pageId === 'home') {
                             defaults[pageId][perm.id] = perm.id === 'view';
                         } else {

@@ -340,7 +340,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                     onClick={() => requestSort('projectName')}
                                 >
-                                    Project Name <SortIcon direction={sortConfig.key === 'projectName' ? sortConfig.direction : null} />
+                                    Job Name <SortIcon direction={sortConfig.key === 'projectName' ? sortConfig.direction : null} />
                                 </th>
                                 {/* Only show Job # for users with advanced view permission */}
                                 {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
@@ -355,7 +355,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                                     onClick={() => requestSort('customer')}
                                 >
-                                    Customer <SortIcon direction={sortConfig.key === 'customer' ? sortConfig.direction : null} />
+                                    Contractor <SortIcon direction={sortConfig.key === 'customer' ? sortConfig.direction : null} />
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Address
@@ -396,7 +396,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                         className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
                                         onClick={() => onEditPatchJob(job.id)}
                                     >
-                                        {job.projectName || 'Untitled Project'}
+                                        {job.projectName || 'Untitled Job'}
                                     </td>
                                     {/* Only show Job # for users with advanced view permission */}
                                     {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
@@ -523,7 +523,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                                     className="text-lg font-semibold text-blue-600 cursor-pointer hover:text-blue-800 mb-1"
                                     onClick={() => onEditPatchJob(job.id)}
                                 >
-                                    {job.projectName || 'Untitled Project'}
+                                    {job.projectName || 'Untitled Job'}
                                 </h3>
                                 {/* Only show Job # for users with advanced view permission */}
                                 {(userData?.role === 'admin' || userData?.permissions?.['patch-jobs']?.advancedView) && (
@@ -576,7 +576,7 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
                         
                         <div className="grid grid-cols-1 gap-2 text-sm">
                             <div>
-                                <span className="font-medium text-gray-700">Customer:</span> {job.customer || 'N/A'}
+                                <span className="font-medium text-gray-700">Contractor:</span> {job.customer || 'N/A'}
                             </div>
                             <div>
                                 <span className="font-medium text-gray-700">Address:</span> {

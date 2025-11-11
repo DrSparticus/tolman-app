@@ -160,7 +160,7 @@ const PatchJobConfig = ({ db }) => {
                         </div>
                     )}
                     <p className="text-xs text-gray-500 mt-1">
-                        Total amount requiring customer signature
+                        Total amount requiring contractor signature
                     </p>
                 </div>
             </div>

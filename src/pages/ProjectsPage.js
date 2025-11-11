@@ -293,7 +293,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Projects</h1>
+                <h1 className="text-3xl font-bold text-gray-800">Jobs</h1>
                 
                 <div className="flex items-center space-x-4">
                     {/* Search Field */}
@@ -311,7 +311,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                 <div className="flex items-center space-x-2">
                                     <input
                                         type="text"
-                                        placeholder="Search projects..."
+                                        placeholder="Search jobs..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         onBlur={() => {
@@ -338,7 +338,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                             <SearchIcon className="absolute left-3 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search projects..."
+                                placeholder="Search jobs..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -404,7 +404,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                     Job Number <SortIcon direction={getSortDirection('jobNumber')} />
                                 </th>
                                 <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('projectName')}>
-                                    Project Name <SortIcon direction={getSortDirection('projectName')} />
+                                    Job Name <SortIcon direction={getSortDirection('projectName')} />
                                 </th>
                                 <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort('status')}>
                                     Status <SortIcon direction={getSortDirection('status')} />
@@ -424,13 +424,13 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                             {sortedProjects.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                        {activeTab === 'all' ? 'No projects found.' :
+                                        {activeTab === 'all' ? 'No jobs found.' :
                                          activeTab === 'bids' ? 'No active bids found.' :
-                                         activeTab === 'production' ? 'No projects in production found.' :
-                                         activeTab === 'finished' ? 'No finished projects found.' :
+                                         activeTab === 'production' ? 'No jobs in production found.' :
+                                         activeTab === 'finished' ? 'No finished jobs found.' :
                                          activeTab === 'inactive' ? 'No inactive bids found.' :
-                                         activeTab === 'trash' ? 'No deleted projects found.' :
-                                         'No projects found.'}
+                                         activeTab === 'trash' ? 'No deleted jobs found.' :
+                                         'No jobs found.'}
                                     </td>
                                 </tr>
                             ) : (
@@ -543,21 +543,21 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                 onClose={closeDeleteModal}
                 onConfirm={handleDeleteProject}
                 title="Move to Trash"
-                message={`Are you sure you want to move the project "${projectToDelete?.projectName}" to trash? You can restore it later.`}
+                message={`Are you sure you want to move the job "${projectToDelete?.projectName}" to trash? You can restore it later.`}
             />
             <ConfirmationModal
                 isOpen={isRestoreModalOpen}
                 onClose={closeRestoreModal}
                 onConfirm={handleRestoreProject}
-                title="Restore Project"
-                message={`Are you sure you want to restore the project "${projectToRestore?.projectName}"?`}
+                title="Restore Job"
+                message={`Are you sure you want to restore the job "${projectToRestore?.projectName}"?`}
             />
             <ConfirmationModal
                 isOpen={isPermanentDeleteModalOpen}
                 onClose={closePermanentDeleteModal}
                 onConfirm={handlePermanentDeleteProject}
-                title="Permanently Delete Project"
-                message={`Are you sure you want to permanently delete the project "${projectToPermanentlyDelete?.projectName}"? This action cannot be undone.`}
+                title="Permanently Delete Job"
+                message={`Are you sure you want to permanently delete the job "${projectToPermanentlyDelete?.projectName}"? This action cannot be undone.`}
             />
             
             {/* Duplicate Project Modal */}
@@ -566,10 +566,10 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                     <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                         <div className="mt-3">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">
-                                Duplicate Project
+                                Duplicate Job
                             </h3>
                             <p className="text-sm text-gray-600 mb-4">
-                                This will create a copy of "{duplicateModal.project?.projectName}" with all finishes, rates, and configuration preserved. The project name will be cleared for you to enter a new one.
+                                This will create a copy of "{duplicateModal.project?.projectName}" with all finishes, rates, and configuration preserved. The job name will be cleared for you to enter a new one.
                             </p>
                             <div className="mb-4">
                                 <label className="flex items-center">
@@ -579,7 +579,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     />
                                     <span className="ml-2 text-sm text-gray-700">
-                                        Also copy project notes
+                                        Also copy job notes
                                     </span>
                                 </label>
                             </div>
@@ -597,7 +597,7 @@ const ProjectsPage = ({ db, userData, onNewBid, onEditProject }) => {
                                     }}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                                 >
-                                    Duplicate Project
+                                    Duplicate Job
                                 </button>
                             </div>
                         </div>
