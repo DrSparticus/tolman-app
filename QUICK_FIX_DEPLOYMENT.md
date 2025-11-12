@@ -2,21 +2,30 @@
 
 ## ⚠️ Current Issues
 
-### Issue 1: Service Account User Role Required ❌
+### Issue 1: Cloud Functions Deployment Permission ❌
 **Error:** Missing permissions required for functions deploy. You must have permission iam.serviceAccounts.ActAs
 
 **GitHub Actions service account:** `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
 
-**Quick Fix:** Grant "Service Account User" role (see Step 2A below)
+**Root Cause:** The GitHub Actions service account needs **Cloud Functions Admin** role to deploy functions.
 
-### Issue 2: Secret Manager Access ❌
-**Error:** Permission 'secretmanager.versions.get' denied
+**Quick Fix:** Run this command:
+```bash
+gcloud projects add-iam-policy-binding tolmantest \
+  --member="serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com" \
+  --role="roles/cloudfunctions.admin"
+```
 
-**Quick Fix:** Grant "Secret Manager Secret Accessor" role (see Step 2B below)
+**Or via Console:**
+1. Go to: https://console.cloud.google.com/iam-admin/iam?project=tolmantest
+2. Find: `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
+3. Click edit (pencil icon)
+4. Add role: **"Cloud Functions Admin"**
+5. Save
 
-**What's Already Working:**
-- ✅ Secret is created in Secret Manager
-- ✅ Cloud Functions runtime service account has access (`tolmantest@appspot.gserviceaccount.com`)
+### Issue 2: Secret Manager Access ✅ (Should be fixed)
+- Cloud Functions runtime has access
+- GitHub Actions has Secret Manager Secret Accessor role
 
 ---
 
