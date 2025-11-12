@@ -1,4 +1,4 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const chromium = require('@sparticuz/chromium');
@@ -449,5 +449,87 @@ exports.signwellWebhook = onCall({ secrets: [signwellApiKey] }, async (request) 
   } catch (error) {
     console.error('signwellWebhook error:', error);
     throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * HTTP Webhook endpoint for SignWell to call when documents are completed
+ * This is the URL you should add to SignWell's Event Callback URL
+ */
+exports.signwellWebhookHttp = onRequest(async (req, res) => {
+  try {
+    // Only accept POST requests
+    if (req.method !== 'POST') {
+      res.status(405).send('Method Not Allowed');
+      return;
+    }
+
+    const { event_type, document_id, document } = req.body;
+    
+    console.log('SignWell webhook received:', { event_type, document_id });
+
+    // Only process completed documents
+    if (event_type !== 'document_completed') {
+      res.status(200).json({ success: true, message: 'Event ignored' });
+      return;
+    }
+
+    // Find the patch job by SignWell document ID
+    const db = admin.firestore();
+    const patchJobsRef = db.collection(`artifacts/${process.env.GCLOUD_PROJECT}/patchJobs`);
+    const querySnapshot = await patchJobsRef.where('signwellDocumentId', '==', document_id).limit(1).get();
+
+    if (querySnapshot.empty) {
+      console.error('No patch job found for SignWell document:', document_id);
+      res.status(404).json({ success: false, error: 'Patch job not found' });
+      return;
+    }
+
+    const patchJobDoc = querySnapshot.docs[0];
+    const patchJobId = patchJobDoc.id;
+
+    // Download the completed signed PDF
+    const signedPdfBuffer = await downloadCompletedDocument(document_id);
+
+    // Upload signed PDF to Firebase Storage
+    const bucket = getStorage().bucket();
+    const signedPdfPath = `artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}/signed-patch-order.pdf`;
+    const file = bucket.file(signedPdfPath);
+
+    await file.save(signedPdfBuffer, {
+      metadata: {
+        contentType: 'application/pdf',
+        metadata: {
+          signwellDocumentId: document_id,
+          completedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    // Get download URL
+    const [signedUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: '03-01-2500', // Far future date
+    });
+
+    // Update patch job in Firestore
+    await patchJobDoc.ref.update({
+      signwellStatus: 'completed',
+      signwellCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+      signedPdfUrl: signedUrl,
+      status: 'Done',
+      patchesLocked: true, // Lock patches from further editing
+    });
+
+    console.log('Patch job updated with signed PDF:', patchJobId);
+
+    res.status(200).json({
+      success: true,
+      patchJobId,
+      message: 'Signed PDF uploaded and patch job updated',
+    });
+  } catch (error) {
+    console.error('signwellWebhookHttp error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
