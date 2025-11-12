@@ -1,17 +1,22 @@
 # Quick Fix for SignWell Deployment Errors
 
-## ⚠️ Current Issue
+## ⚠️ Current Issues
 
+### Issue 1: Service Account User Role Required ❌
+**Error:** Missing permissions required for functions deploy. You must have permission iam.serviceAccounts.ActAs
+
+**GitHub Actions service account:** `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
+
+**Quick Fix:** Grant "Service Account User" role (see Step 2A below)
+
+### Issue 2: Secret Manager Access ❌
 **Error:** Permission 'secretmanager.versions.get' denied
 
-**Root Cause:** The GitHub Actions service account doesn't have permission to validate the secret during deployment.
+**Quick Fix:** Grant "Secret Manager Secret Accessor" role (see Step 2B below)
 
-**What's Happening:**
+**What's Already Working:**
 - ✅ Secret is created in Secret Manager
 - ✅ Cloud Functions runtime service account has access (`tolmantest@appspot.gserviceaccount.com`)
-- ❌ GitHub Actions deployment service account doesn't have access yet
-
-**Quick Fix:** Add your GitHub Actions service account to the secret's permissions (see Step 2 below).
 
 ---
 
@@ -41,60 +46,73 @@ echo -n "YWNjZXNzOjIxMTc2MzQxMTBlZjY3NDlmODU0ZTlhY2NhMjBhYzhm" | gcloud secrets 
 4. Secret value: `YWNjZXNzOjIxMTc2MzQxMTBlZjY3NDlmODU0ZTlhY2NhMjBhYzhm`
 5. Click **"CREATE SECRET"**
 
-### Step 2: Grant Permissions to Service Accounts
+### Step 2: Grant Permissions to GitHub Actions Service Account
 
-**You need to grant permissions to TWO service accounts:**
+**Your GitHub Actions service account:** `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
 
-1. **Cloud Functions Runtime** - `tolmantest@appspot.gserviceaccount.com` ✅ (Already done - shown in your screenshot)
-2. **GitHub Actions Deployment** - The service account used in your `FIREBASE_SERVICE_ACCOUNT_STAGING` secret
+This service account needs TWO roles to deploy Cloud Functions with secrets:
 
-**Find your GitHub Actions service account:**
-- It's the email address from the JSON in your `FIREBASE_SERVICE_ACCOUNT_STAGING` GitHub secret
-- Look for the `client_email` field in that JSON
-- It will look something like: `firebase-adminsdk-xxxxx@tolmantest.iam.gserviceaccount.com`
+#### Step 2A: Service Account User Role (for deploying functions)
 
-**Option A - Using gcloud CLI:**
+**Using gcloud CLI:**
 ```bash
-# For Cloud Functions runtime (already done based on screenshot)
-gcloud secrets add-iam-policy-binding SIGNWELL_API_KEY \
-  --member="serviceAccount:tolmantest@appspot.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor" \
+gcloud iam service-accounts add-iam-policy-binding tolmantest@appspot.gserviceaccount.com \
+  --member="serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser" \
   --project=tolmantest
+```
 
-# For GitHub Actions service account (REPLACE with your actual service account email)
+**Using Cloud Console (RECOMMENDED):**
+1. Go to: https://console.cloud.google.com/iam-admin/iam?project=tolmantest
+2. Find the row: `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
+3. Click the **pencil/edit icon** on the right
+4. Click **"ADD ANOTHER ROLE"**
+5. Search for and select **"Service Account User"**
+6. Click **"SAVE"**
+
+#### Step 2B: Secret Manager Access (for reading SIGNWELL_API_KEY)
+
+**Using gcloud CLI:**
+```bash
 gcloud secrets add-iam-policy-binding SIGNWELL_API_KEY \
-  --member="serviceAccount:YOUR-GITHUB-ACTIONS-SERVICE-ACCOUNT@tolmantest.iam.gserviceaccount.com" \
+  --member="serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor" \
   --project=tolmantest
 ```
 
-**Option B - Using Cloud Console (RECOMMENDED):**
-1. Go to Secret Manager: https://console.cloud.google.com/security/secret-manager?project=tolmantest
+**Using Cloud Console (can do while editing IAM from 2A):**
+While you have the service account edit dialog open:
+1. Click **"ADD ANOTHER ROLE"** again
+2. Search for **"Secret Manager Secret Accessor"**
+3. Click **"SAVE"**
+
+**OR** add it directly on the secret (alternative method):
+1. Go to: https://console.cloud.google.com/security/secret-manager?project=tolmantest
 2. Click on **SIGNWELL_API_KEY**
 3. Click **"PERMISSIONS"** tab
-4. Click **"GRANT ACCESS"** (you'll do this twice)
-5. **First grant:**
-   - Principal: `tolmantest@appspot.gserviceaccount.com` ✅ (already done)
-   - Role: "Secret Manager Secret Accessor"
-6. **Second grant:**
-   - Principal: Your GitHub Actions service account email (find it in your GitHub secret `FIREBASE_SERVICE_ACCOUNT_STAGING`)
-   - Role: "Secret Manager Secret Accessor"
+4. Click **"GRANT ACCESS"**
+5. Principal: `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
+6. Role: **"Secret Manager Secret Accessor"**
 7. Click **"SAVE"**
 
-**How to find your GitHub Actions service account email:**
-1. Go to: https://github.com/DrSparticus/tolman-app/settings/secrets/actions
-2. Look at your `FIREBASE_SERVICE_ACCOUNT_STAGING` secret
-3. The JSON contains a `client_email` field - that's the email you need
-4. It will be something like: `firebase-adminsdk-xxxxx@tolmantest.iam.gserviceaccount.com`
+### Step 3: Verify Permissions
 
-### Step 3: Verify Permission
-
+**Check IAM roles for GitHub Actions service account:**
 ```bash
-# Check if permission was granted
+# Should show Service Account User and Secret Manager Secret Accessor
+gcloud projects get-iam-policy tolmantest \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com"
+```
+
+**Check Secret Manager permissions:**
+```bash
 gcloud secrets get-iam-policy SIGNWELL_API_KEY --project=tolmantest
 ```
 
-You should see the service account listed with the `secretAccessor` role.
+You should see:
+- `github-action-1022143786@tolmantest.iam.gserviceaccount.com` with Secret Manager Secret Accessor
+- `tolmantest@appspot.gserviceaccount.com` with Secret Manager Secret Accessor
 
 ---
 
@@ -113,16 +131,22 @@ Missing: axios@1.13.2 from lock file
 
 ## Next Steps
 
-Once you've completed Steps 1-3 above, the GitHub Actions deployment should work automatically on the next push.
+Once you've completed Steps 2A and 2B above, trigger a new deployment:
 
-**To manually deploy right now:**
+**Option 1 - Push to trigger GitHub Actions:**
 ```bash
-firebase deploy --only functions --project=tolmantest
+git commit --allow-empty -m "Trigger deployment after fixing permissions"
+git push origin staging
+```
+
+**Option 2 - Manual deployment:**
+```bash
+firebase deploy --only functions --project=tolmantest --force
 ```
 
 **To verify the secret is accessible:**
 ```bash
-# This should show the secret exists and you have access
+# This should show the secret value
 gcloud secrets versions access latest --secret=SIGNWELL_API_KEY --project=tolmantest
 ```
 
@@ -130,8 +154,10 @@ gcloud secrets versions access latest --secret=SIGNWELL_API_KEY --project=tolman
 
 ## Verification Checklist
 
-- [ ] Secret created in Secret Manager
-- [ ] Service account has Secret Manager Secret Accessor role
+- [x] Secret created in Secret Manager
+- [x] Cloud Functions service account has Secret Manager access (`tolmantest@appspot.gserviceaccount.com`)
+- [ ] GitHub Actions service account has "Service Account User" role
+- [ ] GitHub Actions service account has "Secret Manager Secret Accessor" role  
 - [ ] GitHub Actions deployment succeeds
 - [ ] Cloud Functions deploy without errors
 - [ ] Test creating a patch job over $1,000
