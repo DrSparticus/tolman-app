@@ -94,6 +94,7 @@ const templateSource = `
       <div class="muted">Job Manager</div>
       <div class="sign-area">
         <div class="sign-line"></div>
+        <div style="position: absolute; bottom: 25px; left: 0; color: transparent; font-size: 1px;">[[sig|req|signer1]]</div>
       </div>
       <div class="sign-labels">
         <div>Signature</div>
@@ -318,14 +319,38 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
 
     // Create SignWell document with signature fields
     const documentName = `Patch Work Order - ${patchJobId}`;
-    const signWellDoc = await createDocument(
-      pdfUrl,
-      documentName,
-      [
-        { email: contractorEmail, name: contractorName, order: 1 },
-        { email: userEmail, name: userName, order: 2 }
-      ]
-    );
+    
+    // Check if document already exists in Firestore
+    const patchJobSnapshot = await patchJobRef.get();
+    const existingDocId = patchJobSnapshot.data()?.signwellDocumentId;
+    
+    let signWellDoc;
+    if (existingDocId) {
+      // Try to get existing document
+      try {
+        signWellDoc = await getDocumentStatus(existingDocId);
+        console.log('Found existing SignWell document:', existingDocId);
+        
+        // If document is completed, archived, or declined, create a new one
+        if (['completed', 'archived', 'declined'].includes(signWellDoc.status.toLowerCase())) {
+          console.log('Existing document is finalized, creating new one');
+          signWellDoc = await createDocument(pdfUrl, documentName, [
+            { email: contractorEmail, name: contractorName, order: 1 }
+          ]);
+        }
+      } catch (error) {
+        // Document doesn't exist anymore, create new one
+        console.log('Existing document not found, creating new one');
+        signWellDoc = await createDocument(pdfUrl, documentName, [
+          { email: contractorEmail, name: contractorName, order: 1 }
+        ]);
+      }
+    } else {
+      // No existing document, create new one
+      signWellDoc = await createDocument(pdfUrl, documentName, [
+        { email: contractorEmail, name: contractorName, order: 1 }
+      ]);
+    }
 
     // Store SignWell document ID in Firestore
     const db = admin.firestore();
@@ -341,7 +366,12 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
     return {
       success: true,
       documentId: signWellDoc.id,
-      message: 'Document sent for signature',
+      editUrl: signWellDoc.embedded_edit_url,
+      signingUrl: signWellDoc.recipients?.[0]?.signing_url,
+      needsFields: signWellDoc.fields?.length === 0,
+      message: signWellDoc.fields?.length === 0 
+        ? 'Document created - please add signature fields and send'
+        : 'Document sent for signature',
     };
   } catch (error) {
     console.error('sendPatchJobForSignature error:', error);

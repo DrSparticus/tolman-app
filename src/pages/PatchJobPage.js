@@ -343,7 +343,20 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             });
 
             if (result.data.success) {
-                alert('Document sent for signature successfully!');
+                if (result.data.needsFields && result.data.editUrl) {
+                    // Document created but needs fields - open edit URL in new window
+                    const confirmed = window.confirm(
+                        'Document created in SignWell!\n\n' +
+                        'You need to add signature fields manually.\n\n' +
+                        'Click OK to open SignWell editor in a new window.\n' +
+                        'Add a signature field, then click "Send" in SignWell.'
+                    );
+                    if (confirmed) {
+                        window.open(result.data.editUrl, '_blank');
+                    }
+                } else {
+                    alert('Document sent for signature successfully!');
+                }
                 setShowReviewSendModal(false);
                 // Reload the patch job to get updated status
                 window.location.reload();

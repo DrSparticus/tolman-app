@@ -75,21 +75,23 @@ async function createDocument(pdfUrl, documentName, signers) {
     throw new Error('SignWell API key not configured');
   }
 
-  // Format recipients according to SignWell API requirements
-  const recipients = signers.map((signer, index) => ({
-    name: signer.name,
-    email: signer.email,
-    // Use 1-indexed role_id
-    role_id: signer.order || (index + 1)
-  }));
+  // Only include the first signer (contractor) - Tolman signature is already on PDF
+  const recipient = {
+    id: 'recipient_1',
+    name: signers[0].name,
+    email: signers[0].email
+  };
 
   try {
+    // Create document as DRAFT with text_tags enabled
     const response = await axios.post(
       `${SIGNWELL_API_URL}/documents`,
       {
         name: documentName,
-        files: [{ name: documentName, file_url: pdfUrl }],
-        recipients: recipients,
+        files: [{ name: `${documentName}.pdf`, file_url: pdfUrl }],
+        recipients: [recipient],
+        draft: true,
+        text_tags: true,
         test_mode: false
       },
       {
@@ -100,13 +102,16 @@ async function createDocument(pdfUrl, documentName, signers) {
       }
     );
     
+    console.log('SignWell document created successfully:', JSON.stringify(response.data, null, 2));
+    
+    // Don't try to send automatically - let user add fields manually
     return response.data;
   } catch (error) {
     console.error('SignWell API Error:', JSON.stringify(error.response?.data, null, 2) || error.message);
     console.error('Request payload:', JSON.stringify({
       name: documentName,
-      files: [{ name: documentName, file_url: pdfUrl }],
-      recipients: recipients
+      files: [{ name: `${documentName}.pdf`, file_url: pdfUrl }],
+      recipient: recipient
     }, null, 2));
     throw new Error(`Failed to create SignWell document: ${error.response?.data?.message || error.message}`);
   }
