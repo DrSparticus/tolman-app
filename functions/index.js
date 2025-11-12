@@ -533,3 +533,56 @@ exports.signwellWebhookHttp = onRequest(async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+/**
+ * Permanently delete a patch job including all associated storage files
+ */
+exports.deletePatchJobPermanently = onCall(async (request) => {
+  try {
+    const { patchJobId } = request.data;
+    
+    if (!patchJobId) {
+      throw new HttpsError('invalid-argument', 'patchJobId is required');
+    }
+
+    console.log('Permanently deleting patch job:', patchJobId);
+
+    const db = admin.firestore();
+    const bucket = getStorage().bucket();
+    
+    // Delete all files in the patch job's storage folder
+    const storagePrefix = `artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}/`;
+    
+    try {
+      const [files] = await bucket.getFiles({ prefix: storagePrefix });
+      
+      if (files.length > 0) {
+        console.log(`Deleting ${files.length} storage files for patch job ${patchJobId}`);
+        
+        // Delete all files
+        await Promise.all(files.map(file => file.delete()));
+        
+        console.log('Storage files deleted successfully');
+      } else {
+        console.log('No storage files found for this patch job');
+      }
+    } catch (storageError) {
+      console.error('Error deleting storage files:', storageError);
+      // Continue with Firestore deletion even if storage deletion fails
+    }
+
+    // Delete the Firestore document
+    const patchJobRef = db.doc(`artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}`);
+    await patchJobRef.delete();
+    
+    console.log('Patch job deleted from Firestore:', patchJobId);
+
+    return {
+      success: true,
+      message: 'Patch job and associated files deleted permanently',
+    };
+  } catch (error) {
+    console.error('deletePatchJobPermanently error:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});

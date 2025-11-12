@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { PlusIcon, DeleteIcon, SortIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
@@ -165,8 +166,21 @@ const PatchJobsPage = ({ db, userData, onNewPatchJob, onEditPatchJob }) => {
 
     const handlePermanentDeleteJob = async () => {
         if (!jobToPermanentlyDelete) return;
-        await deleteDoc(doc(db, patchJobsPath, jobToPermanentlyDelete.id));
-        closePermanentDeleteModal();
+        
+        try {
+            // Call Cloud Function to delete patch job and storage files
+            const functions = getFunctions();
+            const deletePatchJob = httpsCallable(functions, 'deletePatchJobPermanently');
+            
+            await deletePatchJob({ patchJobId: jobToPermanentlyDelete.id });
+            
+            console.log('Patch job permanently deleted:', jobToPermanentlyDelete.id);
+        } catch (error) {
+            console.error('Error permanently deleting patch job:', error);
+            alert('Failed to delete patch job. Please try again.');
+        } finally {
+            closePermanentDeleteModal();
+        }
     };
 
     const handleStatusEdit = (jobId, currentStatus) => {
