@@ -54,21 +54,30 @@ This service account needs TWO roles to deploy Cloud Functions with secrets:
 
 #### Step 2A: Service Account User Role (for deploying functions)
 
-**Using gcloud CLI:**
+**IMPORTANT:** The Service Account User role must be granted **on the target service account** (`tolmantest@appspot.gserviceaccount.com`), not just at the project level.
+
+**Using gcloud CLI (CORRECT METHOD):**
 ```bash
+# Grant permission to act as the Cloud Functions service account
 gcloud iam service-accounts add-iam-policy-binding tolmantest@appspot.gserviceaccount.com \
   --member="serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser" \
   --project=tolmantest
 ```
 
-**Using Cloud Console (RECOMMENDED):**
-1. Go to: https://console.cloud.google.com/iam-admin/iam?project=tolmantest
-2. Find the row: `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
-3. Click the **pencil/edit icon** on the right
-4. Click **"ADD ANOTHER ROLE"**
-5. Search for and select **"Service Account User"**
-6. Click **"SAVE"**
+**Using Cloud Console (CORRECT METHOD):**
+1. Go to **Service Accounts** page: https://console.cloud.google.com/iam-admin/serviceaccounts?project=tolmantest
+2. Click on **`tolmantest@appspot.gserviceaccount.com`** (the App Engine default service account)
+3. Click the **"PERMISSIONS"** tab at the top
+4. Click **"GRANT ACCESS"**
+5. New principal: `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
+6. Role: **"Service Account User"** (search for "Service Account User")
+7. Click **"SAVE"**
+
+**Why this is different:**
+- ❌ Project-level IAM role: Allows acting as ANY service account in the project
+- ✅ Service account-level permission: Specifically allows acting as `tolmantest@appspot.gserviceaccount.com`
+- GitHub Actions needs the service account-level permission for security
 
 #### Step 2B: Secret Manager Access (for reading SIGNWELL_API_KEY)
 
