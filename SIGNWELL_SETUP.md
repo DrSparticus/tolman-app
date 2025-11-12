@@ -42,8 +42,47 @@ The Tolman app now uses SignWell API for professional e-signature workflow on pa
 
 ## Required Configuration
 
-### GitHub Secret Setup
-**CRITICAL**: You must add the SignWell API key as a GitHub secret for Cloud Functions to work.
+### Step 1: Create Secret in Google Cloud Secret Manager
+
+**CRITICAL**: The secret must be created in Google Cloud Secret Manager AND permissions granted to the service account.
+
+1. **Create the secret in Google Cloud Console**:
+   ```bash
+   # Using gcloud CLI (recommended)
+   echo -n "YWNjZXNzOjIxMTc2MzQxMTBlZjY3NDlmODU0ZTlhY2NhMjBhYzhm" | gcloud secrets create SIGNWELL_API_KEY --data-file=- --project=tolmantest
+   ```
+   
+   Or via Console:
+   - Go to: https://console.cloud.google.com/security/secret-manager?project=tolmantest
+   - Click "CREATE SECRET"
+   - Name: `SIGNWELL_API_KEY`
+   - Secret value: `YWNjZXNzOjIxMTc2MzQxMTBlZjY3NDlmODU0ZTlhY2NhMjBhYzhm`
+   - Click "CREATE SECRET"
+
+2. **Grant Cloud Functions access to the secret**:
+   ```bash
+   # Find your Cloud Functions service account email
+   # Format: PROJECT_ID@appspot.gserviceaccount.com
+   # For tolmantest: tolmantest@appspot.gserviceaccount.com
+   
+   # Grant Secret Manager Secret Accessor role
+   gcloud secrets add-iam-policy-binding SIGNWELL_API_KEY \
+     --member="serviceAccount:tolmantest@appspot.gserviceaccount.com" \
+     --role="roles/secretmanager.secretAccessor" \
+     --project=tolmantest
+   ```
+   
+   Or via Console:
+   - Open the SIGNWELL_API_KEY secret
+   - Click "PERMISSIONS" tab
+   - Click "GRANT ACCESS"
+   - Add principal: `tolmantest@appspot.gserviceaccount.com`
+   - Role: "Secret Manager Secret Accessor"
+   - Click "SAVE"
+
+### Step 2: GitHub Secret Setup (for CI/CD)
+
+The GitHub Actions workflow also needs the API key to write to the Functions environment file.
 
 1. Go to: https://github.com/DrSparticus/tolman-app/settings/secrets/actions
 2. Click "New repository secret"
@@ -51,15 +90,19 @@ The Tolman app now uses SignWell API for professional e-signature workflow on pa
 4. Value: `YWNjZXNzOjIxMTc2MzQxMTBlZjY3NDlmODU0ZTlhY2NhMjBhYzhm`
 5. Click "Add secret"
 
-### Deployment
-Once the secret is configured:
+### Step 3: Deploy Cloud Functions
+
+Once both secrets are configured:
 
 ```bash
-# Deploy Cloud Functions (automatically picks up secret)
-firebase deploy --only functions --project tolman-app-staging
+# Deploy Cloud Functions (automatically picks up secret from Secret Manager)
+firebase deploy --only functions --project tolmantest
 
-# Or deploy everything
-npm run deploy:staging
+# Or use the npm script
+cd functions
+npm install  # Ensure dependencies are installed
+cd ..
+firebase deploy --only functions --project tolmantest
 ```
 
 ## SignWell Integration Details
@@ -184,21 +227,45 @@ New field added to user profiles:
 
 ### Common Issues
 
-**1. "SignWell API key not configured" error**
-- Ensure SIGNWELL_API_KEY is set in GitHub secrets
-- Redeploy Cloud Functions after adding secret
+**1. "Permission 'secretmanager.versions.get' denied" error**
+- **Cause**: Service account doesn't have access to Secret Manager
+- **Fix**: Grant the Cloud Functions service account access to the secret:
+  ```bash
+  gcloud secrets add-iam-policy-binding SIGNWELL_API_KEY \
+    --member="serviceAccount:tolmantest@appspot.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor" \
+    --project=tolmantest
+  ```
+- **Verify**: Check permissions in Cloud Console → Secret Manager → SIGNWELL_API_KEY → Permissions tab
 
-**2. Webhook not receiving completion events**
+**2. "Missing: axios@... from lock file" error**
+- **Cause**: package-lock.json is out of sync with package.json
+- **Fix**: Regenerate the lock file:
+  ```bash
+  cd functions
+  npm install
+  cd ..
+  git add functions/package-lock.json
+  git commit -m "Update functions package-lock.json"
+  git push
+  ```
+
+**3. "SignWell API key not configured" error**
+- Ensure secret is created in Google Cloud Secret Manager
+- Verify service account has Secret Manager Secret Accessor role
+- Redeploy Cloud Functions after configuring secret
+
+**4. Webhook not receiving completion events**
 - Configure webhook URL in SignWell dashboard
 - Verify function is deployed and accessible
 - Check Cloud Functions logs for errors
 
-**3. Signature fields not appearing correctly**
+**5. Signature fields not appearing correctly**
 - Verify PDF dimensions match Letter size (612x792 points)
 - Check signature field coordinates in `signwell.js`
 - Test with SignWell test mode first
 
-**4. Patches not locking after signature**
+**6. Patches not locking after signature**
 - Check `signwellStatus` field in Firestore
 - Verify webhook successfully updated patch job
 - Check Cloud Functions logs for webhook execution
