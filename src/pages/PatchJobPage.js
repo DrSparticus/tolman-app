@@ -345,12 +345,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             if (result.data.success) {
                 if (result.data.needsFields && result.data.editUrl) {
-                    // Store edit URL to show in iframe
+                    // Store edit URL and show modal with editor
                     setSignwellEditUrl(result.data.editUrl);
-                    // Don't close modal - let user add fields in iframe
+                    setShowReviewSendModal(true);
                 } else {
                     alert('Document sent for signature successfully!');
-                    setShowReviewSendModal(false);
                     // Reload the patch job to get updated status
                     window.location.reload();
                 }
@@ -749,8 +748,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     }
                 }
                 
-                // Show review and send modal
-                setShowReviewSendModal(true);
+                // Directly send for signature (skip preview modal)
+                await handleSendForSignature();
             }
         } else {
             // Regular status progression
@@ -1416,13 +1415,10 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             {showReviewSendModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-xl font-semibold text-gray-800 mb-4">Review and Send for Signature</h3>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-4">Add Signature Field and Send</h3>
                         
-                        {/* PDF Preview / SignWell Editor */}
+                        {/* SignWell Editor */}
                         <div className="mb-6">
-                            <h4 className="font-medium text-gray-700 mb-2">
-                                {signwellEditUrl ? 'Add Signature Field and Send' : 'Document Preview'}
-                            </h4>
                             {signwellEditUrl ? (
                                 <div className="border border-blue-300 rounded-md overflow-hidden bg-gray-100">
                                     <div className="bg-blue-50 p-3 border-b border-blue-300">
@@ -1437,77 +1433,31 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                         style={{ border: 'none' }}
                                     />
                                 </div>
-                            ) : generatedPDFs.length > 0 && generatedPDFs[generatedPDFs.length - 1].downloadUrl ? (
-                                <div className="border border-gray-300 rounded-md overflow-hidden bg-gray-100">
-                                    <iframe
-                                        src={`${generatedPDFs[generatedPDFs.length - 1].downloadUrl}#view=FitH`}
-                                        className="w-full h-96"
-                                        title="PDF Preview"
-                                        style={{ border: 'none' }}
-                                    />
-                                </div>
                             ) : (
                                 <div className="border border-gray-300 rounded-md p-8 text-center text-gray-500">
-                                    {isGeneratingPDF ? 'Generating PDF...' : 'PDF will be generated automatically.'}
+                                    {isSaving ? 'Creating document in SignWell...' : 'Loading editor...'}
                                 </div>
                             )}
-                        </div>
-
-                        {/* Recipient Information */}
-                        <div className="mb-6">
-                            <h4 className="font-medium text-gray-700 mb-3">Send to Contractor</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contractor Name</label>
-                                    <input
-                                        type="text"
-                                        value={patchJob.customer}
-                                        onChange={(e) => handleInputChange('customer', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contractor Email *</label>
-                                    <input
-                                        type="email"
-                                        value={patchJob.customerEmail}
-                                        onChange={(e) => handleInputChange('customerEmail', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        placeholder="contractor@example.com"
-                                    />
-                                </div>
-                            </div>
                         </div>
 
                         {/* Info Box */}
                         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
                             <p className="text-sm text-blue-800">
-                                <strong>What happens next:</strong> The contractor will receive an email with a link to review and sign this document. 
+                                <strong>What happens next:</strong> After you place the signature field and click "Send" in the editor above, the contractor ({patchJob.customerEmail}) will receive an email with a link to review and sign this document. 
                                 Once signed, the document will be attached to this patch job and the job will automatically be marked as Done.
                             </p>
                         </div>
 
-                        {/* Buttons */}
-                        <div className="flex justify-end gap-2">
+                        {/* Close Button */}
+                        <div className="flex justify-end">
                             <button
                                 onClick={() => {
                                     setShowReviewSendModal(false);
                                     setSignwellEditUrl(null);
                                 }}
-                                disabled={isSaving}
-                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={signwellEditUrl ? () => {
-                                    setShowReviewSendModal(false);
-                                    setSignwellEditUrl(null);
-                                } : handleSendForSignature}
-                                disabled={isSaving || (!signwellEditUrl && !patchJob.customerEmail)}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {signwellEditUrl ? 'Close' : (isSaving ? 'Sending...' : 'Send for Signature')}
+                                Close
                             </button>
                         </div>
                     </div>
