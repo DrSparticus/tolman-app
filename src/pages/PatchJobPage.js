@@ -63,6 +63,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [showReviewSendModal, setShowReviewSendModal] = useState(false);
     const [showUserSignatureModal, setShowUserSignatureModal] = useState(false);
     const [userSignatureData, setUserSignatureData] = useState(null);
+    const [signwellEditUrl, setSignwellEditUrl] = useState(null);
     const userSignatureRef = useRef(null);
     const [patchGuys] = useState([]);
     // Adapter so LocationServices (which expects event-style input changes) can update our local state
@@ -344,22 +345,15 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             if (result.data.success) {
                 if (result.data.needsFields && result.data.editUrl) {
-                    // Document created but needs fields - open edit URL in new window
-                    const confirmed = window.confirm(
-                        'Document created in SignWell!\n\n' +
-                        'You need to add signature fields manually.\n\n' +
-                        'Click OK to open SignWell editor in a new window.\n' +
-                        'Add a signature field, then click "Send" in SignWell.'
-                    );
-                    if (confirmed) {
-                        window.open(result.data.editUrl, '_blank');
-                    }
+                    // Store edit URL to show in iframe
+                    setSignwellEditUrl(result.data.editUrl);
+                    // Don't close modal - let user add fields in iframe
                 } else {
                     alert('Document sent for signature successfully!');
+                    setShowReviewSendModal(false);
+                    // Reload the patch job to get updated status
+                    window.location.reload();
                 }
-                setShowReviewSendModal(false);
-                // Reload the patch job to get updated status
-                window.location.reload();
             } else {
                 alert('Failed to send document for signature');
             }
@@ -1424,10 +1418,26 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <h3 className="text-xl font-semibold text-gray-800 mb-4">Review and Send for Signature</h3>
                         
-                        {/* PDF Preview */}
+                        {/* PDF Preview / SignWell Editor */}
                         <div className="mb-6">
-                            <h4 className="font-medium text-gray-700 mb-2">Document Preview</h4>
-                            {generatedPDFs.length > 0 && generatedPDFs[generatedPDFs.length - 1].downloadUrl ? (
+                            <h4 className="font-medium text-gray-700 mb-2">
+                                {signwellEditUrl ? 'Add Signature Field and Send' : 'Document Preview'}
+                            </h4>
+                            {signwellEditUrl ? (
+                                <div className="border border-blue-300 rounded-md overflow-hidden bg-gray-100">
+                                    <div className="bg-blue-50 p-3 border-b border-blue-300">
+                                        <p className="text-sm text-blue-800">
+                                            📝 <strong>Instructions:</strong> Drag a signature field onto the document where the contractor should sign (left side above the line), then click <strong>"Send"</strong> in the editor below.
+                                        </p>
+                                    </div>
+                                    <iframe
+                                        src={signwellEditUrl}
+                                        className="w-full h-[600px]"
+                                        title="SignWell Field Editor"
+                                        style={{ border: 'none' }}
+                                    />
+                                </div>
+                            ) : generatedPDFs.length > 0 && generatedPDFs[generatedPDFs.length - 1].downloadUrl ? (
                                 <div className="border border-gray-300 rounded-md overflow-hidden bg-gray-100">
                                     <iframe
                                         src={`${generatedPDFs[generatedPDFs.length - 1].downloadUrl}#view=FitH`}
@@ -1480,18 +1490,24 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         {/* Buttons */}
                         <div className="flex justify-end gap-2">
                             <button
-                                onClick={() => setShowReviewSendModal(false)}
+                                onClick={() => {
+                                    setShowReviewSendModal(false);
+                                    setSignwellEditUrl(null);
+                                }}
                                 disabled={isSaving}
                                 className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={handleSendForSignature}
-                                disabled={isSaving || !patchJob.customerEmail}
+                                onClick={signwellEditUrl ? () => {
+                                    setShowReviewSendModal(false);
+                                    setSignwellEditUrl(null);
+                                } : handleSendForSignature}
+                                disabled={isSaving || (!signwellEditUrl && !patchJob.customerEmail)}
                                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                             >
-                                {isSaving ? 'Sending...' : 'Send for Signature'}
+                                {signwellEditUrl ? 'Close' : (isSaving ? 'Sending...' : 'Send for Signature')}
                             </button>
                         </div>
                     </div>
