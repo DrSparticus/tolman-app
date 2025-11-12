@@ -45,8 +45,11 @@ const templateSource = `
   .accept { font-size: 11px; text-align: center; margin: 12px 50px 4px; }
   .sign-row { display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; margin-top: 10px; page-break-inside: avoid; }
   .sign-col { text-align: center; }
-  .sign-line { border-top: 2px solid #111; margin: 36px 0 6px; }
-  .sign-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 11px; gap: 8px; }
+  .sign-area { min-height: 50px; margin-bottom: 6px; position: relative; }
+  .sign-values { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 11px; font-weight: 600; position: absolute; bottom: 4px; width: 100%; text-align: center; }
+  .sign-line { border-bottom: 2px solid #111; position: absolute; bottom: 0; width: 100%; }
+  .sign-img { position: absolute; bottom: 8px; left: 0; height: 45px; max-width: 33%; }
+  .sign-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 11px; gap: 8px; margin-top: 2px; }
   .muted { color: #333; }
   
 </style>
@@ -89,7 +92,9 @@ const templateSource = `
   <div class="sign-row">
     <div class="sign-col">
       <div class="muted">Job Manager</div>
-      <div class="sign-line"></div>
+      <div class="sign-area">
+        <div class="sign-line"></div>
+      </div>
       <div class="sign-labels">
         <div>Signature</div>
         <div>Print</div>
@@ -98,15 +103,21 @@ const templateSource = `
     </div>
     <div class="sign-col">
       <div class="muted">Tolman Construction</div>
-      {{#if userSignature}}
-      <img src="{{userSignature}}" alt="Signature" style="height: 40px; margin: 4px 0;" />
-      {{else}}
-      <div class="sign-line"></div>
-      {{/if}}
+      <div class="sign-area">
+        {{#if userSignature}}
+        <img src="{{userSignature}}" alt="Signature" class="sign-img" />
+        {{/if}}
+        <div class="sign-values">
+          <div>&nbsp;</div>
+          <div>{{userName}}</div>
+          <div>{{generatedDate}}</div>
+        </div>
+        <div class="sign-line"></div>
+      </div>
       <div class="sign-labels">
         <div>Signature</div>
-        <div>{{userName}}</div>
-        <div>{{generatedDate}}</div>
+        <div>Print</div>
+        <div>Date</div>
       </div>
     </div>
   </div>

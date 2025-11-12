@@ -75,15 +75,15 @@ async function createDocument(pdfUrl, documentName, signers) {
     throw new Error('SignWell API key not configured');
   }
 
-  try {
-    // Format recipients according to SignWell API requirements
-    const recipients = signers.map((signer, index) => ({
-      name: signer.name,
-      email: signer.email,
-      // Use 1-indexed role_id
-      role_id: signer.order || (index + 1)
-    }));
+  // Format recipients according to SignWell API requirements
+  const recipients = signers.map((signer, index) => ({
+    name: signer.name,
+    email: signer.email,
+    // Use 1-indexed role_id
+    role_id: signer.order || (index + 1)
+  }));
 
+  try {
     const response = await axios.post(
       `${SIGNWELL_API_URL}/documents`,
       {
@@ -102,7 +102,12 @@ async function createDocument(pdfUrl, documentName, signers) {
     
     return response.data;
   } catch (error) {
-    console.error('SignWell API Error:', error.response?.data || error.message);
+    console.error('SignWell API Error:', JSON.stringify(error.response?.data, null, 2) || error.message);
+    console.error('Request payload:', JSON.stringify({
+      name: documentName,
+      files: [{ name: documentName, file_url: pdfUrl }],
+      recipients: recipients
+    }, null, 2));
     throw new Error(`Failed to create SignWell document: ${error.response?.data?.message || error.message}`);
   }
 }

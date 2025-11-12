@@ -1,3 +1,4 @@
+# yaml-language-server: disable-context-check
 name: Deploy to Production
 
 on:
