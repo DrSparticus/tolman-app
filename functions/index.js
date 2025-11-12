@@ -317,6 +317,10 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
       throw new HttpsError('invalid-argument', 'User signature required');
     }
 
+    // Get Firestore references
+    const db = admin.firestore();
+    const patchJobRef = db.doc(`artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}`);
+
     // Create SignWell document with signature fields
     const documentName = `Patch Work Order - ${patchJobId}`;
     
@@ -353,9 +357,6 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
     }
 
     // Store SignWell document ID in Firestore
-    const db = admin.firestore();
-    const patchJobRef = db.doc(`artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}`);
-    
     await patchJobRef.update({
       signwellDocumentId: signWellDoc.id,
       signwellStatus: 'pending',
