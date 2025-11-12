@@ -30,88 +30,19 @@ async function createDocumentWithFields(pdfUrl, documentName, contractorInfo, to
         test_mode: false,
         draft: false,
         recipients: [
-          // Contractor (Job Manager) - signs first on left side
+          // Contractor (Job Manager) - signs first
           {
             id: '1',
             name: contractorInfo.name,
             email: contractorInfo.email,
             order: 1,
           },
-          // Tolman employee - signs second on right side (pre-filled)
+          // Tolman employee - signs second (you'll need to manually sign or use a template)
           {
             id: '2',
             name: tolmanInfo.name,
             email: tolmanInfo.email,
             order: 2,
-            send_email: false, // Don't send email to Tolman employee since pre-filled
-          },
-        ],
-        fields: [
-          // Job Manager (Contractor) signature fields - left side
-          {
-            type: 'signature',
-            page: 1,
-            recipient_id: '1',
-            required: true,
-            x: 30,
-            y: 520,
-            width: 240,
-            height: 40,
-          },
-          {
-            type: 'text',
-            page: 1,
-            recipient_id: '1',
-            required: true,
-            label: 'Print Name',
-            x: 292,
-            y: 520,
-            width: 120,
-            height: 40,
-          },
-          {
-            type: 'date_signed',
-            page: 1,
-            recipient_id: '1',
-            required: true,
-            x: 482,
-            y: 520,
-            width: 90,
-            height: 40,
-          },
-          // Tolman Construction signature fields - right side (pre-filled)
-          {
-            type: 'signature',
-            page: 1,
-            recipient_id: '2',
-            required: true,
-            x: 633,
-            y: 520,
-            width: 240,
-            height: 40,
-            prefill_signature_data: tolmanInfo.signatureData, // Base64 signature image
-          },
-          {
-            type: 'text',
-            page: 1,
-            recipient_id: '2',
-            required: true,
-            label: 'Print Name',
-            x: 895,
-            y: 520,
-            width: 120,
-            height: 40,
-            value: tolmanInfo.name,
-          },
-          {
-            type: 'date_signed',
-            page: 1,
-            recipient_id: '2',
-            required: true,
-            x: 1085,
-            y: 520,
-            width: 90,
-            height: 40,
           },
         ],
       },

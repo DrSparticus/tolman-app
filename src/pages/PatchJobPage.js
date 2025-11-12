@@ -968,10 +968,10 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     {shouldShowStatusButton(patchJob.status) && (
                         <button
                             onClick={handleStatusButtonClick}
-                            disabled={isSaving}
+                            disabled={isSaving || isGeneratingPDF}
                             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
-                            {isSaving ? 'Processing...' : getStatusButtonText(patchJob.status)}
+                            {isGeneratingPDF ? 'Generating PDF...' : (isSaving ? 'Processing...' : getStatusButtonText(patchJob.status))}
                         </button>
                     )}
                 </div>
@@ -1413,11 +1413,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         <div className="mb-6">
                             <h4 className="font-medium text-gray-700 mb-2">Document Preview</h4>
                             {generatedPDFs.length > 0 && generatedPDFs[generatedPDFs.length - 1].downloadUrl ? (
-                                <div className="border border-gray-300 rounded-md overflow-hidden">
+                                <div className="border border-gray-300 rounded-md overflow-hidden bg-gray-100">
                                     <iframe
-                                        src={generatedPDFs[generatedPDFs.length - 1].downloadUrl}
+                                        src={`${generatedPDFs[generatedPDFs.length - 1].downloadUrl}#view=FitH`}
                                         className="w-full h-96"
                                         title="PDF Preview"
+                                        style={{ border: 'none' }}
                                     />
                                 </div>
                             ) : (

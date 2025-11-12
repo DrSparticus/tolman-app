@@ -229,7 +229,7 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     const bucket = getStorage().bucket(bucketName);
     console.log('Using bucket:', bucketName, '(project:', projectId, ')');
     
-    const safeName = (jobName || projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
+    const safeName = (projectName || 'PatchJob').replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Change_Order_${safeName}_${new Date().toLocaleDateString('en-US').replace(/\//g, '-')}.pdf`;
     const storagePath = `artifacts/${artifactProjectId}/patchJobs/${patchJobId || 'unknown'}/pdfs/${filename}`;
 
@@ -300,11 +300,13 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
 
     // Create SignWell document with signature fields
     const documentName = `Patch Work Order - ${patchJobId}`;
-    const signWellDoc = await createDocumentWithFields(
+    const signWellDoc = await createDocument(
       pdfUrl,
       documentName,
-      { email: contractorEmail, name: contractorName },
-      { email: userEmail, name: userName, signatureData: userSignature }
+      [
+        { email: contractorEmail, name: contractorName, order: 1 },
+        { email: userEmail, name: userName, order: 2 }
+      ]
     );
 
     // Store SignWell document ID in Firestore

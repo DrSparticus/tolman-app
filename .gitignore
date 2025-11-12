@@ -41,3 +41,4 @@ scripts/*-service-account.json
 
 # Project info folder (contains sensitive API data)
 /info/
+REGENERATE_KEY_FIX.md
