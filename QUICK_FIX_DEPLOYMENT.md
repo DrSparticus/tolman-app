@@ -2,30 +2,72 @@
 
 ## ⚠️ Current Issues
 
-### Issue 1: Cloud Functions Deployment Permission ❌
+### Issue: Service Account ActAs Permission
+
 **Error:** Missing permissions required for functions deploy. You must have permission iam.serviceAccounts.ActAs
 
-**GitHub Actions service account:** `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
+**If you've already granted all the roles and it's still failing, try these steps:**
 
-**Root Cause:** The GitHub Actions service account needs **Cloud Functions Admin** role to deploy functions.
+### Step 1: Verify IAM Permissions Are Actually Applied
 
-**Quick Fix:** Run this command:
+Sometimes IAM changes take a few minutes to propagate. Run this to verify:
+
 ```bash
-gcloud projects add-iam-policy-binding tolmantest \
-  --member="serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com" \
-  --role="roles/cloudfunctions.admin"
+# Check what roles the GitHub Actions service account has
+gcloud projects get-iam-policy tolmantest \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com" \
+  --format="table(bindings.role)"
+
+# Check service account-level permissions
+gcloud iam service-accounts get-iam-policy tolmantest@appspot.gserviceaccount.com \
+  --project=tolmantest \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:serviceAccount:github-action-1022143786@tolmantest.iam.gserviceaccount.com"
 ```
 
-**Or via Console:**
-1. Go to: https://console.cloud.google.com/iam-admin/iam?project=tolmantest
-2. Find: `github-action-1022143786@tolmantest.iam.gserviceaccount.com`
-3. Click edit (pencil icon)
-4. Add role: **"Cloud Functions Admin"**
-5. Save
+Expected output should include:
+- `roles/cloudfunctions.admin`
+- `roles/iam.serviceAccountUser` (on the tolmantest@appspot service account)
+- `roles/secretmanager.secretAccessor`
 
-### Issue 2: Secret Manager Access ✅ (Should be fixed)
-- Cloud Functions runtime has access
-- GitHub Actions has Secret Manager Secret Accessor role
+### Step 2: Regenerate Service Account Key (if permissions are correct)
+
+If the permissions are all correct but deployment still fails, the issue might be that the service account key stored in GitHub Secrets is old and doesn't reflect the new permissions.
+
+**Regenerate the key:**
+
+```bash
+# Create new key for the GitHub Actions service account
+gcloud iam service-accounts keys create github-actions-key.json \
+  --iam-account=github-action-1022143786@tolmantest.iam.gserviceaccount.com \
+  --project=tolmantest
+
+# Display the key content to copy
+cat github-actions-key.json
+```
+
+**Then update GitHub Secret:**
+1. Go to: https://github.com/DrSparticus/tolman-app/settings/secrets/actions
+2. Find `FIREBASE_SERVICE_ACCOUNT_STAGING`
+3. Click **"Update"**
+4. Paste the contents of the new `github-actions-key.json`
+5. Click **"Update secret"**
+
+**Clean up:**
+```bash
+# Delete the local key file after updating GitHub
+rm github-actions-key.json
+```
+
+### Step 3: Wait for IAM Propagation
+
+If you just added the permissions, wait 2-3 minutes for Google Cloud IAM to propagate the changes, then trigger a new deployment.
+
+```bash
+git commit --allow-empty -m "Trigger deployment after IAM propagation"
+git push origin staging
+```
 
 ---
 

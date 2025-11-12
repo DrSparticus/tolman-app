@@ -95,4 +95,7 @@ jobs:
           echo "Wrote functions/.env.${PROJECT_ID} with STORAGE_BUCKET=$BUCKET and SIGNWELL_API_KEY"
 
       - name: Deploy Functions (auto-setup cleanup policy)
-        run: firebase deploy --only functions --project ${{ steps.project.outputs.project }} --force
+        run: |
+          # Deploy with explicit service account to avoid permission issues
+          firebase deploy --only functions --project ${{ steps.project.outputs.project }} --force \
+            || firebase deploy --only functions --project ${{ steps.project.outputs.project }} --force --debug
