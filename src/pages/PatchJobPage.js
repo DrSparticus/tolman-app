@@ -266,10 +266,22 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             setUserSignatureData(signatureData);
             
             // Save to user profile
-            const userDocRef = doc(db, `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`, userData.uid);
+            const userDocRef = doc(db, `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users/${userData.uid}`);
             await updateDoc(userDocRef, { signature: signatureData });
             
             setShowUserSignatureModal(false);
+            
+            // Generate PDF automatically if none exists or if outdated
+            if (generatedPDFs.length === 0 || isPDFOutdated()) {
+                try {
+                    await generateChangeOrderPDF();
+                } catch (error) {
+                    console.error('Error generating PDF:', error);
+                    alert('Failed to generate PDF. Please try again.');
+                    return;
+                }
+            }
+            
             // Now show review modal
             setShowReviewSendModal(true);
         } else {
@@ -287,13 +299,26 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         try {
             setIsSaving(true);
             
-            // First, ensure we have the latest PDF
+            // First, ensure we have the latest PDF (may have just been generated)
             const latestPDF = generatedPDFs.length > 0 ? generatedPDFs[generatedPDFs.length - 1] : null;
             
             if (!latestPDF || !latestPDF.downloadUrl) {
-                alert('Please generate a PDF first');
-                setIsSaving(false);
-                return;
+                // Try to generate PDF if not available
+                try {
+                    await generateChangeOrderPDF();
+                    // After generating, check again
+                    const newLatestPDF = generatedPDFs.length > 0 ? generatedPDFs[generatedPDFs.length - 1] : null;
+                    if (!newLatestPDF || !newLatestPDF.downloadUrl) {
+                        alert('Failed to generate PDF. Please try again.');
+                        setIsSaving(false);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error generating PDF:', error);
+                    alert('Failed to generate PDF. Please try again.');
+                    setIsSaving(false);
+                    return;
+                }
             }
 
             // Validate contractor email
@@ -703,6 +728,18 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 setShowUserSignatureModal(true);
             } else {
                 setUserSignatureData(userData.signature);
+                
+                // Generate PDF automatically if none exists or if outdated
+                if (generatedPDFs.length === 0 || isPDFOutdated()) {
+                    try {
+                        await generateChangeOrderPDF();
+                    } catch (error) {
+                        console.error('Error generating PDF:', error);
+                        alert('Failed to generate PDF. Please try again.');
+                        return;
+                    }
+                }
+                
                 // Show review and send modal
                 setShowReviewSendModal(true);
             }
@@ -1182,40 +1219,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     </div>
                 )}
 
-                {/* Signature and Total Summary */}
+                {/* Total Summary */}
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-                        {/* Signature Button */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Signature {calculateTotal() >= patchJobConfig.signatureThreshold && '*'}
-                            </label>
-                            <button
-                                type="button"
-                                onClick={() => setShowSignatureModal(true)}
-                                className={`w-full px-4 py-2 rounded-md border text-sm font-medium ${
-                                    isSignaturePresent()
-                                        ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
-                                        : calculateTotal() >= patchJobConfig.signatureThreshold
-                                        ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
-                                        : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
-                                }`}
-                            >
-                                {isSignaturePresent() ? (
-                                    <span>✅ Signed {isSignaturePresent() && isPatchesLocked() && '🔒'}</span>
-                                ) : (
-                                    <span>📝 Click to Sign</span>
-                                )}
-                            </button>
-                            {calculateTotal() >= patchJobConfig.signatureThreshold && !isSignaturePresent() && (
-                                <p className="text-xs text-red-600 mt-1">
-                                    * Signature required for amounts over ${patchJobConfig.signatureThreshold.toFixed(2)}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Total and PDF Generation */}
-                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Total Charge
                             </label>
@@ -1305,8 +1310,6 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -1419,7 +1422,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                 </div>
                             ) : (
                                 <div className="border border-gray-300 rounded-md p-8 text-center text-gray-500">
-                                    No PDF available. Please generate a PDF first.
+                                    {isGeneratingPDF ? 'Generating PDF...' : 'PDF will be generated automatically.'}
                                 </div>
                             )}
                         </div>
