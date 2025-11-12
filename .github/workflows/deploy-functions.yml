@@ -91,8 +91,7 @@ jobs:
             exit 1
           fi
           echo "STORAGE_BUCKET=$BUCKET" > "functions/.env.${PROJECT_ID}"
-          echo "SIGNWELL_API_KEY=${{ secrets.SIGNWELL_API_KEY }}" >> "functions/.env.${PROJECT_ID}"
-          echo "Wrote functions/.env.${PROJECT_ID} with STORAGE_BUCKET=$BUCKET and SIGNWELL_API_KEY"
+          echo "Wrote functions/.env.${PROJECT_ID} with STORAGE_BUCKET=$BUCKET"
 
       - name: Deploy Functions (auto-setup cleanup policy)
         run: |
