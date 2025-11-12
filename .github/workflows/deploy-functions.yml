@@ -91,7 +91,8 @@ jobs:
             exit 1
           fi
           echo "STORAGE_BUCKET=$BUCKET" > "functions/.env.${PROJECT_ID}"
-          echo "Wrote functions/.env.${PROJECT_ID} with STORAGE_BUCKET=$BUCKET"
+          echo "SIGNWELL_API_KEY=${{ secrets.SIGNWELL_API_KEY }}" >> "functions/.env.${PROJECT_ID}"
+          echo "Wrote functions/.env.${PROJECT_ID} with STORAGE_BUCKET=$BUCKET and SIGNWELL_API_KEY"
 
       - name: Deploy Functions (auto-setup cleanup policy)
         run: firebase deploy --only functions --project ${{ steps.project.outputs.project }} --force

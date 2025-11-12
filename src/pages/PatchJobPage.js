@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { collection, doc, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
 import ProjectLinkModal from '../components/ProjectLinkModal';
@@ -7,8 +8,8 @@ import SignatureModal from '../components/SignatureModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import ChangeLog from '../components/bids/ChangeLog';
 import { PlusIcon } from '../Icons';
+import SignatureCanvas from 'react-signature-canvas';
 // Switched PDF generation to Firebase Cloud Functions + Puppeteer
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Simple helper to inline logo for Cloud Function PDF generation
 async function getLogoDataUrl() {
@@ -59,6 +60,10 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [lastSavedPatchJob, setLastSavedPatchJob] = useState(null);
     const [showSignatureModal, setShowSignatureModal] = useState(false);
     const [showProjectLinkModal, setShowProjectLinkModal] = useState(false);
+    const [showReviewSendModal, setShowReviewSendModal] = useState(false);
+    const [showUserSignatureModal, setShowUserSignatureModal] = useState(false);
+    const [userSignatureData, setUserSignatureData] = useState(null);
+    const userSignatureRef = useRef(null);
     const [patchGuys] = useState([]);
     // Adapter so LocationServices (which expects event-style input changes) can update our local state
     const handleLSInputChangeEvent = (e) => {
@@ -142,7 +147,14 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
     const isAdmin = () => (userData?.role === 'admin');
     const isSignaturePresent = () => Boolean(patchJob.signature && String(patchJob.signature).length > 0);
-    const isPatchesLocked = () => isSignaturePresent() && !isAdmin();
+    const isPatchesLocked = () => {
+        // Lock patches if local signature exists OR if SignWell document is completed
+        // Admins can still edit unless SignWell signature is received
+        if (patchJob.signwellStatus === 'completed') {
+            return true; // Lock for everyone including admins once SignWell signed
+        }
+        return isSignaturePresent() && !isAdmin();
+    };
 
     const handleInputChange = (field, value) => {
         setPatchJob(prev => ({ ...prev, [field]: value }));
@@ -247,7 +259,87 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         setShowProjectLinkModal(false);
     };
 
+    // SignWell signature flow handlers
+    const handleSaveUserSignature = async () => {
+        if (userSignatureRef.current && !userSignatureRef.current.isEmpty()) {
+            const signatureData = userSignatureRef.current.toDataURL();
+            setUserSignatureData(signatureData);
+            
+            // Save to user profile
+            const userDocRef = doc(db, `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`, userData.uid);
+            await updateDoc(userDocRef, { signature: signatureData });
+            
+            setShowUserSignatureModal(false);
+            // Now show review modal
+            setShowReviewSendModal(true);
+        } else {
+            alert("Please draw your signature first");
+        }
+    };
+
+    const handleClearUserSignature = () => {
+        if (userSignatureRef.current) {
+            userSignatureRef.current.clear();
+        }
+    };
+
+    const handleSendForSignature = async () => {
+        try {
+            setIsSaving(true);
+            
+            // First, ensure we have the latest PDF
+            const latestPDF = generatedPDFs.length > 0 ? generatedPDFs[generatedPDFs.length - 1] : null;
+            
+            if (!latestPDF || !latestPDF.downloadUrl) {
+                alert('Please generate a PDF first');
+                setIsSaving(false);
+                return;
+            }
+
+            // Validate contractor email
+            if (!patchJob.customerEmail || !patchJob.customerEmail.includes('@')) {
+                alert('Please enter a valid contractor email address');
+                setIsSaving(false);
+                return;
+            }
+
+            // Call Firebase Function to send to SignWell
+            const functions = getFunctions();
+            const sendForSignature = httpsCallable(functions, 'sendPatchJobForSignature');
+            
+            const result = await sendForSignature({
+                pdfUrl: latestPDF.downloadUrl,
+                patchJobId: patchJobId,
+                contractorEmail: patchJob.customerEmail,
+                contractorName: patchJob.customer,
+                userEmail: userData.email,
+                userName: `${userData.firstName} ${userData.lastName}`,
+                userSignature: userSignatureData || userData.signature,
+            });
+
+            if (result.data.success) {
+                alert('Document sent for signature successfully!');
+                setShowReviewSendModal(false);
+                // Reload the patch job to get updated status
+                window.location.reload();
+            } else {
+                alert('Failed to send document for signature');
+            }
+        } catch (error) {
+            console.error('Error sending for signature:', error);
+            alert(`Error: ${error.message}`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const generateChangeOrderPDF = async () => {
+        // Prevent PDF generation if SignWell signature is received
+        if (patchJob.signwellStatus === 'completed') {
+            alert('This job has been signed via SignWell. No new PDFs can be generated.');
+            return;
+        }
+        
         // Save the patch job first to prevent data loss
         setIsSaving(true);
         try {
@@ -406,6 +498,44 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         return snapshot === '' ? true : current !== snapshot;
     };
 
+    // Debug function to show what changed (admin only)
+    const getPDFChangesTooltip = () => {
+        if (!isAdmin() || generatedPDFs.length === 0) return '';
+        const latestPDF = generatedPDFs.find(pdf => !pdf.isOutdated);
+        if (!latestPDF || !latestPDF.dataSnapshot) return 'No snapshot data available';
+        
+        const changes = [];
+        const snapshot = latestPDF.dataSnapshot;
+        
+        // Check patches count
+        if (patchJob.patches.length !== (snapshot.patches || []).length) {
+            changes.push(`Patches count: ${snapshot.patches?.length || 0} → ${patchJob.patches.length}`);
+        }
+        
+        // Check total
+        const currentTotal = calculateTotal();
+        if (currentTotal !== snapshot.totalAmount) {
+            changes.push(`Total: $${snapshot.totalAmount?.toFixed(2) || '0.00'} → $${currentTotal.toFixed(2)}`);
+        }
+        
+        // Check notes
+        if ((patchJob.notes || '') !== (snapshot.notes || '')) {
+            changes.push('Notes changed');
+        }
+        
+        // Check contractor
+        if ((patchJob.customer || '') !== (snapshot.customer || '')) {
+            changes.push('Contractor changed');
+        }
+        
+        // Check address
+        if ((patchJob.address || '') !== (snapshot.address || '')) {
+            changes.push('Address changed');
+        }
+        
+        return changes.length > 0 ? changes.join('\n') : 'Data changed (detailed comparison needed)';
+    };
+
     const handleClearSignature = () => {
         if (isAdmin()) {
             handleInputChange('signature', '');
@@ -540,6 +670,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     const getStatusButtonText = (currentStatus) => {
+        // If over threshold and status is Scheduled, show "Review and Send"
+        if (currentStatus === 'Scheduled' && calculateTotal() >= patchJobConfig.signatureThreshold) {
+            return 'Review and Send for Signature';
+        }
+        
         switch (currentStatus) {
             case 'Scheduled':
                 return 'Finish Job';
@@ -554,6 +689,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
     const shouldShowStatusButton = (currentStatus) => {
         return currentStatus !== 'Archived';
+    };
+
+    const handleStatusButtonClick = async () => {
+        const total = calculateTotal();
+        const needsSignature = total >= patchJobConfig.signatureThreshold;
+        
+        // If Scheduled and over threshold, show review/send flow
+        if (patchJob.status === 'Scheduled' && needsSignature) {
+            // Check if user has a signature
+            if (!userData.signature) {
+                // Show user signature modal first
+                setShowUserSignatureModal(true);
+            } else {
+                setUserSignatureData(userData.signature);
+                // Show review and send modal
+                setShowReviewSendModal(true);
+            }
+        } else {
+            // Regular status progression
+            await submitPatchJob();
+        }
     };
 
     const submitPatchJob = async () => {
@@ -774,7 +930,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     </button>
                     {shouldShowStatusButton(patchJob.status) && (
                         <button
-                            onClick={submitPatchJob}
+                            onClick={handleStatusButtonClick}
                             disabled={isSaving}
                             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
@@ -963,12 +1119,36 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             {/* Patches Section */}
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                {/* SignWell Signed Indicator */}
+                {patchJob.signwellStatus === 'completed' && patchJob.signedPdfUrl && (
+                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-semibold text-green-800">✅ Signed by Contractor</p>
+                                <p className="text-sm text-green-700">
+                                    This job has been signed via SignWell. No further edits or PDF generation allowed.
+                                </p>
+                            </div>
+                            <a
+                                href={patchJob.signedPdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                            >
+                                View Signed PDF
+                            </a>
+                        </div>
+                    </div>
+                )}
+                
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-800">
                         Patches
-                        {isSignaturePresent() && !isAdmin() && (
+                        {patchJob.signwellStatus === 'completed' ? (
+                            <span className="text-sm text-green-600 ml-2">🔒 Locked (SignWell Signed)</span>
+                        ) : isSignaturePresent() && !isAdmin() ? (
                             <span className="text-sm text-gray-500 ml-2">🔒 Locked (Signed)</span>
-                        )}
+                        ) : null}
                     </h2>
                 </div>
 
@@ -1053,7 +1233,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                                     <div className="flex items-center justify-center">
                                                         <span className="text-green-600">✓ Current PDF available</span>
                                                         {isPDFOutdated() && (
-                                                            <span className="ml-2 text-orange-600">(Data changed)</span>
+                                                            <span 
+                                                                className="ml-2 text-orange-600 cursor-help" 
+                                                                title={isAdmin() ? getPDFChangesTooltip() : ''}
+                                                            >
+                                                                (Data changed)
+                                                            </span>
                                                         )}
                                                     </div>
                                                 ) : (
@@ -1170,6 +1355,129 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 cancelText="Cancel"
                 isDestructive={true}
             />
+
+            {/* User Signature Modal */}
+            {showUserSignatureModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-2xl w-full p-6">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-4">Draw Your Signature</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Your signature will be saved to your profile and used for future patch jobs.
+                        </p>
+                        <div className="border-2 border-gray-300 rounded-md mb-4">
+                            <SignatureCanvas
+                                ref={userSignatureRef}
+                                canvasProps={{
+                                    width: 600,
+                                    height: 200,
+                                    className: 'signature-canvas w-full'
+                                }}
+                            />
+                        </div>
+                        <div className="flex justify-between">
+                            <button
+                                onClick={handleClearUserSignature}
+                                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                            >
+                                Clear
+                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setShowUserSignatureModal(false)}
+                                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveUserSignature}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                >
+                                    Save & Continue
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Review and Send Modal */}
+            {showReviewSendModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-4">Review and Send for Signature</h3>
+                        
+                        {/* PDF Preview */}
+                        <div className="mb-6">
+                            <h4 className="font-medium text-gray-700 mb-2">Document Preview</h4>
+                            {generatedPDFs.length > 0 && generatedPDFs[generatedPDFs.length - 1].downloadUrl ? (
+                                <div className="border border-gray-300 rounded-md overflow-hidden">
+                                    <iframe
+                                        src={generatedPDFs[generatedPDFs.length - 1].downloadUrl}
+                                        className="w-full h-96"
+                                        title="PDF Preview"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="border border-gray-300 rounded-md p-8 text-center text-gray-500">
+                                    No PDF available. Please generate a PDF first.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Recipient Information */}
+                        <div className="mb-6">
+                            <h4 className="font-medium text-gray-700 mb-3">Send to Contractor</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contractor Name</label>
+                                    <input
+                                        type="text"
+                                        value={patchJob.customer}
+                                        onChange={(e) => handleInputChange('customer', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contractor Email *</label>
+                                    <input
+                                        type="email"
+                                        value={patchJob.customerEmail}
+                                        onChange={(e) => handleInputChange('customerEmail', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        placeholder="contractor@example.com"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Info Box */}
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                            <p className="text-sm text-blue-800">
+                                <strong>What happens next:</strong> The contractor will receive an email with a link to review and sign this document. 
+                                Once signed, the document will be attached to this patch job and the job will automatically be marked as Done.
+                            </p>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowReviewSendModal(false)}
+                                disabled={isSaving}
+                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSendForSignature}
+                                disabled={isSaving || !patchJob.customerEmail}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {isSaving ? 'Sending...' : 'Send for Signature'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

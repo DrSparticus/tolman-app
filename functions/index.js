@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 const Handlebars = require('handlebars');
+const { createDocumentWithFields, getDocumentStatus, downloadCompletedDocument, signwellApiKey } = require('./signwell');
 
 setGlobalOptions({ region: 'us-central1', memory: '1GiB', timeoutSeconds: 120 });
 
@@ -279,5 +280,123 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
   } catch (err) {
     console.error('generatePatchOrderPdf failed at step:', step, '\nError:', err);
     throw new HttpsError('internal', `PDF generation failed at step: ${step}`, { message: err?.message || String(err) });
+  }
+});
+
+/**
+ * Send a patch job PDF to SignWell for signature
+ */
+exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (request) => {
+  try {
+    const { pdfUrl, patchJobId, contractorEmail, contractorName, userEmail, userName, userSignature } = request.data;
+    
+    if (!pdfUrl || !patchJobId || !contractorEmail || !contractorName || !userEmail || !userName) {
+      throw new HttpsError('invalid-argument', 'Missing required fields');
+    }
+    
+    if (!userSignature) {
+      throw new HttpsError('invalid-argument', 'User signature required');
+    }
+
+    // Create SignWell document with signature fields
+    const documentName = `Patch Work Order - ${patchJobId}`;
+    const signWellDoc = await createDocumentWithFields(
+      pdfUrl,
+      documentName,
+      { email: contractorEmail, name: contractorName },
+      { email: userEmail, name: userName, signatureData: userSignature }
+    );
+
+    // Store SignWell document ID in Firestore
+    const db = admin.firestore();
+    const patchJobRef = db.doc(`artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}`);
+    
+    await patchJobRef.update({
+      signwellDocumentId: signWellDoc.id,
+      signwellStatus: 'pending',
+      signwellSentAt: admin.firestore.FieldValue.serverTimestamp(),
+      sentBy: userEmail,
+    });
+
+    return {
+      success: true,
+      documentId: signWellDoc.id,
+      message: 'Document sent for signature',
+    };
+  } catch (error) {
+    console.error('sendPatchJobForSignature error:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Webhook handler for SignWell document completion
+ */
+exports.signwellWebhook = onCall({ secrets: [signwellApiKey] }, async (request) => {
+  try {
+    const { event_type, document_id, document } = request.data;
+    
+    console.log('SignWell webhook received:', { event_type, document_id });
+
+    if (event_type !== 'document_completed') {
+      return { success: true, message: 'Event ignored' };
+    }
+
+    // Find the patch job by SignWell document ID
+    const db = admin.firestore();
+    const patchJobsRef = db.collection(`artifacts/${process.env.GCLOUD_PROJECT}/patchJobs`);
+    const querySnapshot = await patchJobsRef.where('signwellDocumentId', '==', document_id).limit(1).get();
+
+    if (querySnapshot.empty) {
+      console.error('No patch job found for SignWell document:', document_id);
+      return { success: false, error: 'Patch job not found' };
+    }
+
+    const patchJobDoc = querySnapshot.docs[0];
+    const patchJobId = patchJobDoc.id;
+
+    // Download the completed signed PDF
+    const signedPdfBuffer = await downloadCompletedDocument(document_id);
+
+    // Upload signed PDF to Firebase Storage
+    const bucket = getStorage().bucket();
+    const signedPdfPath = `artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}/signed-patch-order.pdf`;
+    const file = bucket.file(signedPdfPath);
+
+    await file.save(signedPdfBuffer, {
+      metadata: {
+        contentType: 'application/pdf',
+        metadata: {
+          signwellDocumentId: document_id,
+          completedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    // Get download URL
+    const [signedUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: '03-01-2500', // Far future date
+    });
+
+    // Update patch job in Firestore
+    await patchJobDoc.ref.update({
+      signwellStatus: 'completed',
+      signwellCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
+      signedPdfUrl: signedUrl,
+      status: 'Done',
+      patchesLocked: true, // Lock patches from further editing
+    });
+
+    console.log('Patch job updated with signed PDF:', patchJobId);
+
+    return {
+      success: true,
+      patchJobId,
+      message: 'Signed PDF uploaded and patch job updated',
+    };
+  } catch (error) {
+    console.error('signwellWebhook error:', error);
+    throw new HttpsError('internal', error.message);
   }
 });
