@@ -422,7 +422,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 })),
                 logoDataUrl: logoDataUrl,
                 // Public URL fallback (served from Firebase Hosting)
-                logoUrl: `https://${process.env.REACT_APP_FIREBASE_PROJECT_ID}.web.app/FullCompanyLogo.png`
+                logoUrl: `https://${process.env.REACT_APP_FIREBASE_PROJECT_ID}.web.app/FullCompanyLogo.png`,
+                userName: getUserDisplayName(),
+                userSignature: userSignatureData || userData?.signature
             };
 
             const resp = await generate(payload);

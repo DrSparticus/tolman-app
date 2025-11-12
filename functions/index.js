@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 const Handlebars = require('handlebars');
-const { createDocumentWithFields, getDocumentStatus, downloadCompletedDocument, signwellApiKey } = require('./signwell');
+const { createDocument, createDocumentWithFields, getDocumentStatus, downloadCompletedDocument, signwellApiKey } = require('./signwell');
 
 setGlobalOptions({ region: 'us-central1', memory: '1GiB', timeoutSeconds: 120 });
 
@@ -98,11 +98,15 @@ const templateSource = `
     </div>
     <div class="sign-col">
       <div class="muted">Tolman Construction</div>
+      {{#if userSignature}}
+      <img src="{{userSignature}}" alt="Signature" style="height: 40px; margin: 4px 0;" />
+      {{else}}
       <div class="sign-line"></div>
+      {{/if}}
       <div class="sign-labels">
         <div>Signature</div>
-        <div>Print</div>
-        <div>Date</div>
+        <div>{{userName}}</div>
+        <div>{{generatedDate}}</div>
       </div>
     </div>
   </div>
@@ -175,7 +179,10 @@ exports.generatePatchOrderPdf = onCall(async (request) => {
     requestedBy: requestedBy || '',
     total: Number(total || 0).toFixed(2),
     notes: notes || '',
-    patches: patchModels
+    patches: patchModels,
+    userName: data.userName || '',
+    userSignature: data.userSignature || '',
+    generatedDate: new Date().toLocaleDateString('en-US')
   });
 
   // Launch headless Chromium

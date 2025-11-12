@@ -76,14 +76,21 @@ async function createDocument(pdfUrl, documentName, signers) {
   }
 
   try {
+    // Format recipients according to SignWell API requirements
+    const recipients = signers.map((signer, index) => ({
+      name: signer.name,
+      email: signer.email,
+      // Use 1-indexed role_id
+      role_id: signer.order || (index + 1)
+    }));
+
     const response = await axios.post(
       `${SIGNWELL_API_URL}/documents`,
       {
         name: documentName,
-        files: [{ file_url: pdfUrl }],
-        recipients: signers,
-        test_mode: false,
-        draft: false
+        files: [{ name: documentName, file_url: pdfUrl }],
+        recipients: recipients,
+        test_mode: false
       },
       {
         headers: {
