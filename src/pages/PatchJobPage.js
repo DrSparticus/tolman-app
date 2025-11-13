@@ -740,8 +740,9 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     const getStatusButtonText = (currentStatus) => {
-        // If over threshold and status is Scheduled, show "Review and Send" or "Awaiting"
-        if (currentStatus === 'Scheduled' && calculateTotal() >= patchJobConfig.signatureThreshold) {
+        // If over threshold, show "Review and Send" or "Awaiting" regardless of status
+        const total = calculateTotal();
+        if (total >= patchJobConfig.signatureThreshold) {
             // If document is pending signature, show "Awaiting"
             if (patchJob.signwellStatus === 'pending') {
                 return 'Awaiting Contractor Signature';
@@ -769,8 +770,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         const total = calculateTotal();
         const needsSignature = total >= patchJobConfig.signatureThreshold;
         
-        // If Scheduled and over threshold, show review/send flow
-        if (patchJob.status === 'Scheduled' && needsSignature) {
+        // If over threshold, show review/send flow (regardless of current status)
+        if (needsSignature) {
             // Check if user has a signature
             if (!userData.signature) {
                 // Show user signature modal first
