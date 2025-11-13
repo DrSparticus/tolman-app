@@ -98,8 +98,8 @@ const templateSource = `
       </div>
       <div class="sign-labels">
         <div>Signature</div>
-        <div>Print</div>
-        <div>Date</div>
+        <div style="position: relative;">Print<span style="position: absolute; top: 10px; left: 0; color: white; font-size: 10px; width: 100px;">{{text:1:y::Name}}</span></div>
+        <div style="position: relative;">Date<span style="position: absolute; top: 10px; left: 0; color: white; font-size: 10px; width: 80px;">{{date:1:y:::y:mm/dd/yyyy}}</span></div>
       </div>
     </div>
     <div class="sign-col">
