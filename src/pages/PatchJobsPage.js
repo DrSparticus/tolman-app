@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, where, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { PlusIcon, DeleteIcon, SortIcon } from '../Icons.js';
 import ConfirmationModal from '../components/ConfirmationModal';
