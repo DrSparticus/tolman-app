@@ -300,32 +300,21 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         try {
             setIsSaving(true);
             
-            // First, ensure we have the latest PDF (may have just been generated)
+            // Get the latest PDF (should already be generated)
             const latestPDF = generatedPDFs.length > 0 ? generatedPDFs[generatedPDFs.length - 1] : null;
             
             if (!latestPDF || !latestPDF.downloadUrl) {
-                // Try to generate PDF if not available
-                try {
-                    await generateChangeOrderPDF();
-                    // After generating, check again
-                    const newLatestPDF = generatedPDFs.length > 0 ? generatedPDFs[generatedPDFs.length - 1] : null;
-                    if (!newLatestPDF || !newLatestPDF.downloadUrl) {
-                        alert('Failed to generate PDF. Please try again.');
-                        setIsSaving(false);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error generating PDF:', error);
-                    alert('Failed to generate PDF. Please try again.');
-                    setIsSaving(false);
-                    return;
-                }
+                alert('PDF not found. Please try again.');
+                setIsSaving(false);
+                setShowReviewSendModal(false);
+                return;
             }
 
             // Validate contractor email
             if (!patchJob.customerEmail || !patchJob.customerEmail.includes('@')) {
                 alert('Please enter a valid contractor email address');
                 setIsSaving(false);
+                setShowReviewSendModal(false);
                 return;
             }
 
@@ -392,10 +381,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 }
             } else {
                 alert('Failed to send document for signature');
+                setShowReviewSendModal(false);
             }
         } catch (error) {
             console.error('Error sending for signature:', error);
             alert(`Error: ${error.message}`);
+            setShowReviewSendModal(false);
         } finally {
             setIsSaving(false);
         }
@@ -793,10 +784,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 // Show the modal to enter contractor info and sign
                 setShowReviewSendModal(true);
                 
-                // Automatically create SignWell document after modal opens
-                setTimeout(() => {
-                    handleSendForSignature();
-                }, 500);
+                // Wait for modal AND for state to be ready, then create SignWell document
+                // Use a longer delay to ensure generatedPDFs state has updated
+                setTimeout(async () => {
+                    await handleSendForSignature();
+                }, 1000);
             }
         } else {
             // Regular status progression
