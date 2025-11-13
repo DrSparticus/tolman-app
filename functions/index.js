@@ -93,13 +93,15 @@ const templateSource = `
     <div class="sign-col">
       <div class="muted">Job Manager</div>
       <div class="sign-area">
+        <div style="position: absolute; bottom: 8px; left: 0; color: white; font-size: 12px; width: 33%; text-align: center;">{{signature:1:y}}</div>
+        <div style="position: absolute; bottom: 4px; left: 33%; color: white; font-size: 11px; width: 33%; text-align: center;">{{text:1:y::Name}}</div>
+        <div style="position: absolute; bottom: 4px; left: 66%; color: white; font-size: 11px; width: 34%; text-align: center;">{{date:1:y:::y:mm/dd/yyyy}}</div>
         <div class="sign-line"></div>
-        <div style="position: absolute; bottom: 28px; left: 50px; color: white; font-size: 12px; width: 200px;">{{signature:1:y}}</div>
       </div>
       <div class="sign-labels">
         <div>Signature</div>
-        <div style="position: relative;">Print<span style="position: absolute; top: 10px; left: 0; color: white; font-size: 10px; width: 100px;">{{text:1:y::Name}}</span></div>
-        <div style="position: relative;">Date<span style="position: absolute; top: 10px; left: 0; color: white; font-size: 10px; width: 80px;">{{date:1:y:::y:mm/dd/yyyy}}</span></div>
+        <div>Print</div>
+        <div>Date</div>
       </div>
     </div>
     <div class="sign-col">
