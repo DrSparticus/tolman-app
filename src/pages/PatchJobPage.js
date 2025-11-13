@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { collection, doc, addDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
