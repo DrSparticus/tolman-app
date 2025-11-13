@@ -344,15 +344,36 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             });
 
             if (result.data.success) {
-                if (result.data.needsFields && result.data.editUrl) {
-                    // Store edit URL and open in new window
-                    setSignwellEditUrl(result.data.editUrl);
-                    window.open(result.data.editUrl, '_blank', 'width=1200,height=800');
-                    // Keep modal open so user can see status
+                if (result.data.employeeSigningUrl) {
+                    // Document ready - open embedded signing for Tolman employee
+                    setSignwellEditUrl(result.data.employeeSigningUrl);
+                    setShowReviewSendModal(false);
+                    
+                    // Use SignWell's embedded library
+                    if (window.SignWellEmbed) {
+                        const signWellEmbed = new window.SignWellEmbed({
+                            url: result.data.employeeSigningUrl,
+                            allowClose: true,
+                            events: {
+                                completed: (e) => {
+                                    console.log('Employee signed document:', e);
+                                    alert('Document signed! The contractor will now receive an email to sign.');
+                                    window.location.reload();
+                                },
+                                closed: (e) => {
+                                    console.log('Signing modal closed:', e);
+                                }
+                            }
+                        });
+                        signWellEmbed.open();
+                    } else {
+                        // Fallback to opening in new window
+                        window.open(result.data.employeeSigningUrl, '_blank', 'width=1200,height=800');
+                        alert('Please complete your signature in the new window.');
+                    }
                 } else {
                     alert('Document sent for signature successfully!');
                     setShowReviewSendModal(false);
-                    // Reload the patch job to get updated status
                     window.location.reload();
                 }
             } else {

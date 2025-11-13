@@ -93,9 +93,9 @@ const templateSource = `
     <div class="sign-col">
       <div class="muted">Job Manager</div>
       <div class="sign-area">
-        <div style="position: absolute; bottom: 8px; left: 0; color: white; font-size: 12px; width: 33%; text-align: center;">{{signature:1:y}}</div>
-        <div style="position: absolute; bottom: 4px; left: 33%; color: white; font-size: 11px; width: 33%; text-align: center;">{{text:1:y::Name}}</div>
-        <div style="position: absolute; bottom: 4px; left: 66%; color: white; font-size: 11px; width: 34%; text-align: center;">{{date:1:y:::y:mm/dd/yyyy}}</div>
+        <div style="position: absolute; bottom: 8px; left: 0; color: white; font-size: 12px; width: 33%; text-align: center;">{{signature:2:y}}</div>
+        <div style="position: absolute; bottom: 4px; left: 33%; color: white; font-size: 11px; width: 33%; text-align: center;">{{text:2:y::Name}}</div>
+        <div style="position: absolute; bottom: 4px; left: 66%; color: white; font-size: 11px; width: 34%; text-align: center;">{{date:2:y:::y:mm/dd/yyyy}}</div>
         <div class="sign-line"></div>
       </div>
       <div class="sign-labels">
@@ -107,14 +107,9 @@ const templateSource = `
     <div class="sign-col">
       <div class="muted">Tolman Construction</div>
       <div class="sign-area">
-        {{#if userSignature}}
-        <img src="{{userSignature}}" alt="Signature" class="sign-img" />
-        {{/if}}
-        <div class="sign-values">
-          <div>&nbsp;</div>
-          <div>{{userName}}</div>
-          <div>{{generatedDate}}</div>
-        </div>
+        <div style="position: absolute; bottom: 8px; left: 0; color: white; font-size: 12px; width: 33%; text-align: center;">{{signature:1:y}}</div>
+        <div style="position: absolute; bottom: 4px; left: 33%; color: white; font-size: 11px; width: 33%; text-align: center;">{{text:1:y::Name}}</div>
+        <div style="position: absolute; bottom: 4px; left: 66%; color: white; font-size: 11px; width: 34%; text-align: center;">{{date:1:y:::y:mm/dd/yyyy}}</div>
         <div class="sign-line"></div>
       </div>
       <div class="sign-labels">
@@ -352,9 +347,12 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
         ]);
       }
     } else {
-      // No existing document, create new one
+      // No existing document, create new one with TWO recipients
+      // 1. Tolman employee signs first (embedded)
+      // 2. Contractor signs second (via email)
       signWellDoc = await createDocument(pdfUrl, documentName, [
-        { email: contractorEmail, name: contractorName, order: 1 }
+        { email: userEmail, name: userName, order: 1 },
+        { email: contractorEmail, name: contractorName, order: 2 }
       ]);
     }
 
@@ -370,11 +368,12 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
       success: true,
       documentId: signWellDoc.id,
       editUrl: signWellDoc.embedded_edit_url,
-      signingUrl: signWellDoc.recipients?.[0]?.signing_url,
+      employeeSigningUrl: signWellDoc.recipients?.[0]?.embedded_signing_url, // Tolman employee
+      contractorSigningUrl: signWellDoc.recipients?.[1]?.signing_url, // Contractor
       needsFields: signWellDoc.fields?.length === 0,
       message: signWellDoc.fields?.length === 0 
         ? 'Document created - please add signature fields and send'
-        : 'Document sent for signature',
+        : 'Document ready for signing',
     };
   } catch (error) {
     console.error('sendPatchJobForSignature error:', error);
