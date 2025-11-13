@@ -83,14 +83,13 @@ async function createDocument(pdfUrl, documentName, signers) {
   };
 
   try {
-    // Create document as DRAFT with text_tags enabled
+    // Create document with text_tags enabled - fields will be automatically placed
     const response = await axios.post(
       `${SIGNWELL_API_URL}/documents`,
       {
         name: documentName,
         files: [{ name: `${documentName}.pdf`, file_url: pdfUrl }],
         recipients: [recipient],
-        draft: true,
         text_tags: true,
         test_mode: false
       },
@@ -104,7 +103,6 @@ async function createDocument(pdfUrl, documentName, signers) {
     
     console.log('SignWell document created successfully:', JSON.stringify(response.data, null, 2));
     
-    // Don't try to send automatically - let user add fields manually
     return response.data;
   } catch (error) {
     console.error('SignWell API Error:', JSON.stringify(error.response?.data, null, 2) || error.message);

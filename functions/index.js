@@ -94,7 +94,7 @@ const templateSource = `
       <div class="muted">Job Manager</div>
       <div class="sign-area">
         <div class="sign-line"></div>
-        <div style="position: absolute; bottom: 25px; left: 0; color: transparent; font-size: 1px;">[[sig|req|signer1]]</div>
+        <div style="position: absolute; bottom: 28px; left: 50px; color: white; font-size: 12px; width: 200px;">{{signature:1:y}}</div>
       </div>
       <div class="sign-labels">
         <div>Signature</div>
