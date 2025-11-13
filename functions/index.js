@@ -318,12 +318,20 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
     const db = admin.firestore();
     const patchJobRef = db.doc(`artifacts/${process.env.GCLOUD_PROJECT}/patchJobs/${patchJobId}`);
 
-    // Create SignWell document with signature fields
-    const documentName = `Patch Work Order - ${patchJobId}`;
+    // Get patch job data to access the job name
+    const patchJobSnapshot = await patchJobRef.get();
+    const patchJobData = patchJobSnapshot.data();
+    const jobName = patchJobData?.projectName || patchJobId;
+    
+    // Create document name: "[Job Name] [Patch Work if not in name] - [Contractor Name]"
+    let documentName = jobName;
+    if (!jobName.toLowerCase().includes('patch')) {
+      documentName += ' Patch Work';
+    }
+    documentName += ` - ${contractorName}`;
     
     // Check if document already exists in Firestore
-    const patchJobSnapshot = await patchJobRef.get();
-    const existingDocId = patchJobSnapshot.data()?.signwellDocumentId;
+    const existingDocId = patchJobData?.signwellDocumentId;
     
     let signWellDoc;
     if (existingDocId) {
