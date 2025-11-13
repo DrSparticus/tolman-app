@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { collection, doc, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { LocationControls, useLocationServices } from '../components/LocationServices';
 import Patch from '../components/patches/Patch';
@@ -418,7 +418,20 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 updatedBy: userData?.email || 'Unknown'
             };
 
-            if (patchJobId) {
+            if (isNewPatchJob) {
+                // For new patch jobs, create the document first
+                const newPatchJobData = {
+                    ...patchJobData,
+                    createdAt: new Date().toISOString(),
+                    createdBy: userData?.email || 'Unknown'
+                };
+                const patchJobsCollection = collection(db, patchJobsPath);
+                const newDocRef = await addDoc(patchJobsCollection, newPatchJobData);
+                // Update the patchJobId to the real Firebase ID
+                window.history.replaceState(null, '', `?page=patch-job-edit&id=${newDocRef.id}`);
+                // Update local state
+                patchJobId = newDocRef.id;
+            } else if (patchJobId) {
                 const patchJobRef = doc(db, patchJobsPath, patchJobId);
                 await updateDoc(patchJobRef, patchJobData);
             }

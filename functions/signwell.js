@@ -75,6 +75,18 @@ async function createDocument(pdfUrl, documentName, signers) {
     throw new Error('SignWell API key not configured');
   }
 
+  // Validate signers array
+  if (!signers || !Array.isArray(signers) || signers.length === 0) {
+    throw new Error('signers must be a non-empty array');
+  }
+
+  // Validate each signer has required fields
+  for (const signer of signers) {
+    if (!signer.email || !signer.name) {
+      throw new Error(`Each signer must have email and name. Received: ${JSON.stringify(signer)}`);
+    }
+  }
+
   // Map all signers to recipients format
   const recipients = signers.map((signer, index) => ({
     id: `recipient_${index + 1}`,
@@ -83,6 +95,8 @@ async function createDocument(pdfUrl, documentName, signers) {
     order: signer.order || (index + 1),
     send_email: index === 0 ? false : true // First signer (employee) uses embedded, don't send email
   }));
+
+  console.log('Creating SignWell document with recipients:', JSON.stringify(recipients, null, 2));
 
   try {
     // Create document with text_tags enabled - fields will be automatically placed
