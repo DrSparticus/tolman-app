@@ -350,34 +350,40 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     console.log('Employee signing URL:', result.data.employeeSigningUrl);
                     console.log('SignWellEmbed available?', !!window.SignWellEmbed);
                     
-                    // Document ready - open embedded signing for Tolman employee
+                    // Store URL and wait for container to be ready
                     setSignwellEditUrl(result.data.employeeSigningUrl);
-                    setShowReviewSendModal(false);
                     
-                    // Use SignWell's embedded library
-                    if (window.SignWellEmbed) {
-                        console.log('Opening SignWell embed...');
-                        const signWellEmbed = new window.SignWellEmbed({
-                            url: result.data.employeeSigningUrl,
-                            allowClose: true,
-                            events: {
-                                completed: (e) => {
-                                    console.log('Employee signed document:', e);
-                                    alert('Document signed! The contractor will now receive an email to sign.');
-                                    window.location.reload();
-                                },
-                                closed: (e) => {
-                                    console.log('Signing modal closed:', e);
+                    // Wait for modal to render, then embed
+                    setTimeout(() => {
+                        if (window.SignWellEmbed) {
+                            console.log('Embedding SignWell into container...');
+                            const signWellEmbed = new window.SignWellEmbed({
+                                url: result.data.employeeSigningUrl,
+                                containerId: 'signwell-embed-area',
+                                allowClose: false,
+                                showHeader: true,
+                                events: {
+                                    completed: (e) => {
+                                        console.log('Employee signed document:', e);
+                                        alert('Document signed! The contractor will now receive an email to sign.');
+                                        setShowReviewSendModal(false);
+                                        setSignwellEditUrl(null);
+                                        window.location.reload();
+                                    },
+                                    closed: (e) => {
+                                        console.log('Signing closed:', e);
+                                    },
+                                    documentLoaded: (e) => {
+                                        console.log('Document loaded:', e);
+                                    }
                                 }
-                            }
-                        });
-                        signWellEmbed.open();
-                    } else {
-                        console.warn('SignWellEmbed not available, opening in new window');
-                        // Fallback to opening in new window
-                        window.open(result.data.employeeSigningUrl, '_blank', 'width=1200,height=800');
-                        alert('Please complete your signature in the new window.');
-                    }
+                            });
+                            signWellEmbed.open();
+                        } else {
+                            console.warn('SignWellEmbed not available');
+                            alert('SignWell library not loaded. Please refresh and try again.');
+                        }
+                    }, 100);
                 } else {
                     console.log('No employeeSigningUrl, document already sent');
                     alert('Document sent for signature successfully!');
@@ -779,8 +785,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     }
                 }
                 
-                // Show the modal to enter contractor info
+                // Show the modal to enter contractor info and sign
                 setShowReviewSendModal(true);
+                
+                // Automatically create SignWell document after modal opens
+                setTimeout(() => {
+                    handleSendForSignature();
+                }, 500);
             }
         } else {
             // Regular status progression
@@ -1446,74 +1457,41 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             {showReviewSendModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-xl font-semibold text-gray-800 mb-4">Send for Signature</h3>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                            {signwellEditUrl ? 'Sign Document' : 'Preparing Document...'}
+                        </h3>
                         
-                        {/* Contractor Information */}
-                        <div className="mb-6">
-                            <h4 className="font-medium text-gray-700 mb-3">Contractor Information</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contractor Name *</label>
-                                    <input
-                                        type="text"
-                                        value={patchJob.customer}
-                                        onChange={(e) => handleInputChange('customer', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        placeholder="Enter contractor name"
-                                    />
+                        {signwellEditUrl ? (
+                            <>
+                                {/* Embedded SignWell Signing Container */}
+                                <div id="signwell-container" className="mb-6">
+                                    <div className="border border-blue-300 rounded-md overflow-hidden" style={{ height: '600px' }}>
+                                        <div className="bg-blue-50 p-3 border-b border-blue-300">
+                                            <p className="text-sm text-blue-800">
+                                                📝 <strong>Please sign the document below</strong> - After you sign, the contractor will automatically receive an email to sign.
+                                            </p>
+                                        </div>
+                                        <div id="signwell-embed-area" style={{ height: 'calc(100% - 56px)' }}></div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contractor Email *</label>
-                                    <input
-                                        type="email"
-                                        value={patchJob.customerEmail}
-                                        onChange={(e) => handleInputChange('customerEmail', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                        placeholder="contractor@example.com"
-                                    />
+                                
+                                {/* Info Box */}
+                                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                                    <p className="text-sm text-blue-800">
+                                        <strong>What happens next:</strong> After you sign, the contractor ({patchJob.customerEmail}) will automatically receive an email with a link to review and sign this document. 
+                                        Once both signatures are complete, the document will be attached to this patch job and the job will automatically be marked as Done.
+                                    </p>
                                 </div>
+                            </>
+                        ) : (
+                            <div className="border border-gray-300 rounded-md p-8 text-center text-gray-500">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                <p>Creating document in SignWell...</p>
                             </div>
-                        </div>
+                        )}
 
-                        {/* SignWell Editor Status */}
-                        <div className="mb-6">
-                            {signwellEditUrl ? (
-                                <div className="border border-green-300 rounded-md bg-green-50 p-4">
-                                    <p className="text-sm text-green-800 mb-3">
-                                        ✅ <strong>Document created successfully!</strong>
-                                    </p>
-                                    <p className="text-sm text-gray-700 mb-3">
-                                        A new window has opened with the SignWell editor. Please:
-                                    </p>
-                                    <ol className="text-sm text-gray-700 list-decimal list-inside space-y-1 ml-2">
-                                        <li>Drag a signature field onto the document where the contractor should sign</li>
-                                        <li>Click <strong>"Send"</strong> in the SignWell editor</li>
-                                        <li>Return here and click "Done" below</li>
-                                    </ol>
-                                    <button
-                                        onClick={() => window.open(signwellEditUrl, '_blank')}
-                                        className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                                    >
-                                        Reopen SignWell Editor
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="border border-gray-300 rounded-md p-4 text-center text-gray-500">
-                                    {isSaving ? 'Creating document in SignWell...' : 'Click "Send for Signature" to create the document'}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Info Box */}
-                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                            <p className="text-sm text-blue-800">
-                                <strong>What happens next:</strong> After you place the signature field and click "Send" in the SignWell editor, the contractor will receive an email with a link to review and sign this document. 
-                                Once signed, the document will be attached to this patch job and the job will automatically be marked as Done.
-                            </p>
-                        </div>
-
-                        {/* Buttons */}
-                        <div className="flex justify-end gap-2">
+                        {/* Close Button */}
+                        <div className="flex justify-end">
                             <button
                                 onClick={() => {
                                     setShowReviewSendModal(false);
@@ -1521,17 +1499,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                                 }}
                                 className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                             >
-                                {signwellEditUrl ? 'Done' : 'Cancel'}
+                                Close
                             </button>
-                            {!signwellEditUrl && (
-                                <button
-                                    onClick={handleSendForSignature}
-                                    disabled={isSaving || !patchJob.customer || !patchJob.customerEmail}
-                                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                                >
-                                    {isSaving ? 'Creating...' : 'Send for Signature'}
-                                </button>
-                            )}
                         </div>
                     </div>
                 </div>
