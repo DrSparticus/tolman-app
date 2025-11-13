@@ -740,8 +740,12 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     };
 
     const getStatusButtonText = (currentStatus) => {
-        // If over threshold and status is Scheduled, show "Review and Send"
+        // If over threshold and status is Scheduled, show "Review and Send" or "Awaiting"
         if (currentStatus === 'Scheduled' && calculateTotal() >= patchJobConfig.signatureThreshold) {
+            // If document is pending signature, show "Awaiting"
+            if (patchJob.signwellStatus === 'pending') {
+                return 'Awaiting Contractor Signature';
+            }
             return 'Review and Send for Signature';
         }
         
@@ -1018,7 +1022,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     {shouldShowStatusButton(patchJob.status) && (
                         <button
                             onClick={handleStatusButtonClick}
-                            disabled={isSaving || isGeneratingPDF}
+                            disabled={isSaving || isGeneratingPDF || patchJob.signwellStatus === 'pending'}
                             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
                             {isGeneratingPDF ? 'Generating PDF...' : (isSaving ? 'Processing...' : getStatusButtonText(patchJob.status))}
