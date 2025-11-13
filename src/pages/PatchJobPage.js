@@ -343,14 +343,20 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 userSignature: userSignatureData || userData.signature,
             });
 
+            console.log('SendPatchJobForSignature result:', result.data);
+            
             if (result.data.success) {
                 if (result.data.employeeSigningUrl) {
+                    console.log('Employee signing URL:', result.data.employeeSigningUrl);
+                    console.log('SignWellEmbed available?', !!window.SignWellEmbed);
+                    
                     // Document ready - open embedded signing for Tolman employee
                     setSignwellEditUrl(result.data.employeeSigningUrl);
                     setShowReviewSendModal(false);
                     
                     // Use SignWell's embedded library
                     if (window.SignWellEmbed) {
+                        console.log('Opening SignWell embed...');
                         const signWellEmbed = new window.SignWellEmbed({
                             url: result.data.employeeSigningUrl,
                             allowClose: true,
@@ -367,11 +373,13 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                         });
                         signWellEmbed.open();
                     } else {
+                        console.warn('SignWellEmbed not available, opening in new window');
                         // Fallback to opening in new window
                         window.open(result.data.employeeSigningUrl, '_blank', 'width=1200,height=800');
                         alert('Please complete your signature in the new window.');
                     }
                 } else {
+                    console.log('No employeeSigningUrl, document already sent');
                     alert('Document sent for signature successfully!');
                     setShowReviewSendModal(false);
                     window.location.reload();
