@@ -75,12 +75,14 @@ async function createDocument(pdfUrl, documentName, signers) {
     throw new Error('SignWell API key not configured');
   }
 
-  // Only include the first signer (contractor) - Tolman signature is already on PDF
-  const recipient = {
-    id: 'recipient_1',
-    name: signers[0].name,
-    email: signers[0].email
-  };
+  // Map all signers to recipients format
+  const recipients = signers.map((signer, index) => ({
+    id: `recipient_${index + 1}`,
+    name: signer.name,
+    email: signer.email,
+    order: signer.order || (index + 1),
+    send_email: index === 0 ? false : true // First signer (employee) uses embedded, don't send email
+  }));
 
   try {
     // Create document with text_tags enabled - fields will be automatically placed
@@ -89,7 +91,7 @@ async function createDocument(pdfUrl, documentName, signers) {
       {
         name: documentName,
         files: [{ name: `${documentName}.pdf`, file_url: pdfUrl }],
-        recipients: [recipient],
+        recipients: recipients,
         text_tags: true,
         test_mode: false
       },
