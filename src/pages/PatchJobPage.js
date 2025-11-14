@@ -65,7 +65,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
     const [userSignatureData, setUserSignatureData] = useState(null);
     const [signwellEditUrl, setSignwellEditUrl] = useState(null);
     const userSignatureRef = useRef(null);
-    const [patchGuys] = useState([]);
+    const [patchGuys, setPatchGuys] = useState([]);
     // Adapter so LocationServices (which expects event-style input changes) can update our local state
     const handleLSInputChangeEvent = (e) => {
         const name = e?.target?.name;
@@ -100,6 +100,27 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                     }, {}))
                 }));
             }
+        });
+        return () => unsub();
+    }, [db]);
+
+    // Load users with patch-guy role for "Assigned to" dropdown
+    React.useEffect(() => {
+        if (!db) return;
+        const usersCollection = collection(db, `artifacts/${process.env.REACT_APP_FIREBASE_PROJECT_ID}/users`);
+        const unsub = onSnapshot(usersCollection, (snapshot) => {
+            const users = [];
+            snapshot.forEach((doc) => {
+                const userData = doc.data();
+                if (userData.role === 'patch-guy') {
+                    users.push({
+                        id: doc.id,
+                        email: userData.email,
+                        name: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email
+                    });
+                }
+            });
+            setPatchGuys(users);
         });
         return () => unsub();
     }, [db]);
@@ -248,6 +269,8 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
         handleInputChange('projectId', project?.id || '');
         handleInputChange('projectName', project?.projectName ? `${project.projectName} - Patch Work` : '');
         handleInputChange('customer', project?.customer || '');
+        handleInputChange('customerEmail', project?.customerEmail || '');
+        handleInputChange('customerPhone', project?.customerPhone || '');
         handleInputChange('address', project?.address || '');
         handleInputChange('jobNumber', project?.jobNumber || '');
         // Set coordinates if available
@@ -312,7 +335,15 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
 
             // Validate contractor email
             if (!patchJob.customerEmail || !patchJob.customerEmail.includes('@')) {
-                alert('Please enter a valid contractor email address');
+                alert('Please enter a valid contractor email address in the "Requester\'s contact" field before sending for signature.');
+                setIsSaving(false);
+                setShowReviewSendModal(false);
+                return;
+            }
+
+            // Validate contractor name
+            if (!patchJob.customer || !patchJob.customer.trim()) {
+                alert('Please enter the contractor name in the "Contractor" field before sending for signature.');
                 setIsSaving(false);
                 setShowReviewSendModal(false);
                 return;
