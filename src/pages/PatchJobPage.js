@@ -353,7 +353,7 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
             const functions = getFunctions();
             const sendForSignature = httpsCallable(functions, 'sendPatchJobForSignature');
             
-            const result = await sendForSignature({
+            const payload = {
                 pdfUrl: latestPDF.downloadUrl,
                 patchJobId: patchJobId,
                 contractorEmail: patchJob.customerEmail,
@@ -361,7 +361,11 @@ const PatchJobPage = ({ db, userData, patchJobId, setCurrentPage }) => {
                 userEmail: userData.email,
                 userName: `${userData.firstName} ${userData.lastName}`,
                 userSignature: userSignatureData || userData.signature,
-            });
+            };
+            
+            console.log('Sending to SignWell with payload:', payload);
+            
+            const result = await sendForSignature(payload);
 
             console.log('SendPatchJobForSignature result:', result.data);
             

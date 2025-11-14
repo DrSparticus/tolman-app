@@ -306,8 +306,25 @@ exports.sendPatchJobForSignature = onCall({ secrets: [signwellApiKey] }, async (
   try {
     const { pdfUrl, patchJobId, contractorEmail, contractorName, userEmail, userName, userSignature } = request.data;
     
+    console.log('sendPatchJobForSignature called with data:', {
+      pdfUrl: pdfUrl ? 'present' : 'MISSING',
+      patchJobId: patchJobId || 'MISSING',
+      contractorEmail: contractorEmail || 'MISSING',
+      contractorName: contractorName || 'MISSING',
+      userEmail: userEmail || 'MISSING',
+      userName: userName || 'MISSING',
+      userSignature: userSignature ? 'present' : 'MISSING'
+    });
+    
     if (!pdfUrl || !patchJobId || !contractorEmail || !contractorName || !userEmail || !userName) {
-      throw new HttpsError('invalid-argument', 'Missing required fields');
+      const missing = [];
+      if (!pdfUrl) missing.push('pdfUrl');
+      if (!patchJobId) missing.push('patchJobId');
+      if (!contractorEmail) missing.push('contractorEmail');
+      if (!contractorName) missing.push('contractorName');
+      if (!userEmail) missing.push('userEmail');
+      if (!userName) missing.push('userName');
+      throw new HttpsError('invalid-argument', `Missing required fields: ${missing.join(', ')}`);
     }
     
     if (!userSignature) {
